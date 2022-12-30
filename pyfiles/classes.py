@@ -27,8 +27,6 @@ class simplex:
 
 class complex:
   def __init__(self):
-    self.nverts = 0
-    self.nedges = 0
     # seems like it's fine to have lists as long as they're not parameters of the class
     # otherwise, they're shared by the whole class and that is no
     self.edgelist = []
@@ -38,7 +36,7 @@ class complex:
   def __repr__(self):
     # IN PROGRESS
     # f strings are easy way to turn things into strings
-    return f'number of verts is {self.nverts}, and number of edges is {self.nedges}'
+    return f'number of verts is {self.nverts()}, and number of edges is {self.nedges()}'
     # usage: print(rect), where rect is a Rectangle
 
   def plot(self):
@@ -69,6 +67,11 @@ class complex:
 
   def print_inds(self):
     print(self.nverts, " indices")
-    for i in range(self.nverts):
+    for i in range(self.nverts()):
       print("orig ", self.vertlist[i].index, " new: ", self.vertlist[i].orderedindex)
-       
+  
+  def nedges(self):
+    return len(self.edgelist)
+
+  def nverts(self):
+    return len(self.vertlist)
