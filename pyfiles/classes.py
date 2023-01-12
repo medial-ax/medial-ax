@@ -18,14 +18,20 @@ class simplex:
     self.boundary = []
     self.index = -1
     self.orderedindex = -1
+    # column value is a bit redundant; would be better to only have orderedindex. 
+    # we do this now because of not knowing how to do things properly. 
+    # later it would be good to merge columnvalue with orderedindex.
+    self.columnvalue = -1
     # index is an int value that is the ordering of the simp
     self.dim = -1
     self.radialdist = -1.0
+    self.parents = []
+
 
   def __repr__(self):
       # IN PROGRESS
       # f strings are easy way to turn things into strings
-      return f'simplex ind is {self.index}, dim is {self.dim}, coords are {self.coords}, boundary is {self.boundary}, and dist is {self.radialdist}.'
+      return f'simplex ind is {self.index}, dim is {self.dim}, boundary is {self.boundary}, ord ind is {self.orderedindex}, and column val is {self.columnvalue}.'
       # usage: print(rect), where rect is a Rectangle
        
 
@@ -58,15 +64,32 @@ class complex:
     print(dists)
 
 
-    plt.plot(x[edges.T], y[edges.T], linestyle='-', color='y',
-        markerfacecolor = 'white', marker='o') 
+    # plt.plot(x[edges.T], y[edges.T], linestyle='-', color='y',
+    #     markerfacecolor = 'white', marker='o') 
 
     for i in range(len(x)):
+      smartcolor = (1 - .7*(dists[i])/max(dists), 1 - .6*(dists[i])/max(dists), .8)
 
-      plt.plot(x[i], y[i], color = (1 - .7*(dists[i])/max(dists), 1 - .6*(dists[i])/max(dists), .8), marker='o') 
-    
-    # This should not be hardcoded
-    plt.plot(self.key_point[0], self.key_point[1], color = 'red', marker = 'o')
+      # plot edges with smart color assignment: 
+      point1 = [x[i], y[i]]
+      point2 = [x[(i + 1)%len(x)], y[(i + 1)%len(x)]]  
+      x_values = [point1[0], point2[0]]
+      y_values = [point1[1], point2[1]]
+      plt.plot(x_values, y_values, color = smartcolor, linewidth = 8)
+
+    # the only reason these aren't in the same for loop is because one vertex is always under an edge
+    # it would be nicer obviously not to repeat the loop
+    for i in range(len(x)):  
+      # plot vertices with smart color assignment
+      smartcolor = (1 - .7*(dists[i])/max(dists), 1 - .6*(dists[i])/max(dists), .8)
+      plt.plot(x[i], y[i], color = smartcolor, marker='o', markersize = 15) 
+      # add labels to points
+      offset = 0.14
+      plt.text(x[i] + offset, y[i] + offset, str(self.vertlist[i].orderedindex), fontsize = 14, bbox = dict(facecolor='white', alpha=0.75, edgecolor = 'white'))
+
+
+    # plot key point (we calculate dist from this)
+    plt.plot(self.key_point[0], self.key_point[1], color = 'red', marker = 'o', markersize = 10)
     plt.show()
 
   def print_inds(self):
@@ -83,7 +106,7 @@ class complex:
 class bdmatrix: 
   def __init__(self):
     self.temp = "temp"
-    self.matrix = np.array([\
+    self.initmatrix = np.array([\
          [0,1,0,0,0,0,0,0],\
          [0,1,1,0,0,0,0,0],\
          [0,0,1,1,0,0,0,0],\
@@ -119,16 +142,14 @@ class bdmatrix:
               return length - i - 1
       return None
 
-
   def reduce(self):
-      matrix = deepcopy(self.matrix)
+      matrix = deepcopy(self.initmatrix)
       dfstyles = []
       print("columns: ", matrix[0,:].size, " rows: ", matrix[:,0].size)
       cell_hover = {  # for row hover use <tr> instead of <td>
           'selector': 'td:hover',
           'props': [('background-color', '#ffffb3')]
       }
-
 
       stylestring = pd.DataFrame(matrix).style.\
       applymap(bdmatrix.highlight_cells).\
@@ -166,7 +187,6 @@ class bdmatrix:
               else:
                   break
 
-      
           # while there exists column ... 
           # (function that checks block of columns and outputs column with same lowest one)
   #             check_left(j, matrix)
@@ -174,7 +194,6 @@ class bdmatrix:
           stylestring = stylestring + style
       display_html(stylestring, raw=True)
       return matrix
-
 
   def printexample():
     # removing "self" lets you call it on the class without a representative
