@@ -31,7 +31,7 @@ class simplex:
   def __repr__(self):
       # IN PROGRESS
       # f strings are easy way to turn things into strings
-      return f'simplex ind is {self.index}, dim is {self.dim}, boundary is {self.boundary}, ord ind is {self.orderedindex}, and column val is {self.columnvalue}.'
+      return f'simplex ind is {self.index}, dim is {self.dim}, boundary is {self.boundary}, ord ind is {self.orderedindex}, and column val is {self.columnvalue}'
       # usage: print(rect), where rect is a Rectangle
        
 
