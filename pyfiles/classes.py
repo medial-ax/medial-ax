@@ -21,9 +21,13 @@ class simplex:
     # column value is a bit redundant; would be better to only have orderedindex. 
     # we do this now because of not knowing how to do things properly. 
     # later it would be good to merge columnvalue with orderedindex.
+
+    # NOTE: columnvalue is not in reduced notation! in the actual matrix, 
+    # add 1 because of the dummy column.
     self.columnvalue = -1
     # index is an int value that is the ordering of the simp
     self.dim = -1
+    # this is redundant
     self.radialdist = -1.0
     self.parents = []
 
@@ -116,6 +120,7 @@ class bdmatrix:
          [0,0,0,0,0,0,1,1],\
          [0,0,0,0,0,0,0,0]])
 
+
   def __repr__(self):
     # IN PROGRESS
     # f strings are easy way to turn things into strings
@@ -139,6 +144,7 @@ class bdmatrix:
       length = column.size
       for i in range(length):
           if column[length - i - 1] == 1:
+            # this probably needs to go to outside of for loop because I'm returning a bunch of ones
               return length - i - 1
       return None
 
