@@ -119,6 +119,7 @@ class bdmatrix:
          [0,0,0,0,0,1,1,0],\
          [0,0,0,0,0,0,1,1],\
          [0,0,0,0,0,0,0,0]])
+    self.display_reduction = True
 
 
   def __repr__(self):
@@ -148,7 +149,7 @@ class bdmatrix:
               return length - i - 1
       return None
 
-  def reduce(self):
+  def reduce(self, display = True):
       matrix = deepcopy(self.initmatrix)
       dfstyles = []
       print("columns: ", matrix[0,:].size, " rows: ", matrix[:,0].size)
@@ -196,9 +197,10 @@ class bdmatrix:
           # while there exists column ... 
           # (function that checks block of columns and outputs column with same lowest one)
   #             check_left(j, matrix)
-      for style in dfstyles: 
-          stylestring = stylestring + style
-      display_html(stylestring, raw=True)
+      if display:
+        for style in dfstyles: 
+            stylestring = stylestring + style
+        display_html(stylestring, raw=True)
       return matrix
 
   def printexample():
