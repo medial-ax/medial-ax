@@ -223,7 +223,32 @@ class bdmatrix:
          [0,0,0,0,0,1,1,0],\
          [0,0,0,0,0,0,1,1],\
          [0,0,0,0,0,0,0,0]])
+    self.redmatrix = np.array([\
+         [0,0,0,0,0,0,0,0],\
+         [0,0,0,0,0,0,0,0],\
+         [0,0,0,0,0,0,0,0],\
+         [0,0,0,0,0,0,0,0],\
+         [0,0,0,0,0,0,0,0],\
+         [0,0,0,0,0,0,0,0],\
+         [0,0,0,0,0,0,0,0],\
+         [0,0,0,0,0,0,0,0]])
     self.display_reduction = True
+    # here, index refers as usual to the very initial index a simplex has
+    # dim is the dim of column simplex, as in index
+    # dim for lows is ROW DIM
+    self.lowestones = {
+        "col" : [],
+        "row" : [],
+        "dim" : [],
+        "index" : []    
+    }
+
+    # dim here is COL DIM
+    self.zerocolumns = {
+        "col" : [],
+        "dim" : [],
+        "index" : []    
+    }
 
 
   def __repr__(self):
@@ -335,6 +360,94 @@ class bdmatrix:
             stylestring = stylestring + style
         display_html(stylestring, raw=True)
       return matrix
+
+  def add_dummy_col(self):
+    # initializing here because we have to do it somewhere
+    # should probably do it better somehow, also because
+    # now dummy_col() has to be run before find_lows_zeros() etc
+    self.lowestones = {
+            "col" : [],
+            "row" : [],
+            "dim" : [],
+            "index" : []    
+        }
+
+    # dim here is COL DIM
+    self.zerocolumns = {
+        "col" : [],
+        "dim" : [],
+        "index" : []    
+    }
+    # next: in reduced matrix, count number of 0-columns for each dim
+    # then count number of lowest ones for each dim
+    length = len(self.redmatrix[:][0])
+    # check that the first column is a 0 column
+    # (reduced homology means it should always be a 0 col)
+    for i in range(length):
+        if self.redmatrix[length - i - 1][0] == 1:
+            print("ERROR! this is supposed to be a zero column, but there is a 1 at row ", length - i -1)
+            break
+    # if we didn't error out, we count the dummy column towards homology
+    self.zerocolumns["col"].append(0)
+    self.zerocolumns["dim"].append(-1)
+    self.zerocolumns["index"].append(0)
+
+  def find_lows_zeros(self, all_simplices):
+    # next, for column j in the matrix, check from bottom for lowest ones. 
+    # if no ones are found, then it is a zero column.
+    # spits out row value for lowest one in a column
+    zerocol = True
+    length = len(self.redmatrix[:][0])
+    for j in range(length):
+        # we know it's a square matrix by construction 
+        for i in range(length):
+            # here we go backwards up the columns to search for lowest ones.
+            if self.redmatrix[length - i - 1][j] == 1:
+                # check what dimension it is
+                # find simplex in all_simplices s.t. simplex.columnvalue = j
+                for x in all_simplices: 
+                    # I think this is the only change we need to make.
+                    if x.columnvalue == j:
+                        self.lowestones["col"].append(j)
+                        self.lowestones["row"].append(length - i -1)
+                        self.lowestones["index"].append(x.index)
+                        # we subtract 2 because it is ROW dim not COL!!
+                        # this one took f*cking forever to find
+                        self.lowestones["dim"].append(len(x.boundary) - 2)
+    #                     print(x)
+                zerocol = False
+                break
+        if zerocol:
+            for x in all_simplices:
+                    if x.columnvalue == j:
+                        self.zerocolumns["col"].append(j)
+                        self.zerocolumns["dim"].append(len(x.boundary) - 1)
+                        self.zerocolumns["index"].append(x.index)
+    #                     print(x)
+        zerocol = True
+
+  def find_bettis(self):
+    # Betti_p = #zero_p - #low_p
+    betti_dummy = 0
+    betti_zero = 0
+    betti_one = 0
+     
+    for x in self.zerocolumns["dim"]:
+        if x == -1:
+            betti_dummy += 1
+        if x == 0:
+            betti_zero += 1
+        if x == 1:
+            betti_one += 1
+            
+    for x in self.lowestones["dim"]:
+        if x == -1:
+            betti_dummy -= 1
+        if x == 0:
+            betti_zero -= 1
+        if x == 1:
+            betti_one -= 1
+    return betti_dummy, betti_zero, betti_one
 
   def printexample():
     # removing "self" lets you call it on the class without a representative
