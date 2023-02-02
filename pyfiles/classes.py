@@ -11,6 +11,40 @@ import pandas as pd
 from copy import deepcopy
 from IPython.display import display_html  # this is needed to display pretty matrices side by side
 
+def ellipse_example(numpts = 7):
+  # parametric eq for ellipse: 
+  # $F(t) = (x(t), y(t))$, where $x(t) = a*cos(t)$ and $y(t) = b*sin(t)$
+
+  # parameters for ellipse shape and sampling density
+  a = 5
+  b = 2
+
+  # c is number of points
+  c = numpts
+  t = np.arange(0.0, 6.28, 6.28/c)
+  fig, (ax1, ax2) = plt.subplots(1,2, sharey = True)
+  x = a*np.cos(t)
+  y = b*np.sin(t)
+  points = np.array(list(zip(x,y)))
+  vor = Voronoi(points)
+
+  # plot ellipse
+  ax1.set_xlim(-(max(a,b) + 1), (max(a,b) + 1))
+  ax1.set_ylim(-(max(a,b) + 1), (max(a,b) + 1))
+  ax1.set_aspect('equal')
+  ax1.plot(x,y,'o')
+
+  # plot voronoi stuff
+  ax2.set_xlim(-(max(a,b) + 1), (max(a,b) + 1))
+  ax2.set_ylim(-(max(a,b) + 1), (max(a,b) + 1))
+  ax2.set_aspect('equal')
+  voronoi_plot_2d(vor, ax2, show_vertices=True, line_alpha = 0, show_points = True, point_colors='orange', point_size=10)
+
+  fig.set_figwidth(20)
+  fig.set_figheight(20)
+  plt.show()
+  return points
+
 class simplex: 
   def __init__(self):
     # here we initialize everything. if defining an attribute with a function, must init func first.
@@ -107,6 +141,76 @@ class complex:
   def nverts(self):
     return len(self.vertlist)
 
+  def init_verts(self, points):
+    i = 0
+    for point in points:
+      temp_simplex = simplex()
+      temp_simplex.coords = [round(point[0],2), round(point[1],2)]
+      temp_simplex.index = i
+      temp_simplex.dim = 0
+      temp_simplex.boundary = [-1]
+      i += 1
+      self.vertlist.append(temp_simplex)
+
+  def init_edges(self):
+    for i in range(len(self.vertlist)):
+        temp_edge = simplex()
+        temp_edge.boundary = [i, (i + 1)%(len(self.vertlist))]
+        temp_edge.dim = 1
+        temp_edge.index = i + 1 # maybe this makes no sense
+        self.edgelist.append(temp_edge)
+        i += 1
+
+  def find_sq_dist(self, init_complex):
+    distlist = []
+    # find distance-squareds
+    for i in range(len(init_complex.vertlist)):
+        temp_simplex = init_complex.vertlist[i]
+        dist = distance.euclidean(self.key_point, temp_simplex.coords)
+        distsq = round(dist*dist,2)
+        temp_simplex.radialdist = distsq
+        distlist.append(distsq)
+        # reset the index
+        temp_simplex.index = i
+        self.vertlist.append(temp_simplex)
+        i += 1
+    return distlist
+
+  def sort_inds(self, distlist):
+    # sorts by distlist[ind] but in case of tie, ind breaks tie
+    # "" sorts by radius, but then uses input index to consistently break ties
+    old_indices = []
+    for i in range(len(self.vertlist)):
+        old_indices.append(self.vertlist[i].index)  
+    for new_i, i in enumerate(sorted(old_indices, key = lambda ind: (distlist[ind], ind))):
+        self.vertlist[i].orderedindex = new_i
+
+  def sort_edges(self):
+    self.edgelist = []
+    for vert in self.vertlist: 
+        vert.parents = []
+
+    for i in range(len(self.vertlist)):
+        temp_edge = simplex()
+        j = (i + 1)%(len(self.vertlist))
+        # i is the first vert in the edge, and j is the second. 
+        # this assumes we are dealing with a closed loop, in which case
+        # the final vertex is the 0th vert.
+        
+        #NOTE: the boundary should be actual simplices, not just ints
+        temp_edge.boundary = [i, j]
+        temp_edge.dim = 1
+        temp_edge.index = i # maybe this makes no sense
+        temp_edge.coords = [[self.vertlist[i].coords],[self.vertlist[j].coords]]
+        
+        # here the index of the edges is NOT unique over all simplices, because it's just in the for loop, so
+        # we can't tell the difference between an edge and a vertex by just the index
+        self.vertlist[i].parents.append(i)
+        self.vertlist[j].parents.append(i)
+        temp_edge.orderedindex = max(self.vertlist[i].orderedindex, self.vertlist[j].orderedindex )
+        self.edgelist.append(temp_edge)
+        i += 1
+
 class bdmatrix: 
   def __init__(self):
     self.temp = "temp"
@@ -149,6 +253,38 @@ class bdmatrix:
               return length - i - 1
       return None
 
+  def make_matrix(self, orderedcplx):
+    n = len(orderedcplx.vertlist) + len(orderedcplx.edgelist) + 1
+    orderedmat = np.zeros((n,n), dtype=int)
+
+    # give all verts columns a 1 at position 0 because of empty simplex
+    for i in range(len(orderedcplx.vertlist)):
+        # column (orderedcplx.vertlist[i].columnvalue), row 0, gets a 1
+        orderedmat[0][orderedcplx.vertlist[i].columnvalue] = 1
+        
+    # next, go over edges
+    for i in range(len(orderedcplx.edgelist)):
+        # column (orderedcplx.edgelist[i].columnvalue), row j, gets a 1 if 
+        # orderedcplx.edgelist[i].boundary contains j
+        index_k = orderedcplx.edgelist[i].boundary[0]
+        index_m = orderedcplx.edgelist[i].boundary[1]
+        # now need to find row containing index k,m. 
+        # it is of form simplx.columnvalue = k
+        # need to find simplex.columnvalue s.t. simplex.index = k
+        for x in orderedcplx.vertlist:
+            if x.index == index_k:
+                orderedmat[x.columnvalue][orderedcplx.edgelist[i].columnvalue] = 1
+                break
+        else:
+            x = None
+        for x in orderedcplx.vertlist:
+            if x.index == index_m:
+                orderedmat[x.columnvalue][orderedcplx.edgelist[i].columnvalue] = 1
+                break
+        else:
+            x = None
+    self.initmatrix = orderedmat
+
   def reduce(self, display = True):
       matrix = deepcopy(self.initmatrix)
       dfstyles = []
@@ -167,16 +303,13 @@ class bdmatrix:
       # for each column i 
       for i in range(matrix[0,:].size):
           col_i = matrix[:,i]
-  #         print("column", i)
           # For each column j left of column i, if low(j) = low(i), add j to i
           # this needs to be a while loop bc one of the ops could add a 1 back in
           while True:
               should_restart = False
               for j in range(i):
                   col_j = matrix[:,j]
-      #             print(col_j, "\n")
                   if (bdmatrix.lowest_one(col_j) == bdmatrix.lowest_one(col_i)) and (bdmatrix.lowest_one(col_j) != None):
-      #                 print("lowest one in ", j, " same as in ", i)
                       matrix[:,i] = (col_j + col_i) % 2
 
                       df_styler = pd.DataFrame(matrix).style.\
