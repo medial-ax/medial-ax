@@ -69,7 +69,7 @@ class simplex:
   def __repr__(self):
       # IN PROGRESS
       # f strings are easy way to turn things into strings
-      return f'simplex ind is {self.index}, dim is {self.dim}, boundary is {self.boundary}, ord ind is {self.orderedindex}, and column val is {self.columnvalue}'
+      return f'\nsimplex ind {self.index}, dim {self.dim}, bd {self.boundary}, ord ind {self.orderedindex}, col val {self.columnvalue}'
       # usage: print(rect), where rect is a Rectangle
        
 
@@ -107,6 +107,7 @@ class complex:
 
     for i in range(len(x)):
       smartcolor = (1 - .7*(dists[i])/max(dists), 1 - .6*(dists[i])/max(dists), .8)
+      #smartcolor = (.3, .8, .6)
 
       # plot edges with smart color assignment: 
       point1 = [x[i], y[i]]
@@ -120,6 +121,8 @@ class complex:
     for i in range(len(x)):  
       # plot vertices with smart color assignment
       smartcolor = (1 - .7*(dists[i])/max(dists), 1 - .6*(dists[i])/max(dists), .8)
+      #smartcolor = (.3, .8, .6)
+
       plt.plot(x[i], y[i], color = smartcolor, marker='o', markersize = 15) 
       # add labels to points
       offset = 0.14
@@ -129,6 +132,15 @@ class complex:
     # plot key point (we calculate dist from this)
     plt.plot(self.key_point[0], self.key_point[1], color = 'red', marker = 'o', markersize = 10)
     plt.show()
+
+  def order_all_simps(self):
+    all_simplices = self.vertlist + self.edgelist
+    simplex_key = lambda simplex: (simplex.orderedindex, len(simplex.boundary), simplex.index)
+    all_simplices.sort(key=simplex_key)
+
+    for i in range(len(all_simplices)):
+        all_simplices[i].columnvalue = i + 1
+    return all_simplices
 
   def print_inds(self):
     print(self.nverts, " indices")
@@ -211,6 +223,19 @@ class complex:
         self.edgelist.append(temp_edge)
         i += 1
 
+def initcomplex(points):
+  init_complex = complex()
+  init_complex.init_verts(points)
+  init_complex.init_edges()
+  return init_complex
+
+def sort_complex(s_complex, distlist, plot = True):
+  # distlist = s_complex.find_sq_dist(init_complex)
+  s_complex.sort_inds(distlist)
+  s_complex.sort_edges()
+  if plot:
+    s_complex.plot()
+
 class bdmatrix: 
   def __init__(self):
     self.temp = "temp"
@@ -240,14 +265,15 @@ class bdmatrix:
         "col" : [],
         "row" : [],
         "dim" : [],
-        "index" : []    
+        "col_index" : [],
+        "row_index" : []    
     }
 
     # dim here is COL DIM
     self.zerocolumns = {
         "col" : [],
         "dim" : [],
-        "index" : []    
+        "col_index" : []  
     }
 
 
@@ -369,14 +395,15 @@ class bdmatrix:
             "col" : [],
             "row" : [],
             "dim" : [],
-            "index" : []    
+            "col_index" : [],
+            "row_index": []    
         }
 
     # dim here is COL DIM
     self.zerocolumns = {
         "col" : [],
         "dim" : [],
-        "index" : []    
+        "col_index" : []
     }
     # next: in reduced matrix, count number of 0-columns for each dim
     # then count number of lowest ones for each dim
@@ -390,7 +417,7 @@ class bdmatrix:
     # if we didn't error out, we count the dummy column towards homology
     self.zerocolumns["col"].append(0)
     self.zerocolumns["dim"].append(-1)
-    self.zerocolumns["index"].append(0)
+    self.zerocolumns["col_index"].append(0)
 
   def find_lows_zeros(self, all_simplices):
     # next, for column j in the matrix, check from bottom for lowest ones. 
@@ -398,11 +425,18 @@ class bdmatrix:
     # spits out row value for lowest one in a column
     zerocol = True
     length = len(self.redmatrix[:][0])
+    # this is the dummy empty set
+    # I am pretty sure it is always first
+    # I am also pretty sure there is always a 1 in row one
+    self.lowestones["row_index"].append(-1)
     for j in range(length):
         # we know it's a square matrix by construction 
         for i in range(length):
             # here we go backwards up the columns to search for lowest ones.
             if self.redmatrix[length - i - 1][j] == 1:
+              # the -1 here is because of the dummy column, right? 
+              # I don't remember except that it goes out of bounds. 
+              # maybe it's just that it changes it from 1 indexing to 0
                 # check what dimension it is
                 # find simplex in all_simplices s.t. simplex.columnvalue = j
                 for x in all_simplices: 
@@ -410,11 +444,19 @@ class bdmatrix:
                     if x.columnvalue == j:
                         self.lowestones["col"].append(j)
                         self.lowestones["row"].append(length - i -1)
-                        self.lowestones["index"].append(x.index)
+                        self.lowestones["col_index"].append(x.index)
                         # we subtract 2 because it is ROW dim not COL!!
                         # this one took f*cking forever to find
                         self.lowestones["dim"].append(len(x.boundary) - 2)
     #                     print(x)
+                for y in all_simplices:
+                    if y.columnvalue == length - i - 1:
+                        # this is the row of col j
+                        self.lowestones["row_index"].append(y.index)
+                    # if y.columnvalue == 0:
+                    #     # this is the row of col j
+                    #     # this is the dummy empty set
+                    #     self.lowestones["row_index"].append(-1)
                 zerocol = False
                 break
         if zerocol:
@@ -422,7 +464,7 @@ class bdmatrix:
                     if x.columnvalue == j:
                         self.zerocolumns["col"].append(j)
                         self.zerocolumns["dim"].append(len(x.boundary) - 1)
-                        self.zerocolumns["index"].append(x.index)
+                        self.zerocolumns["col_index"].append(x.index)
     #                     print(x)
         zerocol = True
 
