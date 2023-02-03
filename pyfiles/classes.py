@@ -417,7 +417,7 @@ class bdmatrix:
     # if we didn't error out, we count the dummy column towards homology
     self.zerocolumns["col"].append(0)
     self.zerocolumns["dim"].append(-1)
-    self.zerocolumns["col_index"].append(0)
+    self.zerocolumns["col_index"].append(-1)
 
   def find_lows_zeros(self, all_simplices):
     # next, for column j in the matrix, check from bottom for lowest ones. 
