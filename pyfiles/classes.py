@@ -433,10 +433,14 @@ class bdmatrix:
     }
     # next: in reduced matrix, count number of 0-columns for each dim
     # then count number of lowest ones for each dim
+
+    # go over all rows in col 0
     length = len(self.redmatrix[:][0])
     # check that the first column is a 0 column
     # (reduced homology means it should always be a 0 col)
     for i in range(length):
+      # length - i just means it goes backwards up the row
+      # -1 because of 0-indexing, don't want to go out of bounds
         if self.redmatrix[length - i - 1][0] == 1:
             print("ERROR! this is supposed to be a zero column, but there is a 1 at row ", length - i -1)
             break
@@ -455,8 +459,10 @@ class bdmatrix:
     # I am pretty sure it is always first
     # I am also pretty sure there is always a 1 in row one
     self.lowestones["row_index"].append(-1)
+    # COLUMN j
     for j in range(length):
         # we know it's a square matrix by construction 
+        # ROW i
         for i in range(length):
             # here we go backwards up the columns to search for lowest ones.
             if self.redmatrix[length - i - 1][j] == 1:
@@ -474,7 +480,6 @@ class bdmatrix:
                         # we subtract 2 because it is ROW dim not COL!!
                         # this one took f*cking forever to find
                         self.lowestones["dim"].append(len(x.boundary) - 2)
-    #                     print(x)
                 for y in all_simplices:
                     if y.columnvalue == length - i - 1:
                         # this is the row of col j
