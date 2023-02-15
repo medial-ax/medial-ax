@@ -29,8 +29,9 @@ def ellipse_example(numpts = 7):
   vor = Voronoi(points)
 
   # plot ellipse
-  ax1.set_xlim(-(max(a,b) + 1), (max(a,b) + 1))
-  ax1.set_ylim(-(max(a,b) + 1), (max(a,b) + 1))
+  num = 10
+  ax1.set_xlim(-(max(a,b) + num), (max(a,b) + num))
+  ax1.set_ylim(-(max(a,b) + num), (max(a,b) + num))
   ax1.set_aspect('equal')
   ax1.plot(x,y,'o')
 
@@ -40,8 +41,8 @@ def ellipse_example(numpts = 7):
   ax2.set_aspect('equal')
   voronoi_plot_2d(vor, ax2, show_vertices=True, line_alpha = 0, show_points = True, point_colors='orange', point_size=10)
 
-  fig.set_figwidth(20)
-  fig.set_figheight(20)
+  fig.set_figwidth(30)
+  fig.set_figheight(30)
   plt.show()
   return points
 
@@ -87,7 +88,7 @@ class complex:
     return f'number of verts is {self.nverts()}, and number of edges is {self.nedges()}'
     # usage: print(rect), where rect is a Rectangle
 
-  def plot(self):
+  def plot(self, extras = True, label_edges = False):
     points = np.array([v.coords for v in self.vertlist])
     # print(points)
 
@@ -101,10 +102,6 @@ class complex:
     inds = [v.index for v in self.vertlist]
     print(dists)
 
-
-    # plt.plot(x[edges.T], y[edges.T], linestyle='-', color='y',
-    #     markerfacecolor = 'white', marker='o') 
-
     for i in range(len(x)):
       smartcolor = (1 - .7*(dists[i])/max(dists), 1 - .6*(dists[i])/max(dists), .8)
       #smartcolor = (.3, .8, .6)
@@ -116,7 +113,22 @@ class complex:
       y_values = [point1[1], point2[1]]
       plt.plot(x_values, y_values, color = smartcolor, linewidth = 8)
 
-    # the only reason these aren't in the same for loop is because one vertex is always under an edge
+      # label edges for debugging
+      if label_edges:
+        # label edge
+        avg_x = (point1[0] + point2[0])/2
+        avg_y = (point1[1] + point2[1])/2
+        plt.text(avg_x, avg_y, 'e' + str(self.edgelist[i].index), fontsize = 12, \
+          bbox = dict(facecolor='white', alpha=0.75, edgecolor = 'white'))
+        shift = 0.4
+        plt.text(avg_x, avg_y + shift, 'e' + str(self.edgelist[i].orderedindex), fontsize = 12, \
+          bbox = dict(facecolor='red', alpha=0.75, edgecolor = 'white'))
+        shift2 = -0.4
+        plt.text(avg_x, avg_y + shift2, 'c' + str(self.edgelist[i].columnvalue), fontsize = 12, color = 'white', \
+          bbox = dict(facecolor='blue', alpha=0.75, edgecolor = 'white'))
+
+    # the only reason these aren't in the same for loop is because one 
+    # vertex is always under an edge
     # it would be nicer obviously not to repeat the loop
     for i in range(len(x)):  
       # plot vertices with smart color assignment
@@ -125,8 +137,21 @@ class complex:
 
       plt.plot(x[i], y[i], color = smartcolor, marker='o', markersize = 15) 
       # add labels to points
-      offset = 0.14
-      plt.text(x[i] + offset, y[i] + offset, str(self.vertlist[i].orderedindex), fontsize = 14, bbox = dict(facecolor='white', alpha=0.75, edgecolor = 'white'))
+
+      # white, sampling index
+      offset2 = 0.0
+      plt.text(x[i] + offset2, y[i] + offset2, str(self.vertlist[i].index), fontsize = 12, color = 'black', bbox = dict(facecolor='white', alpha=0.75, edgecolor = 'white'))
+
+      if extras:
+        # blue, column assignment
+        offset3 = -0.9
+        plt.text(x[i] + offset3, y[i], 'c' + str(self.vertlist[i].columnvalue), fontsize = 12, color = 'white', bbox = dict(facecolor='blue', alpha=0.75, edgecolor = 'black'))
+
+        # red, dist from pt
+        # offset makes the label not sit on the point exactly
+        offset = 0.6
+        plt.text(x[i] + offset, y[i], str(self.vertlist[i].orderedindex), fontsize = 12, bbox = dict(facecolor='red', alpha=0.75, edgecolor = 'white'))
+
 
 
     # plot key point (we calculate dist from this)
@@ -169,7 +194,8 @@ class complex:
         temp_edge = simplex()
         temp_edge.boundary = [i, (i + 1)%(len(self.vertlist))]
         temp_edge.dim = 1
-        temp_edge.index = i + 1 # maybe this makes no sense
+        # temp_edge.index = i + 1 # maybe this makes no sense
+        temp_edge.index = i  # maybe this makes no sense
         self.edgelist.append(temp_edge)
         i += 1
 
