@@ -100,7 +100,7 @@ class complex:
 
     dists = [v.radialdist for v in self.vertlist]
     inds = [v.index for v in self.vertlist]
-    print(dists)
+    # print(dists)
 
     for i in range(len(x)):
       # smartcolor = (1 - .7*(dists[i])/max(dists), 1 - .6*(dists[i])/max(dists), .8)
@@ -305,6 +305,26 @@ class bdmatrix:
         "dim" : [],
         "col_index" : []  
     }
+    self.bd_pairs = {
+        # initial index. we can't differentiate vert/edge this way,
+        # but we can by knowing classdim, so it's fine.
+        "birth": [],
+        "death": [],
+        # always the dim of the 
+        # birth simplex. 
+        # the death simplex has dim +1 from birth. 
+        "classdim": [],
+        "b_simplex": [],
+        "d_simplex": []
+    }
+    self.unpaired = {
+        # classdim is the same as dim of birth simplex.
+        # this is needed also so we know if it's a vert or edge,
+        # since the index alone doesn't tell us.
+        "birth": [],
+        "classdim": [],
+        "b_simplex": []
+    }
 
 
   def __repr__(self):
@@ -369,7 +389,7 @@ class bdmatrix:
   def reduce(self, display = True):
       matrix = deepcopy(self.initmatrix)
       dfstyles = []
-      print("columns: ", matrix[0,:].size, " rows: ", matrix[:,0].size)
+      # print("columns: ", matrix[0,:].size, " rows: ", matrix[:,0].size)
       cell_hover = {  # for row hover use <tr> instead of <td>
           'selector': 'td:hover',
           'props': [('background-color', '#ffffb3')]
@@ -453,7 +473,7 @@ class bdmatrix:
     self.zerocolumns["dim"].append(-1)
     self.zerocolumns["col_index"].append(-1)
 
-  def find_lows_zeros(self, all_simplices):
+  def find_lows_zeros(self, all_simplices, output = False):
     # next, for column j in the matrix, check from bottom for lowest ones. 
     # if no ones are found, then it is a zero column.
     # spits out row value for lowest one in a column
@@ -500,8 +520,14 @@ class bdmatrix:
                         self.zerocolumns["col"].append(j)
                         self.zerocolumns["dim"].append(len(x.boundary) - 1)
                         self.zerocolumns["col_index"].append(x.index)
-    #                     print(x)
         zerocol = True
+    if output:
+      print("Zero Columns:")
+      for key, value in self.zerocolumns.items():
+          print(key, ":", value)
+      print("\nLowest Ones:")
+      for key, value in self.lowestones.items():
+          print(key, ":", value)
 
   def find_bettis(self):
     # Betti_p = #zero_p - #low_p
@@ -525,6 +551,88 @@ class bdmatrix:
         if x == 1:
             betti_one -= 1
     return betti_dummy, betti_zero, betti_one
+
+  def find_bd_pairs(self, output = True):
+    # we reinitialize so we can run this function multiple times
+    # without worrying that things get too long and also wrong
+    self.bd_pairs = {
+        # initial index. we can't differentiate vert/edge this way,
+        # but we can by knowing classdim, so it's fine.
+        "birth": [],
+        "death": [],
+        "classdim": [],
+        "b_simplex": [],
+        "d_simplex": []
+    }
+    self.unpaired = {
+        # classdim is the same as dim of birth simplex.
+        "birth": [],
+        "classdim": [],
+        "b_simplex": []
+    }
+    died = True
+    paired_index = 0
+    unpaired_index = 0
+    num_pairs = len(self.lowestones["col"])
+    num_unpaired = len(self.zerocolumns["col"])
+
+    for c in self.zerocolumns["col"]:
+        # col c in the matrix was a birth
+        # so we should check corresponding row to see
+        # if there is a bd pair there
+        died = False
+        # we assume first that it's an inf hom class (no death)
+        for r in self.lowestones["row"]:
+            if r == c:
+                died = True
+        if died: 
+            self.bd_pairs["classdim"].append(self.lowestones["dim"][paired_index])
+            self.bd_pairs["death"].append(self.lowestones["col_index"][paired_index])
+            self.bd_pairs["birth"].append(self.lowestones["row_index"][paired_index])
+
+            if self.lowestones["dim"][paired_index] == -1:
+                self.bd_pairs["b_simplex"].append("emptyset")
+                self.bd_pairs["d_simplex"].append("v")
+            if self.lowestones["dim"][paired_index] == 0:
+                self.bd_pairs["b_simplex"].append("v")
+                self.bd_pairs["d_simplex"].append("e")
+            if self.lowestones["dim"][paired_index] == 1:
+                self.bd_pairs["b_simplex"].append("e")
+            paired_index += 1
+        if died == False:
+            self.unpaired["birth"].append(self.zerocolumns["col_index"][unpaired_index])
+            self.unpaired["classdim"].append(self.zerocolumns["dim"][unpaired_index])
+            if self.zerocolumns["dim"][unpaired_index] == -1:
+                self.unpaired["b_simplex"].append("emptyset")
+            if self.zerocolumns["dim"][unpaired_index] == 0:
+                self.unpaired["b_simplex"].append("v")
+            if self.zerocolumns["dim"][unpaired_index] == 1:
+                self.unpaired["b_simplex"].append("e")
+        unpaired_index += 1
+    if output: 
+      # this is more the actual output 
+      # print("birth death pairs")
+      # for keys, value in self.bd_pairs.items():
+      #    print(keys, value)
+      # print("\n") 
+      # print("infinite homology classes")
+      # for keys, value in self.unpaired.items():
+      #    print(keys, value)
+
+      # this is the pretty print output
+      print("simplices labeled by initial val, not column:\n")
+      for i in range(len(self.bd_pairs["birth"])):
+        # fstrings enable v0 instead of v 0
+          print(f'{self.bd_pairs["b_simplex"][i]}{self.bd_pairs["birth"][i]}', 
+                "birthed a",
+                f'{self.bd_pairs["classdim"][i]}dim h class killed by',
+                f'{self.bd_pairs["d_simplex"][i]}{self.bd_pairs["death"][i]}', 
+               )
+      for i in range(len(self.unpaired["birth"])):
+          print(f'{self.unpaired["b_simplex"][i]}{self.unpaired["birth"][i]}',
+                "birthed an inf",
+                f'{self.unpaired["classdim"][i]}dim h class',
+               )
 
   def printexample():
     # removing "self" lets you call it on the class without a representative
