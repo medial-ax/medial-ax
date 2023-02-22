@@ -160,6 +160,8 @@ class complex:
 
     # plot key point (we calculate dist from this)
     plt.plot(self.key_point[0], self.key_point[1], color = 'red', marker = 'o', markersize = 10)
+    # plot guide line
+    plt.plot([-5,5], [0,0], color = 'black', linewidth = 2)
     plt.show()
 
   def order_all_simps(self):
@@ -387,6 +389,7 @@ class bdmatrix:
     self.initmatrix = orderedmat
 
   def reduce(self, display = True):
+      # why do we deepcopy here?
       matrix = deepcopy(self.initmatrix)
       dfstyles = []
       # print("columns: ", matrix[0,:].size, " rows: ", matrix[:,0].size)
@@ -406,11 +409,25 @@ class bdmatrix:
           col_i = matrix[:,i]
           # For each column j left of column i, if low(j) = low(i), add j to i
           # this needs to be a while loop bc one of the ops could add a 1 back in
+
+          # from monster book:
+          # j is column 
+          # for j = 1 to m do:
+          #    while there exists j0 < j s.t. low(j0) < low(j) do: 
+          #      add column j0 to column j
+          #    end while
+          # end for
+
+          # col_i is what I call j from monsterbook
+          # col_j is what I call j0 from monsterbook
           while True:
               should_restart = False
               for j in range(i):
                   col_j = matrix[:,j]
+                  # print out lowest ones for debugging here
                   if (bdmatrix.lowest_one(col_j) == bdmatrix.lowest_one(col_i)) and (bdmatrix.lowest_one(col_j) != None):
+                      # print("lowest one in col ", j,
+                      #   "equals lowest one in col",i)
                       matrix[:,i] = (col_j + col_i) % 2
 
                       df_styler = pd.DataFrame(matrix).style.\
