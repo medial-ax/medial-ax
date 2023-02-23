@@ -11,7 +11,7 @@ import pandas as pd
 from copy import deepcopy
 from IPython.display import display_html  # this is needed to display pretty matrices side by side
 
-def ellipse_example(numpts = 7):
+def ellipse_example(numpts = 7, display = False):
   # parametric eq for ellipse: 
   # $F(t) = (x(t), y(t))$, where $x(t) = a*cos(t)$ and $y(t) = b*sin(t)$
 
@@ -22,28 +22,30 @@ def ellipse_example(numpts = 7):
   # c is number of points
   c = numpts
   t = np.arange(0.0, 6.28, 6.28/c)
-  fig, (ax1, ax2) = plt.subplots(1,2, sharey = True)
+  if display:
+    fig, (ax1, ax2) = plt.subplots(1,2, sharey = True)
   x = a*np.cos(t)
   y = b*np.sin(t)
   points = np.array(list(zip(x,y)))
   vor = Voronoi(points)
 
-  # plot ellipse
-  num = 10
-  ax1.set_xlim(-(max(a,b) + num), (max(a,b) + num))
-  ax1.set_ylim(-(max(a,b) + num), (max(a,b) + num))
-  ax1.set_aspect('equal')
-  ax1.plot(x,y,'o')
+  if display:
+    # plot ellipse
+    num = 10
+    ax1.set_xlim(-(max(a,b) + num), (max(a,b) + num))
+    ax1.set_ylim(-(max(a,b) + num), (max(a,b) + num))
+    ax1.set_aspect('equal')
+    ax1.plot(x,y,'o')
 
-  # plot voronoi stuff
-  ax2.set_xlim(-(max(a,b) + 1), (max(a,b) + 1))
-  ax2.set_ylim(-(max(a,b) + 1), (max(a,b) + 1))
-  ax2.set_aspect('equal')
-  voronoi_plot_2d(vor, ax2, show_vertices=True, line_alpha = 0, show_points = True, point_colors='orange', point_size=10)
+    # plot voronoi stuff
+    ax2.set_xlim(-(max(a,b) + 1), (max(a,b) + 1))
+    ax2.set_ylim(-(max(a,b) + 1), (max(a,b) + 1))
+    ax2.set_aspect('equal')
+    voronoi_plot_2d(vor, ax2, show_vertices=True, line_alpha = 0, show_points = True, point_colors='orange', point_size=10)
 
-  fig.set_figwidth(30)
-  fig.set_figheight(30)
-  plt.show()
+    fig.set_figwidth(30)
+    fig.set_figheight(30)
+    plt.show()
   return points
 
 class simplex: 
@@ -90,8 +92,6 @@ class complex:
 
   def plot(self, extras = True, label_edges = False):
     points = np.array([v.coords for v in self.vertlist])
-    # print(points)
-
     # edges are repr as indices into points
     edges = np.array([e.boundary for e in self.edgelist])
     
@@ -103,9 +103,7 @@ class complex:
     # print(dists)
 
     for i in range(len(x)):
-      # smartcolor = (1 - .7*(dists[i])/max(dists), 1 - .6*(dists[i])/max(dists), .8)
       smartcolor = (1 - .8*(dists[i])/max(dists), .2, .2)
-      #smartcolor = (.3, .8, .6)
 
       # plot edges with smart color assignment: 
       point1 = [x[i], y[i]]
@@ -123,45 +121,42 @@ class complex:
           bbox = dict(facecolor='white', alpha=0.75, edgecolor = 'white'))
         if extras:
           shift = 0.4
-          plt.text(avg_x, avg_y + shift, 'e' + str(self.edgelist[i].orderedindex), fontsize = 12, \
+          plt.text(avg_x, avg_y + shift, 'e' + str(self.edgelist[i].orderedindex), 
+            fontsize = 12, \
             bbox = dict(facecolor='red', alpha=0.75, edgecolor = 'white'))
           shift2 = -0.4
-          plt.text(avg_x, avg_y + shift2, 'c' + str(self.edgelist[i].columnvalue), fontsize = 12, color = 'white', \
+          plt.text(avg_x, avg_y + shift2, 'c' + str(self.edgelist[i].columnvalue), 
+            fontsize = 12, color = 'white', \
             bbox = dict(facecolor='blue', alpha=0.75, edgecolor = 'white'))
-
-    # the only reason these aren't in the same for loop is because one 
-    # vertex is always under an edge
-    # it would be nicer obviously not to repeat the loop
-    for i in range(len(x)):  
-      # plot vertices with smart color assignment
-      # r g b
-      # smartcolor = (1 - .7*(dists[i])/max(dists), 1 - .6*(dists[i])/max(dists), .8)
-      smartcolor = (1 - .8*(dists[i])/max(dists), .2, .2)
-      #smartcolor = (.3, .8, .6)
 
       plt.plot(x[i], y[i], color = smartcolor, marker='o', markersize = 15) 
       # add labels to points
-
       # white, sampling index
       offset2 = 0.0
-      plt.text(x[i] + offset2, y[i] + offset2, str(self.vertlist[i].index), fontsize = 12, color = 'black', bbox = dict(facecolor='white', alpha=0.75, edgecolor = 'white'))
+      plt.text(x[i] + offset2, y[i] + offset2, str(self.vertlist[i].index), 
+        fontsize = 12, color = 'black', bbox = dict(facecolor='white', alpha=0.75, 
+          edgecolor = 'white'))
 
       if extras:
         # blue, column assignment
         offset3 = -0.9
-        plt.text(x[i] + offset3, y[i], 'c' + str(self.vertlist[i].columnvalue), fontsize = 12, color = 'white', bbox = dict(facecolor='blue', alpha=0.75, edgecolor = 'black'))
-
+        plt.text(x[i] + offset3, y[i], 'c' + str(self.vertlist[i].columnvalue),
+         fontsize = 12, color = 'white', bbox = dict(facecolor='blue', alpha=0.75, 
+          edgecolor = 'black'))
         # red, dist from pt
         # offset makes the label not sit on the point exactly
         offset = 0.6
-        plt.text(x[i] + offset, y[i], str(self.vertlist[i].orderedindex), fontsize = 12, bbox = dict(facecolor='red', alpha=0.75, edgecolor = 'white'))
-
-
+        plt.text(x[i] + offset, y[i], str(self.vertlist[i].orderedindex), fontsize = 12, 
+          bbox = dict(facecolor='red', alpha=0.75, edgecolor = 'white'))
 
     # plot key point (we calculate dist from this)
-    plt.plot(self.key_point[0], self.key_point[1], color = 'red', marker = 'o', markersize = 10)
-    # plot guide line
+    plt.plot(self.key_point[0], self.key_point[1], color = 'red', marker = 'o', 
+      markersize = 10)
+    # plot horizontal guide line
     plt.plot([-5,5], [0,0], color = 'black', linewidth = 2)
+    # plot vertical guide line
+    plt.plot([0,0], [2,-2], color = 'black', linewidth = 2)
+    plt.axis('equal')
     plt.show()
 
   def order_all_simps(self):
@@ -444,10 +439,6 @@ class bdmatrix:
                   continue
               else:
                   break
-
-          # while there exists column ... 
-          # (function that checks block of columns and outputs column with same lowest one)
-  #             check_left(j, matrix)
       if display:
         for style in dfstyles: 
             stylestring = stylestring + style
@@ -683,4 +674,56 @@ class bdmatrix:
         set_table_attributes("style='display:inline'").\
         set_caption('One column addition')
     display(df2_styler)
+
+class vineyard:
+  def __init__(self):
+    self.pointset = np.empty(2)
+    self.complexlist = []
+    self.matrixlist = []
+    self.keypointlist = []
+    # lows and zeros are stored in a bdmatrix
+
+  def __repr__(self):
+    # IN PROGRESS
+    # f strings are easy way to turn things into strings
+    return f'hello i am a vineyard'
+    # usage: print(vin), where vin is a vineyard
+
+  def add_complex(self,points, key_point):
+    init_complex = initcomplex(points)
+    s_complex = complex()
+    s_complex.key_point = key_point
+
+    # update this to .self so don't need input, except maybe key pt
+    distlist = s_complex.find_sq_dist(init_complex)
+    sort_complex(s_complex, distlist, plot = False)
+
+    # this is the permutation
+    all_simplices = s_complex.order_all_simps()
+    # I am pretty sure the simps are also ordered in s_complex, 
+    # not just all_simplices.
+    mat = bdmatrix()
+    # assign simplices to matrix columns
+    mat.make_matrix(s_complex)
+    # reduce the matrix
+    mat.redmatrix = mat.reduce(display = False)
+    # this adds in a column for reduced homology
+    mat.add_dummy_col()
+    # find the (r,c) vales of lowest ones in the matrix, 
+    # and also identify zero columns
+    mat.find_lows_zeros(all_simplices, output = False)
+
+    betti_dummy, betti_zero, betti_one = mat.find_bettis()
+    mat.find_bd_pairs(output = True)
+
+    # add to vineyard
+    self.pointset = points 
+    self.complexlist.append(s_complex)
+    self.matrixlist.append(mat)
+    self.keypointlist.append(key_point)
+
+    #
+    print("\nbetti dummy: ", betti_dummy, 
+          "\nbetti zero: ", betti_zero, 
+          "\nbetti one:" ,betti_one)
 
