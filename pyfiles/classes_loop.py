@@ -723,7 +723,7 @@ class vineyard:
     self.keypointlist.append(key_point)
 
     #
-    print("\nbetti dummy: ", betti_dummy, 
-          "\nbetti zero: ", betti_zero, 
-          "\nbetti one:" ,betti_one)
+    # print("\nbetti dummy: ", betti_dummy, 
+    #       "\nbetti zero: ", betti_zero, 
+    #       "\nbetti one:" ,betti_one)
 
