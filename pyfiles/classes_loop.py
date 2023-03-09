@@ -90,7 +90,7 @@ class complex:
     return f'number of verts is {self.nverts()}, and number of edges is {self.nedges()}'
     # usage: print(rect), where rect is a Rectangle
 
-  def plot(self, extras = True, label_edges = False):
+  def plot(self, extras = True, label_edges = False, label_verts = True):
     points = np.array([v.coords for v in self.vertlist])
     # edges are repr as indices into points
     edges = np.array([e.boundary for e in self.edgelist])
@@ -99,11 +99,21 @@ class complex:
     y = points[:,1].flatten()
 
     dists = [v.radialdist for v in self.vertlist]
+    maxx = max(dists)
+    # print(dists)
     inds = [v.index for v in self.vertlist]
     # print(dists)
 
-    for i in range(len(x)):
-      smartcolor = (1 - .8*(dists[i])/max(dists), .2, .2)
+    # for i in range(len(x)):
+    for i in range(len(self.vertlist)):
+
+      #smartcolor = (1 - .8*(dists[i])/max(dists), .2, .2)
+      # change this so for i in 0 to len(x), it uses 1 - i*10%len(x)
+      #percentage = int(10*i/len(x))/10
+      percentage = np.floor(10*dists[i]/maxx)/10
+      #print(percentage)
+      smartcolor = (1 - .9*percentage, .2, .2*percentage)
+      #print(smartcolor)
 
       # plot edges with smart color assignment: 
       point1 = [x[i], y[i]]
@@ -132,10 +142,11 @@ class complex:
       plt.plot(x[i], y[i], color = smartcolor, marker='o', markersize = 15) 
       # add labels to points
       # white, sampling index
-      offset2 = 0.0
-      plt.text(x[i] + offset2, y[i] + offset2, str(self.vertlist[i].index), 
-        fontsize = 12, color = 'black', bbox = dict(facecolor='white', alpha=0.75, 
-          edgecolor = 'white'))
+      if label_verts:
+        offset2 = 0.0
+        plt.text(x[i] + offset2, y[i] + offset2, str(self.vertlist[i].index), 
+          fontsize = 12, color = 'black', bbox = dict(facecolor='white', alpha=0.75, 
+            edgecolor = 'white'))
 
       if extras:
         # blue, column assignment
@@ -310,6 +321,9 @@ class bdmatrix:
         # always the dim of the 
         # birth simplex. 
         # the death simplex has dim +1 from birth. 
+        # ISSUE
+        # does it actually?! !!!
+        # I think that a vert could be paired with a triangle
         "classdim": [],
         "b_simplex": [],
         "d_simplex": []
@@ -385,6 +399,7 @@ class bdmatrix:
 
   def reduce(self, display = True):
       # why do we deepcopy here?
+      # sometimes deepcopy is slow, see if it's faster to copy by hand
       matrix = deepcopy(self.initmatrix)
       dfstyles = []
       # print("columns: ", matrix[0,:].size, " rows: ", matrix[:,0].size)
@@ -393,11 +408,12 @@ class bdmatrix:
           'props': [('background-color', '#ffffb3')]
       }
 
+      # ondra made me add the tabs
       stylestring = pd.DataFrame(matrix).style.\
-      applymap(bdmatrix.highlight_cells).\
-      set_table_styles([cell_hover], 'columns').\
-      set_table_attributes("style='display:inline'").\
-      set_caption('Initial matrix')._repr_html_()
+        applymap(bdmatrix.highlight_cells).\
+        set_table_styles([cell_hover], 'columns').\
+        set_table_attributes("style='display:inline'").\
+        set_caption('Initial matrix')._repr_html_()
       
       # for each column i 
       for i in range(matrix[0,:].size):
@@ -426,10 +442,10 @@ class bdmatrix:
                       matrix[:,i] = (col_j + col_i) % 2
 
                       df_styler = pd.DataFrame(matrix).style.\
-                      applymap(bdmatrix.highlight_cells).\
-                      set_table_styles([cell_hover], 'columns').\
-                      set_table_attributes("style='display:inline'").\
-                      set_caption('column ' + str(j) + ' added to column ' + str(i) )._repr_html_()
+                        applymap(bdmatrix.highlight_cells).\
+                        set_table_styles([cell_hover], 'columns').\
+                        set_table_attributes("style='display:inline'").\
+                        set_caption('column ' + str(j) + ' added to column ' + str(i) )._repr_html_()
 
                       dfstyles.append(df_styler)
                       # restart the while loop
@@ -681,6 +697,7 @@ class vineyard:
     self.complexlist = []
     self.matrixlist = []
     self.keypointlist = []
+    self.grape = '-888o'
     # lows and zeros are stored in a bdmatrix
 
   def __repr__(self):
@@ -716,14 +733,14 @@ class vineyard:
     betti_dummy, betti_zero, betti_one = mat.find_bettis()
     mat.find_bd_pairs(output = True)
 
+    print("\n")
+    for key, value in mat.bd_pairs.items():
+      print(key,':',value)
+
     # add to vineyard
     self.pointset = points 
     self.complexlist.append(s_complex)
     self.matrixlist.append(mat)
     self.keypointlist.append(key_point)
 
-    #
-    # print("\nbetti dummy: ", betti_dummy, 
-    #       "\nbetti zero: ", betti_zero, 
-    #       "\nbetti one:" ,betti_one)
 
