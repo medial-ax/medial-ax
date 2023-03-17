@@ -90,7 +90,7 @@ class complex:
     return f'number of verts is {self.nverts()}, and number of edges is {self.nedges()}'
     # usage: print(rect), where rect is a Rectangle
 
-  def plot(self, extras = True, label_edges = False, label_verts = True):
+  def plot(self, extras = True, label_edges = False, label_verts = True, sp_pt_color = 'red'):
     points = np.array([v.coords for v in self.vertlist])
     # edges are repr as indices into points
     edges = np.array([e.boundary for e in self.edgelist])
@@ -161,7 +161,7 @@ class complex:
           bbox = dict(facecolor='red', alpha=0.75, edgecolor = 'white'))
 
     # plot key point (we calculate dist from this)
-    plt.plot(self.key_point[0], self.key_point[1], color = 'red', marker = 'o', 
+    plt.plot(self.key_point[0], self.key_point[1], color = sp_pt_color, marker = 'o', 
       markersize = 10)
     # plot horizontal guide line
     plt.plot([-5,5], [0,0], color = 'black', linewidth = 2)
@@ -706,7 +706,7 @@ class vineyard:
     return f'hello i am a vineyard'
     # usage: print(vin), where vin is a vineyard
 
-  def add_complex(self,points, key_point):
+  def add_complex(self,points, key_point, show_details = True):
     init_complex = initcomplex(points)
     s_complex = complex()
     s_complex.key_point = key_point
@@ -731,16 +731,105 @@ class vineyard:
     mat.find_lows_zeros(all_simplices, output = False)
 
     betti_dummy, betti_zero, betti_one = mat.find_bettis()
-    mat.find_bd_pairs(output = True)
+    mat.find_bd_pairs(output = show_details)
 
-    print("\n")
-    for key, value in mat.bd_pairs.items():
-      print(key,':',value)
+    if show_details:
+      print("\n")
+      for key, value in mat.bd_pairs.items():
+        print(key,':',value)
 
     # add to vineyard
     self.pointset = points 
     self.complexlist.append(s_complex)
     self.matrixlist.append(mat)
     self.keypointlist.append(key_point)
+
+  def is_knee(self, int_one, int_two, eps = 1):
+    # there may be more things we need to update if the ints are not 0 and 1
+
+    pair_of_grapes = [[self.complexlist[0], self.complexlist[1]], \
+                      [self.matrixlist[0], self.matrixlist[1]]]
+
+    pair_of_deaths = []
+    dims_of_deaths = []
+    pair_of_unpaired = []
+
+
+    # a knee involves two dims, a d dim death and a d + 1 birth. 
+    # we refer to a knee by the lower (death) dimension. 
+    is_emptyset_knee = False
+    is_zero_knee = False
+
+    for i in range(len(pair_of_grapes)):
+        # one grape is one complex
+        # all complexes have same underlying set, but different special point
+        deaths = pair_of_grapes[1][i].bd_pairs["death"]
+        dims = pair_of_grapes[1][i].bd_pairs["classdim"]
+        for j in range(len(deaths)):
+            # find the exactly one death of the empty simplex
+            if dims[j] == -1:
+                pair_of_deaths.append(deaths[j])
+                
+    print("verts that killed the empy set: \n",pair_of_deaths)
+
+    # note, we are already referring to the simplices by their index, 
+    # which was the initial parametric sampling, so they are in order
+    # so we can use this number to find nearest neighbor relationship
+    epsilon = eps
+
+
+    if pair_of_deaths[0] not in range(pair_of_deaths[1] - epsilon, pair_of_deaths[1] + epsilon):
+        print("type 3 knee between key points",
+              pair_of_grapes[0][0].key_point ,
+              "and",
+              pair_of_grapes[0][1].key_point,
+             "\n( with epsilon nbhd of",
+             epsilon,
+             ")")
+        is_emptyset_knee = True
+
+    else:
+        print("no type 3 knee for zero-homology",
+             "(with epsilon nbhd of",
+             epsilon,
+             ")")
+
+    ##############################################
+    # now that there are no triangles, we are looking at top-dimensional,
+    # ie, unpaired, simplices (edges) instead of birth-death pairs. 
+    # this will need to be made more robust when we add triangles.
+
+    for i in range(len(pair_of_grapes)):
+        # one grape is one complex
+        # all complexes have same underlying set, but different special point
+        one_d_births = pair_of_grapes[1][i].unpaired["birth"]
+        dims = pair_of_grapes[1][i].unpaired["classdim"]
+        for j in range(len(one_d_births)):
+            # find the exactly one death of the empty simplex
+            if dims[j] == 1:
+                pair_of_unpaired.append(one_d_births[j])
+
+    print("\nedges that birthed one-homology:\n",
+          pair_of_unpaired)
+
+
+    if pair_of_unpaired[0] not in range(pair_of_unpaired[1] - epsilon, pair_of_unpaired[1] + epsilon):
+        print("type 3 knee between key points",
+              pair_of_grapes[0][0].key_point ,
+              "and",
+              pair_of_grapes[0][1].key_point,
+             "\n( with epsilon nbhd of",
+             epsilon,
+             ")")
+
+        is_zero_knee = True
+    else:
+        print("no type 3 knee for one-homology",
+             "(with epsilon nbhd of",
+             epsilon,
+             ")")
+
+    return is_emptyset_knee, is_zero_knee, epsilon 
+
 
 
