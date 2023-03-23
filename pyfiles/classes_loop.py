@@ -49,6 +49,36 @@ def ellipse_example(numpts = 7, display = False):
     plt.show()
   return points
 
+def array2sparse(matrix):
+#     we're going to make a better repr of a matrix. 
+#     we'll have a dictionary, like this:
+#     d = {
+#     c : {r1, r2, r3},
+#     }
+#     where column:row indicates the location of a 1 in the matrix.
+#     this way we don't store zeros, and computation will be faster. 
+    sparseboii = {}
+    height = len(matrix[:][0])
+    width = len(matrix[0][:])
+    for col_j in range(width):
+        for row_i in range(height):
+            if matrix[row_i][col_j] == 1:
+                if col_j not in sparseboii.keys():
+                    # initialize set 
+                    sparseboii[col_j] = set()
+                sparseboii[col_j].add(row_i)
+    return sparseboii
+
+def findlowestone(sparsemat, col_num):
+    # a fast way to find the lowest one 
+    # in a column in a sparse dict repr of
+    # a boundary matrix
+    # returns row num of lowest one
+    if len(sparsemat[col_num]) == 0:
+      return None
+    else:
+      return max(sparsemat[col_num])
+
 class simplex: 
   def __init__(self):
     # here we initialize everything. if defining an attribute with a function, must init func first.
@@ -404,6 +434,53 @@ class bdmatrix:
         else:
             x = None
     self.initmatrix = orderedmat
+
+  def smartreduce(self):
+    # array2sparse is at top of file
+    sparsemat = array2sparse(self.initmatrix)
+    print(sparsemat)
+
+    # from monster book:
+    # j is column 
+    # for j = 1 to m do:
+    #    while there exists j0 < j s.t. low(j0) = low(j) do: 
+    #      add column j0 to column j
+    #    end while
+    # end for
+
+    # j is an index, but we use it as a key
+    number_of_cols = len(self.initmatrix[:][0])
+    for j in range(number_of_cols):
+      if j in sparsemat.keys():
+        print("we got to col nm", j, "which is", sparsemat[j])
+        # while there is col_j0 left of col_j with low(j0) = low(j)
+        # add col j0 to col j 
+        while True:
+            should_restart = False
+            for j0 in range(j):
+                if j0 in sparsemat.keys():
+                    if findlowestone(sparsemat, j0) == findlowestone(sparsemat, j) \
+                    and findlowestone(sparsemat, j0) != None:
+                        sparsemat[j] = sparsemat[j] ^ sparsemat[j0]
+                        # restart the while loop
+                        should_restart = True
+                        break
+            if should_restart:
+                continue
+            else:
+                break 
+
+    # get rid of empty cols
+    for j in range(number_of_cols):
+      if j in sparsemat.keys():
+        if len(sparsemat[j]) == 0:
+          sparsemat.pop(j)
+    print("\n", sparsemat)
+      
+    # ondra's sneaky trick to speed up by an order of n: 
+    # reduce by dimension first (higher to lower), and L-R within
+    # dimension. This takes it from n^4 to n^3 in expectation.
+    
 
   def reduce(self, display = True):
       # why do we deepcopy here?
