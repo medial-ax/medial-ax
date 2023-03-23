@@ -10,6 +10,7 @@ from matplotlib.colors import ListedColormap, LinearSegmentedColormap
 import pandas as pd
 from copy import deepcopy
 from IPython.display import display_html  # this is needed to display pretty matrices side by side
+import time 
 
 def ellipse_example(numpts = 7, display = False):
   # parametric eq for ellipse: 
@@ -90,7 +91,10 @@ class complex:
     return f'number of verts is {self.nverts()}, and number of edges is {self.nedges()}'
     # usage: print(rect), where rect is a Rectangle
 
-  def plot(self, extras = True, label_edges = False, label_verts = True, sp_pt_color = 'red'):
+  def plot(self, extras = True, label_edges = False, label_verts = True, sp_pt_color = 'red', timethings = False):
+    if timethings:
+      start_time = time.perf_counter() 
+
     points = np.array([v.coords for v in self.vertlist])
     # edges are repr as indices into points
     edges = np.array([e.boundary for e in self.edgelist])
@@ -168,8 +172,12 @@ class complex:
     # plot vertical guide line
     plt.plot([0,0], [2,-2], color = 'black', linewidth = 2)
     plt.axis('equal')
+    if timethings:
+        plt.text(6, -3, f"plotting took {time.perf_counter() - start_time :.3f} sec", 
+          fontsize = 12, 
+          bbox = dict(facecolor='white', alpha=0.75, edgecolor = 'white'))
     plt.show()
-
+    
   def order_all_simps(self):
     all_simplices = self.vertlist + self.edgelist
     simplex_key = lambda simplex: (simplex.orderedindex, len(simplex.boundary), simplex.index)
@@ -706,25 +714,39 @@ class vineyard:
     return f'hello i am a vineyard'
     # usage: print(vin), where vin is a vineyard
 
-  def add_complex(self,points, key_point, show_details = True):
+  def add_complex(self,points, key_point, show_details = True, timethings = False):
     init_complex = initcomplex(points)
     s_complex = complex()
     s_complex.key_point = key_point
 
+    if timethings:
+      start_time = time.perf_counter() 
     # update this to .self so don't need input, except maybe key pt
     distlist = s_complex.find_sq_dist(init_complex)
     sort_complex(s_complex, distlist, plot = False)
-
+    
     # this is the permutation
     all_simplices = s_complex.order_all_simps()
     # I am pretty sure the simps are also ordered in s_complex, 
     # not just all_simplices.
+    if timethings:
+      print(f"It took {time.perf_counter() - start_time :.3f} sec to sort the complex {len(self.complexlist)}")
+
     mat = bdmatrix()
     # assign simplices to matrix columns
     mat.make_matrix(s_complex)
+
     # reduce the matrix
+    if timethings:
+      start_time = time.perf_counter() 
     mat.redmatrix = mat.reduce(display = False)
+    if timethings:
+      print(f"It took {time.perf_counter() - start_time :.3f} sec to reduce the matrix {len(self.matrixlist)}")
+
+
     # this adds in a column for reduced homology
+    if timethings:
+      start_time = time.perf_counter() 
     mat.add_dummy_col()
     # find the (r,c) vales of lowest ones in the matrix, 
     # and also identify zero columns
@@ -732,7 +754,9 @@ class vineyard:
 
     betti_dummy, betti_zero, betti_one = mat.find_bettis()
     mat.find_bd_pairs(output = show_details)
-
+    if timethings:
+        print(f"It took {time.perf_counter() - start_time :.3f} sec to find bettis")
+    
     if show_details:
       print("\n")
       for key, value in mat.bd_pairs.items():
@@ -743,9 +767,26 @@ class vineyard:
     self.complexlist.append(s_complex)
     self.matrixlist.append(mat)
     self.keypointlist.append(key_point)
+    if timethings:
+      print("\n")
 
   def is_knee(self, int_one, int_two, eps = 1):
     # there may be more things we need to update if the ints are not 0 and 1
+
+    # if it's an i-dimensional homology class, the birth simplex has dim i
+    # I am not sure the death simplex is guaranteed to be dim i+1, so we might not have store
+    # enough info earlier to look it up, as index is not unique without dimension
+
+    # find the verts that kill the empty set
+    # we can cheat a little on finding these types of knees, 
+    # because there's always exactly one vert that kills the empty set 
+    # if the complex is nonempty, and all the others give birth to 0 homology, 
+    # so instead of looking for cross dimensional birth death switches as such, 
+    # we can look just for the death of the empty simplex. 
+
+    # now that there are no triangles, we are looking at top-dimensional,
+    # ie, unpaired, simplices (edges) instead of birth-death pairs. 
+    # this will need to be made more robust when we add triangles.
 
     pair_of_grapes = [[self.complexlist[0], self.complexlist[1]], \
                       [self.matrixlist[0], self.matrixlist[1]]]
