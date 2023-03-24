@@ -79,6 +79,16 @@ def findlowestone(sparsemat, col_num):
     else:
       return max(sparsemat[col_num])
 
+def sparse2array(sparse, n):
+    # n can be either height or width 
+    # by construction we only have square matrices
+    matrix = np.zeros((n,n), dtype=int)
+    for col_j in range(n):
+        if col_j in sparse.keys():
+            for row_i in sparse[col_j]:
+                matrix[row_i][col_j] = 1
+    return matrix
+
 class simplex: 
   def __init__(self):
     # here we initialize everything. if defining an attribute with a function, must init func first.
@@ -438,7 +448,7 @@ class bdmatrix:
   def smartreduce(self):
     # array2sparse is at top of file
     sparsemat = array2sparse(self.initmatrix)
-    print(sparsemat)
+    #print(sparsemat)
 
     # from monster book:
     # j is column 
@@ -448,11 +458,11 @@ class bdmatrix:
     #    end while
     # end for
 
-    # j is an index, but we use it as a key
+    # note: it's a square matrix by construction. 
     number_of_cols = len(self.initmatrix[:][0])
+    # j is an index, but we use it as a key
     for j in range(number_of_cols):
       if j in sparsemat.keys():
-        print("we got to col nm", j, "which is", sparsemat[j])
         # while there is col_j0 left of col_j with low(j0) = low(j)
         # add col j0 to col j 
         while True:
@@ -475,11 +485,13 @@ class bdmatrix:
       if j in sparsemat.keys():
         if len(sparsemat[j]) == 0:
           sparsemat.pop(j)
-    print("\n", sparsemat)
+    #print("\n", sparsemat)
+    backtomat = sparse2array(sparsemat, len(self.initmatrix[:][0]))
       
     # ondra's sneaky trick to speed up by an order of n: 
     # reduce by dimension first (higher to lower), and L-R within
     # dimension. This takes it from n^4 to n^3 in expectation.
+    return backtomat
     
 
   def reduce(self, display = True):
@@ -791,7 +803,7 @@ class vineyard:
     return f'hello i am a vineyard'
     # usage: print(vin), where vin is a vineyard
 
-  def add_complex(self,points, key_point, show_details = True, timethings = False):
+  def add_complex(self,points, key_point, show_details = True, timethings = False, zoomzoomreduce = True):
     init_complex = initcomplex(points)
     s_complex = complex()
     s_complex.key_point = key_point
@@ -813,12 +825,19 @@ class vineyard:
     # assign simplices to matrix columns
     mat.make_matrix(s_complex)
 
-    # reduce the matrix
-    if timethings:
-      start_time = time.perf_counter() 
-    mat.redmatrix = mat.reduce(display = False)
-    if timethings:
-      print(f"It took {time.perf_counter() - start_time :.3f} sec to reduce the matrix {len(self.matrixlist)}")
+    if zoomzoomreduce:
+      if timethings:
+        start_time = time.perf_counter() 
+      mat.redmatrix = mat.smartreduce()
+      if timethings:
+        print(f"It took {time.perf_counter() - start_time :.3f} sec to smartreduce the matrix {len(self.matrixlist)}")
+    else:
+      # reduce the matrix
+      if timethings:
+        start_time = time.perf_counter() 
+      mat.redmatrix = mat.reduce(display = False)
+      if timethings:
+        print(f"It took {time.perf_counter() - start_time :.3f} sec to slowreduce the matrix {len(self.matrixlist)}")
 
 
     # this adds in a column for reduced homology
