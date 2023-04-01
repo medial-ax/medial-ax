@@ -488,7 +488,7 @@ class bdmatrix:
     #print("\n", sparsemat)
     backtomat = sparse2array(sparsemat, len(self.initmatrix[:][0]))
       
-    # ondra's sneaky trick to speed up by an order of n: 
+    # NEXT: ondra's sneaky trick to speed up by an order of n: 
     # reduce by dimension first (higher to lower), and L-R within
     # dimension. This takes it from n^4 to n^3 in expectation.
     return backtomat
@@ -521,7 +521,7 @@ class bdmatrix:
           # from monster book:
           # j is column 
           # for j = 1 to m do:
-          #    while there exists j0 < j s.t. low(j0) < low(j) do: 
+          #    while there exists j0 < j s.t. low(j0) = low(j) do: 
           #      add column j0 to column j
           #    end while
           # end for
