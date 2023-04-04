@@ -866,7 +866,7 @@ class vineyard:
     if timethings:
       print("\n")
 
-  def is_knee(self, int_one, int_two, eps = 1):
+  def is_knee(self, int_one, int_two, eps = 1, printout = False):
     # there may be more things we need to update if the ints are not 0 and 1
 
     # if it's an i-dimensional homology class, the birth simplex has dim i
@@ -907,7 +907,8 @@ class vineyard:
             if dims[j] == -1:
                 pair_of_deaths.append(deaths[j])
                 
-    print("verts that killed the empy set: \n",pair_of_deaths)
+    if printout:
+      print("verts that killed the empy set: \n",pair_of_deaths)
 
     # note, we are already referring to the simplices by their index, 
     # which was the initial parametric sampling, so they are in order
@@ -916,16 +917,18 @@ class vineyard:
 
 
     if pair_of_deaths[0] not in range(pair_of_deaths[1] - epsilon, pair_of_deaths[1] + epsilon):
-        print("type 3 knee between key points",
-              pair_of_grapes[0][0].key_point ,
-              "and",
-              pair_of_grapes[0][1].key_point,
-             "\n( with epsilon nbhd of",
-             epsilon,
-             ")")
+        if printout:
+          print("type 3 knee between key points",
+                pair_of_grapes[0][0].key_point ,
+                "and",
+                pair_of_grapes[0][1].key_point,
+               "\n( with epsilon nbhd of",
+               epsilon,
+               ")")
         is_emptyset_knee = True
 
     else:
+      if printout:
         print("no type 3 knee for zero-homology",
              "(with epsilon nbhd of",
              epsilon,
@@ -946,12 +949,14 @@ class vineyard:
             if dims[j] == 1:
                 pair_of_unpaired.append(one_d_births[j])
 
-    print("\nedges that birthed one-homology:\n",
+    if printout:
+      print("\nedges that birthed one-homology:\n",
           pair_of_unpaired)
 
 
     if pair_of_unpaired[0] not in range(pair_of_unpaired[1] - epsilon, pair_of_unpaired[1] + epsilon):
-        print("type 3 knee between key points",
+        if printout:
+          print("type 3 knee between key points",
               pair_of_grapes[0][0].key_point ,
               "and",
               pair_of_grapes[0][1].key_point,
@@ -961,7 +966,8 @@ class vineyard:
 
         is_zero_knee = True
     else:
-        print("no type 3 knee for one-homology",
+        if printout:
+          print("no type 3 knee for one-homology",
              "(with epsilon nbhd of",
              epsilon,
              ")")
