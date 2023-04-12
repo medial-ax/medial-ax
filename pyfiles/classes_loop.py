@@ -12,6 +12,9 @@ from copy import deepcopy
 from IPython.display import display_html  # this is needed to display pretty matrices side by side
 import time 
 
+# for poly grid
+from matplotlib.path import Path as mplPath
+
 def ellipse_example(numpts = 7, display = False):
   # parametric eq for ellipse: 
   # $F(t) = (x(t), y(t))$, where $x(t) = a*cos(t)$ and $y(t) = b*sin(t)$
@@ -48,6 +51,196 @@ def ellipse_example(numpts = 7, display = False):
     fig.set_figheight(30)
     plt.show()
   return points
+
+def points_inside_polygon(vertices, cell_size):
+    # Compute bounding box of polygon
+    x_min, y_min = np.min(vertices, axis=0)
+    x_max, y_max = np.max(vertices, axis=0)
+
+    # Compute grid shape and origin
+    x_range = np.arange(x_min, x_max + cell_size, cell_size)
+    y_range = np.arange(y_min, y_max + cell_size, cell_size)
+
+    # Generate grid points
+    xv, yv = np.meshgrid(x_range, y_range)
+    points = np.column_stack([xv.ravel(), yv.ravel()])
+
+    # Determine if each point is inside polygon
+    path = mplPath(vertices)
+    inside = path.contains_points(points)
+
+    return points, inside, x_range, y_range
+
+def polygon_grid(vertices, cell_size, plot = True):
+    # Compute vertices inside polygons
+    points, inside, x_range, y_range = points_inside_polygon(vertices, cell_size)
+    
+    if plot:
+        # Plot polygons and grid points
+        fig, (ax1) = plt.subplots(ncols=1, figsize=(10, 4))
+        ax1.fill(vertices[:, 0], vertices[:, 1], color="#ccc")
+
+        ax1.plot(points[inside, 0], points[inside, 1], "o", color="black")
+        # plot the outside points
+        ax1.plot(points[~inside, 0], points[~inside, 1], "x", color="red")
+
+        ax1.set_title("Polygon Grid")
+        ax1.set_aspect("equal")
+
+        plt.show()
+    return points, inside, x_range, y_range
+
+def plot_nbrs(i, points, inside, x_range, y_range):
+    fig, (ax1) = plt.subplots(ncols=1, figsize=(10, 4))
+    ax1.set_aspect("equal")
+    ax1.plot(points[inside, 0], points[inside, 1], "o", color="black")
+    ax1.plot(points[~inside, 0], points[~inside, 1], "x", color="red")
+    # length and width of grid
+    # print(len(x_range), len(y_range))
+    # center point
+    if inside[i]:
+        ax1.plot(points[i,0], points[i,1], 'o', color = 'red', markersize = 10)
+    else:
+        ax1.plot(points[i,0], points[i,1], 'x', color = 'red', markersize = 10)
+    
+    # right neighbor
+    r = i + 1
+    # left neighbor
+    l = i - 1
+    # upstairs neighbor
+    up = i + len(x_range)
+    # downstairs neighbor
+    down = i - len(x_range)
+
+    # case one: bottom row: no bottom neighbor
+    if i in range(0, len(x_range)):
+        down = None
+        
+    # case two: right column
+    if (i + 1) % len(x_range) == 0 and i != 0:
+        r = None
+
+    # case three: left column
+    if i % len(x_range) == 0:
+        l = None
+
+    # case four: top row
+    xx = len(x_range)
+    yy = len(y_range)
+    if i in range(xx*(yy - 1), xx*yy):
+        up = None
+
+    # case five: we're in the interior and life is good
+
+    # right neighbor
+    if r != None and inside[i] and inside[i + 1]:
+        ax1.plot(points[r,0], points[i,1], 'o', color = 'black', markersize = 10)
+        ax1.plot(points[r,0], points[i,1], 'o', color = 'yellow', markersize = 8)
+    # left neighbor
+    if l != None and inside[i] and inside[i - 1]: 
+        ax1.plot(points[l,0], points[i,1], 'o', color = 'black', markersize = 10)
+        ax1.plot(points[l,0], points[i,1], 'o', color = 'yellow', markersize = 8)
+    # upstairs neighbor
+    if up != None and inside[i] and inside[i + len(x_range)]:
+        ax1.plot(points[i,0], points[up,1], 'o', color = 'black', markersize = 10)
+        ax1.plot(points[i,0], points[up,1], 'o', color = 'yellow', markersize = 8)
+    # downstairs neighbor
+    if down != None and inside[i] and inside[i - len(x_range)]:
+        ax1.plot(points[i,0], points[down,1], 'o', color = 'black', markersize = 10  )
+        ax1.plot(points[i,0], points[down,1], 'o', color = 'yellow', markersize = 8)
+
+    plt.show()
+
+def find_neighbors(i, inside, x_range, y_range):
+    neighbors = []
+    # right neighbor
+    r = i + 1
+    # left neighbor
+    l = i - 1
+    # upstairs neighbor
+    up = i + len(x_range)
+    # downstairs neighbor
+    down = i - len(x_range)
+
+    # case one: bottom row: no bottom neighbor
+    if i in range(0, len(x_range)):
+        down = None
+
+    # finish error checking this
+    # case two: right column
+    if (i + 1) % len(x_range) == 0 and i != 0:
+        r = None
+
+    # case three: left column
+    if i % len(x_range) == 0:
+        l = None
+
+    # case four: top row
+    xx = len(x_range)
+    yy = len(y_range)
+    if i in range(xx*(yy - 1), xx*yy):
+        up = None
+
+    # case five: we're in the interior and life is good
+
+    # right neighbor
+    if r != None and inside[i] and inside[i + 1]:
+        neighbors.append(r)
+    # left neighbor
+    if l != None and inside[i] and inside[i - 1]: 
+        neighbors.append(l)
+    # upstairs neighbor
+    if up != None and inside[i] and inside[i + len(x_range)]:
+        neighbors.append(up)
+    # downstairs neighbor
+    if down != None and inside[i] and inside[i - len(x_range)]:
+        neighbors.append(down)
+    return neighbors
+
+    # print(" l",l,"\n",
+    #       "r",r,"\n",
+    #       "up",up,"\n",
+    #       "down",down)
+#     fig.savefig('output/' + str(i) +'.png')
+#     plt.close()
+    return 
+
+def neighb_pairs(points, inside, x_range, y_range):
+    # each row in neighbs is two special points to check knees between 
+    neighbs = []
+    for i in range(len(points)):
+        if inside[i]:
+            tempneighbs = find_neighbors(i, inside, x_range, y_range)
+            for j in range(len(tempneighbs)):
+                neighbs.append([points[i], points[tempneighbs[j]]])
+    return neighbs
+
+def kneebetween(point1, point2, kneedim, vin, n = 20, i = 0, j = 1, eps = 1, plot = False, printout = False):
+    # kneedim is 0 or 1 for corresponding type of knee
+    # use 0 for standard med ax, 1 for generalized
+
+
+    objectt = ellipse_example(numpts = n, display = False)
+
+    # add complexes
+    vin.add_complex(objectt, 
+                    point1, show_details = False, timethings = False, 
+                    zoomzoomreduce = True)
+    vin.add_complex(objectt, 
+                    point2, show_details = False, timethings = False, 
+                    zoomzoomreduce = True)
+    # plot
+    if plot: 
+        vin.complexlist[i].plot(extras = False, label_edges = False, 
+                                label_verts = False, sp_pt_color = 'black', timethings = True)
+        vin.complexlist[j].plot(extras = False, label_edges = False, 
+                                label_verts = False, sp_pt_color = 'black', timethings = True)
+
+    # the ints we input here are the complexes in order in vin, in the list complexlist
+    # returns: is_emptyset_knee, is_zero_knee, epsilon
+    
+    knee_tf = vin.is_knee(i, j, eps, printout = printout)
+    return knee_tf[kneedim], objectt
 
 def array2sparse(matrix):
 #     we're going to make a better repr of a matrix. 
