@@ -52,6 +52,112 @@ def ellipse_example(numpts = 7, display = False):
     plt.show()
   return points
 
+def epicycloid_example(numpts=200, display=False):
+  # parametric equation for heart shape
+  # x = 16 sin^3(t)
+  # y = 13 cos(t) - 5 cos(2t) - 2 cos(3t) - cos(4t)
+
+  # parameters for sampling density
+  t = np.linspace(0, 2*np.pi, numpts)
+  x = 4*np.cos(t) - np.cos(4*t)
+  y = 4*np.sin(t) - np.sin(4*t)
+  points = np.array(list(zip(x,y)))
+
+  if display:
+    # plot heart shape
+    fig, (ax1) = plt.subplots(ncols=1, figsize=(10, 4))
+    ax1.set_aspect("equal")
+    ax1.plot(x, y, 'o', linewidth=2)
+    plt.show()
+
+  return points
+
+def heart_example(numpts=200, display=False):
+  # parametric equation for heart shape
+  # x = 16 sin^3(t)
+  # y = 13 cos(t) - 5 cos(2t) - 2 cos(3t) - cos(4t)
+
+  # parameters for sampling density
+  t = np.linspace(0, 2*np.pi, numpts)
+  x = 16 * np.power(np.sin(t), 3)
+  y = 13 * np.cos(t) - 5 * np.cos(2*t) - 2 * np.cos(3*t) - np.cos(4*t)
+  points = np.array(list(zip(x,y)))
+
+  if display:
+    # plot heart shape
+    fig, (ax1) = plt.subplots(ncols=1, figsize=(10, 4))
+    ax1.set_aspect("equal")
+    ax1.plot(x, y, 'r', linewidth=2)
+    plt.show()
+
+  return points
+
+def rose_example(numpts=200, display=False):
+  # parametric equation for heart shape
+  # x = 16 sin^3(t)
+  # y = 13 cos(t) - 5 cos(2t) - 2 cos(3t) - cos(4t)
+
+  # parameters for sampling density
+  t = np.linspace(0, 2*np.pi, numpts)
+  x = np.cos(t)*np.sin(4*t)
+  y = np.sin(t)*np.sin(4*t)
+  points = np.array(list(zip(x,y)))
+
+  if display:
+    # plot heart shape
+    fig, (ax1) = plt.subplots(ncols=1, figsize=(10, 4))
+    ax1.set_aspect("equal")
+    ax1.plot(x, y, 'r', linewidth=2)
+    plt.show()
+
+  return points
+
+def fermat_spiral(numpts= 400, a=5, display=False):
+    # parametric equation for Fermat's Spiral
+    # r^2 = a^2 * theta
+    # https://elepa.files.wordpress.com/2013/11/fifty-famous-curves.pdf
+    # note to self: spiral of archimedes, number 42, is also good.
+
+    # parameters for sampling density
+    theta = np.linspace(0, 10*np.pi, numpts)
+    rpos = np.sqrt(a**2 * theta)
+    rneg = -np.sqrt(a**2 * theta)
+    flipx = np.flip((rpos * np.cos(theta)))
+    flipy = np.flip((rpos * np.sin(theta)))
+    x = np.concatenate((flipx, rneg * np.cos(theta)))
+    y = np.concatenate((flipy, rneg * np.sin(theta)))
+    points = np.array(list(zip(x,y)))
+
+    if display:
+        # plot Fermat's Spiral
+        fig, (ax1) = plt.subplots(ncols=1, figsize=(10, 4))
+        ax1.set_aspect("equal")
+        ax1.plot(x, y, 'r')
+        plt.show()
+
+    return points
+
+def half_fermat_spiral(numpts=200, a=0.5, display=False):
+  # parametric equation for Fermat's Spiral
+  # r^2 = a^2 * theta
+
+  # parameters for sampling density
+  theta = np.linspace(0, 10*np.pi, numpts)
+  r = np.sqrt(a**2 * theta)
+  x = r * np.cos(theta)
+  y = r * np.sin(theta)
+  points = np.array(list(zip(x,y)))
+
+  if display:
+    # plot Fermat's Spiral
+    fig, (ax1) = plt.subplots(ncols=1, figsize=(10, 4))
+    ax1.set_aspect("equal")
+    ax1.plot(x, y, 'r', linewidth=2)
+    plt.show()
+
+  return points
+
+
 def points_inside_polygon(vertices, cell_size):
     # Compute bounding box of polygon
     x_min, y_min = np.min(vertices, axis=0)
