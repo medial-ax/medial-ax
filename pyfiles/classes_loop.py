@@ -158,14 +158,14 @@ def half_fermat_spiral(numpts=200, a=0.5, display=False):
   return points
 
 
-def points_inside_polygon(vertices, cell_size):
+def points_inside_polygon(vertices, cell_size, x_bump = 0, y_bump = 0):
     # Compute bounding box of polygon
     x_min, y_min = np.min(vertices, axis=0)
     x_max, y_max = np.max(vertices, axis=0)
 
     # Compute grid shape and origin
-    x_range = np.arange(x_min, x_max + cell_size, cell_size)
-    y_range = np.arange(y_min, y_max + cell_size, cell_size)
+    x_range = np.arange(x_min + x_bump, x_max + x_bump + cell_size, cell_size)
+    y_range = np.arange(y_min + y_bump, y_max + y_bump + cell_size, cell_size)
 
     # Generate grid points
     xv, yv = np.meshgrid(x_range, y_range)
@@ -177,9 +177,9 @@ def points_inside_polygon(vertices, cell_size):
 
     return points, inside, x_range, y_range
 
-def polygon_grid(vertices, cell_size, plot = True):
+def polygon_grid(vertices, cell_size, x_bump = 0, y_bump = 0, plot = True):
     # Compute vertices inside polygons
-    points, inside, x_range, y_range = points_inside_polygon(vertices, cell_size)
+    points, inside, x_range, y_range = points_inside_polygon(vertices, cell_size, x_bump = x_bump, y_bump = y_bump)
     
     if plot:
         # Plot polygons and grid points
@@ -347,6 +347,80 @@ def kneebetween(point1, point2, kneedim, vin, n = 20, i = 0, j = 1, eps = 1, plo
     
     knee_tf = vin.is_knee(i, j, eps, printout = printout)
     return knee_tf[kneedim], objectt
+
+def make_medial_axis(numpts, epsilon, grid_density, inputpts, 
+                     design = 'ellipse', axis = 0, drawgrid = False,
+                     savefig = True, figsavename = 'test.png',
+                     x_bump = 0, y_bump = 0 ):
+
+    # points is gridpoints locations
+    points, inside, x_range, y_range = \
+    polygon_grid(inputpts, grid_density, x_bump = x_bump, 
+      y_bump = y_bump, plot = drawgrid);
+
+
+    # each row in neighbs is two special points to check knees between 
+    neighbs = neighb_pairs(points, inside, x_range, y_range)
+
+
+    fig, (ax1) = plt.subplots(ncols=1, figsize=(10, 4))
+    ax1.set_aspect("equal")
+
+    ax1.plot(inputpts[:,0], inputpts[:,1], "o", color = "lightblue", markersize = 15)
+    if drawgrid:
+      ax1.plot(points[inside, 0], points[inside, 1], "x", color="black")
+      ax1.plot(points[~inside, 0], points[~inside, 1], "x", color="gray")
+
+
+    # Plot the line segments between the points
+    for i in range(len(inputpts)-1):
+        ax1.plot([inputpts[i][0], inputpts[i+1][0]], [inputpts[i][1], inputpts[i+1][1]], color='black')
+
+    # Plot the last line segment to connect the last and first points
+    ax1.plot([inputpts[-1][0], inputpts[0][0]], [inputpts[-1][1], inputpts[0][1]], color='black')
+
+
+    # need to be able to set grid density here
+    # obviously vineyards need to be init out here, this is ridiculous
+
+    for i in range(len(neighbs)):
+        vin = vineyard()
+        # re init these just to make sure we can run this multiple times
+        vin.pointset = np.empty(2)
+        vin.complexlist = []
+        vin.matrixlist = []
+        vin.keypointlist = []
+
+        point1 = neighbs[i][0]
+        point2 = neighbs[i][1]
+        # point1, point2, kneedim, vin, n = 20, i = 0, j = 1, 
+        # eps = 1, plot = False, printout = False
+        # note: i and j refer to the two positions on the stack of vineyards. 0 and 1 if we reinitialize. 
+        if kneebetween(point1, point2, axis, vin, n = numpts, i = 0, j = 1, eps = epsilon)[0]:
+            ax1.plot((point1[0] + point2[0])/2, (point1[1] + point2[1])/2, 
+                     "o", color = "red",markersize = 10)
+
+            # we also want to plot the line between the grid cells
+            # Calculate the midpoint of the line segment connecting the two vertices
+            midpoint = (point1 + point2) / 2
+
+            # Calculate the vector pointing from point1 to point2
+            vector = point2 - point1
+
+            # Calculate the perpendicular vector by swapping the x and y coordinates and negating one of them
+            perp_vector = np.array([-vector[1], vector[0]])
+
+            # Calculate the coordinates of the other two vertices by adding and subtracting the perpendicular vector from the midpoint
+            point3 = midpoint + perp_vector / 2
+            point4 = midpoint - perp_vector / 2
+
+            # plot the line
+            ax1.plot([point3[0], point4[0]], [point3[1], point4[1]], color='red')
+    plt.text(5, 1, design + f"\nn: {numpts} \neps: {epsilon} \ngrid: {grid_density}", 
+             fontsize = 12, bbox = dict(facecolor='white', alpha=0.75, edgecolor = 'white'))
+    if savefig:
+        plt.savefig('../shapes_medax/' + figsavename, dpi = 300, pad_inches = 1)
+    plt.show()
 
 def array2sparse(matrix):
 #     we're going to make a better repr of a matrix. 
