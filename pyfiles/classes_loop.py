@@ -52,6 +52,40 @@ def ellipse_example(numpts = 7, display = False):
     plt.show()
   return points
 
+def rectangle_example(numpts=4, display=False):
+    # note: this goes in cw order, hopefully not an issue
+    # parameters for rectangle shape and sampling density
+    width = 8
+    height = 4
+    
+    # calculate points on the boundary of the rectangle
+    x1 = np.linspace(-width/2, width/2, num=numpts//4+1)[:-1]
+    y1 = np.full_like(x1, height/2)
+    
+    x2 = np.full_like(y1, width/2)
+    y2 = np.linspace(height/2, -height/2, num=numpts//4+1)[:-1]
+    
+    x3 = np.linspace(width/2, -width/2, num=numpts//4+1)[:-1]
+    y3 = np.full_like(x3, -height/2)
+    
+    x4 = np.full_like(y3, -width/2)
+    y4 = np.linspace(-height/2, height/2, num=numpts//4+1)[:-1]
+    
+    x = np.concatenate([x1, x2, x3, x4])
+    y = np.concatenate([y1, y2, y3, y4])
+    points = np.array(list(zip(x, y)))
+
+    if display:
+        # plot rectangle
+        fig, ax1 = plt.subplots(figsize=(10, 4))
+        ax1.set_xlim(-width/2-1, width/2+1)
+        ax1.set_ylim(-height/2-1, height/2+1)
+        ax1.set_aspect("equal")
+        ax1.plot(x, y, 'o', linewidth=2)
+        plt.show()
+
+    return points
+
 def epicycloid_example(numpts=200, display=False):
   # parametric equation for heart shape
   # x = 16 sin^3(t)
@@ -351,7 +385,7 @@ def kneebetween(point1, point2, kneedim, vin, n = 20, i = 0, j = 1, eps = 1, plo
 def make_medial_axis(numpts, epsilon, grid_density, inputpts, 
                      design = 'ellipse', axis = 0, drawgrid = False,
                      savefig = True, figsavename = 'test.png',
-                     x_bump = 0, y_bump = 0 ):
+                     x_bump = 0, y_bump = 0, plotpoints = True):
 
     # points is gridpoints locations
     points, inside, x_range, y_range = \
@@ -397,8 +431,9 @@ def make_medial_axis(numpts, epsilon, grid_density, inputpts,
         # eps = 1, plot = False, printout = False
         # note: i and j refer to the two positions on the stack of vineyards. 0 and 1 if we reinitialize. 
         if kneebetween(point1, point2, axis, vin, n = numpts, i = 0, j = 1, eps = epsilon)[0]:
-            ax1.plot((point1[0] + point2[0])/2, (point1[1] + point2[1])/2, 
-                     "o", color = "red",markersize = 10)
+            if plotpoints:
+              ax1.plot((point1[0] + point2[0])/2, (point1[1] + point2[1])/2, 
+                       "o", color = "red",markersize = 10)
 
             # we also want to plot the line between the grid cells
             # Calculate the midpoint of the line segment connecting the two vertices
