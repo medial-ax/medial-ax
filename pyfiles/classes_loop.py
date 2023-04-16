@@ -355,12 +355,13 @@ def neighb_pairs(points, inside, x_range, y_range):
                 neighbs.append([points[i], points[tempneighbs[j]]])
     return neighbs
 
-def kneebetween(point1, point2, kneedim, vin, n = 20, i = 0, j = 1, eps = 1, plot = False, printout = False):
+def kneebetween(point1, point2, inputpts, kneedim, vin, n = 20, i = 0, 
+  j = 1, eps = 1, plot = False, printout = False):
     # kneedim is 0 or 1 for corresponding type of knee
     # use 0 for standard med ax, 1 for generalized
 
 
-    objectt = ellipse_example(numpts = n, display = False)
+    objectt = inputpts
 
     # add complexes
     vin.add_complex(objectt, 
@@ -430,7 +431,7 @@ def make_medial_axis(numpts, epsilon, grid_density, inputpts,
         # point1, point2, kneedim, vin, n = 20, i = 0, j = 1, 
         # eps = 1, plot = False, printout = False
         # note: i and j refer to the two positions on the stack of vineyards. 0 and 1 if we reinitialize. 
-        if kneebetween(point1, point2, axis, vin, n = numpts, i = 0, j = 1, eps = epsilon)[0]:
+        if kneebetween(point1, point2, inputpts, axis, vin, n = numpts, i = 0, j = 1, eps = epsilon)[0]:
             if plotpoints:
               ax1.plot((point1[0] + point2[0])/2, (point1[1] + point2[1])/2, 
                        "o", color = "red",markersize = 10)
@@ -451,7 +452,7 @@ def make_medial_axis(numpts, epsilon, grid_density, inputpts,
 
             # plot the line
             ax1.plot([point3[0], point4[0]], [point3[1], point4[1]], color='red')
-    plt.text(5, 1, design + f"\nn: {numpts} \neps: {epsilon} \ngrid: {grid_density}", 
+    plt.text(5, -20, design + f"\nn: {numpts} \neps: {epsilon} \ngrid: {grid_density}", 
              fontsize = 12, bbox = dict(facecolor='white', alpha=0.75, edgecolor = 'white'))
     if savefig:
         plt.savefig('../shapes_medax/' + figsavename, dpi = 300, pad_inches = 1)
@@ -1224,6 +1225,11 @@ class vineyard:
     
     # this is the permutation
     all_simplices = s_complex.order_all_simps()
+    # if (key_point == [0.5, 1]).all():
+    #   print("heellloooo", all_simplices[0], all_simplices[0].coords, "keypt", key_point)
+    #   print(points)
+
+
     # I am pretty sure the simps are also ordered in s_complex, 
     # not just all_simplices.
     if timethings:
@@ -1323,8 +1329,9 @@ class vineyard:
     # so we can use this number to find nearest neighbor relationship
     epsilon = eps
 
-
-    if pair_of_deaths[0] not in range(pair_of_deaths[1] - epsilon, pair_of_deaths[1] + epsilon):
+    # range is inclusive on left and excl on right, so need +1
+    if pair_of_deaths[0] not in range(pair_of_deaths[1] - epsilon, pair_of_deaths[1] + epsilon +1):
+        #print("I am death", pair_of_deaths[0])
         if printout:
           print("type 3 knee between key points",
                 pair_of_grapes[0][0].key_point ,
