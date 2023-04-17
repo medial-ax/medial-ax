@@ -386,7 +386,7 @@ def kneebetween(point1, point2, inputpts, kneedim, vin, n = 20, i = 0,
 def make_medial_axis(numpts, epsilon, grid_density, inputpts, 
                      design = 'ellipse', axis = 0, drawgrid = False,
                      savefig = True, figsavename = 'test.png',
-                     x_bump = 0, y_bump = 0, plotpoints = True):
+                     x_bump = 0, y_bump = 0, plotpoints = True, textboxcoords = [0,0], textboxon = True):
 
     # points is gridpoints locations
     points, inside, x_range, y_range = \
@@ -452,8 +452,9 @@ def make_medial_axis(numpts, epsilon, grid_density, inputpts,
 
             # plot the line
             ax1.plot([point3[0], point4[0]], [point3[1], point4[1]], color='red')
-    plt.text(5, -20, design + f"\nn: {numpts} \neps: {epsilon} \ngrid: {grid_density}", 
-             fontsize = 12, bbox = dict(facecolor='white', alpha=0.75, edgecolor = 'white'))
+    if textboxon:
+      plt.text(textboxcoords[0], textboxcoords[1], design + f"\nn: {numpts} \neps: {epsilon} \ngrid: {grid_density}", 
+               fontsize = 12, bbox = dict(facecolor='white', alpha=0.75, edgecolor = 'white'))
     if savefig:
         plt.savefig('../shapes_medax/' + figsavename, dpi = 300, pad_inches = 1)
     plt.show()
