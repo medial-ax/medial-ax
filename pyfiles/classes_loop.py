@@ -1,4 +1,5 @@
 import numpy as np
+import math
 from scipy.spatial import distance
 # visualization
 from scipy.spatial import Voronoi, voronoi_plot_2d
@@ -14,6 +15,8 @@ import time
 
 # for poly grid
 from matplotlib.path import Path as mplPath
+
+import string
 
 def ellipse_example(numpts = 7, display = False):
   # parametric eq for ellipse: 
@@ -191,6 +194,38 @@ def half_fermat_spiral(numpts=200, a=0.5, display=False):
 
   return points
 
+def generate_filename(n, e, g, x_shift, y_shift, name, medaxdim, use_dist):
+    filename = name + str(medaxdim) +  "th_n" + str(n) +"_e"+ str(e) +\
+        "_g" + str(g).translate(str.maketrans('_','_',string.punctuation))
+    if x_shift != 0:
+      neg = False
+      if x_shift < 0:
+        neg = True
+      if neg:
+        filename = filename + "_xx_neg" + \
+        str(x_shift).translate(str.maketrans('_','_',string.punctuation))
+      else:
+        filename = filename + "_xx" + \
+        str(x_shift).translate(str.maketrans('_','_',string.punctuation))
+
+    if y_shift != 0:
+      neg = False
+      if y_shift < 0:
+        neg = True
+      if neg:
+        filename = filename + "_yy_neg" +\
+        str(y_shift).translate(str.maketrans('_','_',string.punctuation))
+      else:
+        filename = filename + "_yy" +\
+        str(y_shift).translate(str.maketrans('_','_',string.punctuation))
+
+    if use_dist:
+      filename = filename + '_dist_alg'
+    else:
+      filename = filename + '_nearnb_alg'
+
+    return filename
+
 
 def points_inside_polygon(vertices, cell_size, x_bump = 0, y_bump = 0):
     # Compute bounding box of polygon
@@ -356,11 +391,9 @@ def neighb_pairs(points, inside, x_range, y_range):
     return neighbs
 
 def kneebetween(point1, point2, inputpts, kneedim, vin, n = 20, i = 0, 
-  j = 1, eps = 1, plot = False, printout = False):
+  j = 1, eps = 1, plot = False, printout = False, use_distknee = True):
     # kneedim is 0 or 1 for corresponding type of knee
     # use 0 for standard med ax, 1 for generalized
-
-
     objectt = inputpts
 
     # add complexes
@@ -379,14 +412,22 @@ def kneebetween(point1, point2, inputpts, kneedim, vin, n = 20, i = 0,
 
     # the ints we input here are the complexes in order in vin, in the list complexlist
     # returns: is_emptyset_knee, is_zero_knee, epsilon
+
+    if use_distknee:
+      knee_tf = vin.is_dist_knee(i, j, point1, point2, eps = eps, printout = False)
     
-    knee_tf = vin.is_knee(i, j, eps, printout = printout)
+    else:
+      knee_tf = vin.is_knee(i, j, eps = eps, printout = printout)
+
     return knee_tf[kneedim], objectt
 
 def make_medial_axis(numpts, epsilon, grid_density, inputpts, 
                      design = 'ellipse', axis = 0, drawgrid = False,
                      savefig = True, figsavename = 'test.png',
-                     x_bump = 0, y_bump = 0, plotpoints = True, textboxcoords = [0,0], textboxon = True):
+                     x_bump = 0, y_bump = 0, plotpoints = True, 
+                     textboxcoords = [0,0], textboxon = True, 
+                     testpointinfo = (0,0), testpoint = False,
+                     use_distknee = True):
 
     # points is gridpoints locations
     points, inside, x_range, y_range = \
@@ -431,7 +472,12 @@ def make_medial_axis(numpts, epsilon, grid_density, inputpts,
         # point1, point2, kneedim, vin, n = 20, i = 0, j = 1, 
         # eps = 1, plot = False, printout = False
         # note: i and j refer to the two positions on the stack of vineyards. 0 and 1 if we reinitialize. 
-        if kneebetween(point1, point2, inputpts, axis, vin, n = numpts, i = 0, j = 1, eps = epsilon)[0]:
+        printout = False
+        if testpoint:
+          if (point1 == np.array(testpointinfo)).all() or (point2 == np.array(testpointinfo)).all():
+            printout = True
+        if kneebetween(point1, point2, inputpts, axis, vin, n = numpts, 
+          i = 0, j = 1, eps = epsilon, printout = printout, use_distknee = use_distknee)[0]:
             if plotpoints:
               ax1.plot((point1[0] + point2[0])/2, (point1[1] + point2[1])/2, 
                        "o", color = "red",markersize = 10)
@@ -452,8 +498,15 @@ def make_medial_axis(numpts, epsilon, grid_density, inputpts,
 
             # plot the line
             ax1.plot([point3[0], point4[0]], [point3[1], point4[1]], color='red')
+        # else:
+        #   ax1.plot((point1[0] + point2[0])/2, (point1[1] + point2[1])/2, 
+        #                "o", color = "blue",markersize = 10)
     if textboxon:
-      plt.text(textboxcoords[0], textboxcoords[1], design + f"\nn: {numpts} \neps: {epsilon} \ngrid: {grid_density}", 
+      if use_distknee:
+        alg = 'distcomp'
+      else:
+        alg = 'nearnb'
+      plt.text(textboxcoords[0], textboxcoords[1], design + f" ax {axis}\nn: {numpts} \neps: {epsilon} \ngrid: {grid_density} \nalg: {alg}", 
                fontsize = 12, bbox = dict(facecolor='white', alpha=0.75, edgecolor = 'white'))
     if savefig:
         plt.savefig('../shapes_medax/' + figsavename, dpi = 300, pad_inches = 1)
@@ -1331,7 +1384,7 @@ class vineyard:
     epsilon = eps
 
     # range is inclusive on left and excl on right, so need +1
-    if pair_of_deaths[0] not in range(pair_of_deaths[1] - epsilon, pair_of_deaths[1] + epsilon +1):
+    if pair_of_deaths[0] not in range(pair_of_deaths[1] - epsilon, pair_of_deaths[1] + epsilon + 1):
         #print("I am death", pair_of_deaths[0])
         if printout:
           print("type 3 knee between key points",
@@ -1340,7 +1393,7 @@ class vineyard:
                 pair_of_grapes[0][1].key_point,
                "\n( with epsilon nbhd of",
                epsilon,
-               ")")
+               ")\n-----")
         is_emptyset_knee = True
 
     else:
@@ -1348,7 +1401,7 @@ class vineyard:
         print("no type 3 knee for zero-homology",
              "(with epsilon nbhd of",
              epsilon,
-             ")")
+             ")\n-----")
 
     ##############################################
     # now that there are no triangles, we are looking at top-dimensional,
@@ -1370,7 +1423,134 @@ class vineyard:
           pair_of_unpaired)
 
 
-    if pair_of_unpaired[0] not in range(pair_of_unpaired[1] - epsilon, pair_of_unpaired[1] + epsilon):
+    if pair_of_unpaired[0] not in range(pair_of_unpaired[1] - epsilon, pair_of_unpaired[1] + epsilon + 1):
+        if printout:
+          print("type 3 knee between key points",
+              pair_of_grapes[0][0].key_point ,
+              "and",
+              pair_of_grapes[0][1].key_point,
+             "\n( with epsilon nbhd of",
+             epsilon,
+             ")")
+
+        is_zero_knee = True
+    else:
+        if printout:
+          print("no type 3 knee for one-homology",
+             "(with epsilon nbhd of",
+             epsilon,
+             ")")
+
+    return is_emptyset_knee, is_zero_knee, epsilon 
+
+  def is_dist_knee(self, int_one, int_two, point1, point2, eps = 1, printout = False):
+    # there may be more things we need to update if the ints are not 0 and 1
+    # read is_knee for rest of comments
+
+    pair_of_grapes = [[self.complexlist[0], self.complexlist[1]], \
+                      [self.matrixlist[0], self.matrixlist[1]]]
+
+    pair_of_deaths = []
+    dims_of_deaths = []
+    pair_of_unpaired = []
+
+    # a knee involves two dims, a d dim death and a d + 1 birth. 
+    # we refer to a knee by the lower (death) dimension. 
+    is_emptyset_knee = False
+    is_zero_knee = False
+
+    for i in range(len(pair_of_grapes)):
+        # one grape is one complex
+        # all complexes have same underlying set, but different special point
+        deaths = pair_of_grapes[1][i].bd_pairs["death"]
+
+        dims = pair_of_grapes[1][i].bd_pairs["classdim"]
+        for j in range(len(deaths)):
+            # find the exactly one death of the empty simplex
+            if dims[j] == -1:
+                pair_of_deaths.append(deaths[j])
+                
+    if printout:
+      print("verts that killed the empy set: \n",pair_of_deaths)
+
+    # note, we are already referring to the simplices by their index, 
+    # which was the initial parametric sampling, so they are in order
+    # so we can use this number to find nearest neighbor relationship
+    epsilon = eps
+
+    # range is inclusive on left and excl on right, so need +1
+    # if the dist between simps on input object is smaller than 
+    # dist between comparison points on grid
+    # print(pair_of_deaths[0])
+    # need a function to look up, 
+    # given a vertex by index in complex 0 and complex 1, 
+    # the corresponding simplex coords 
+
+    #print(self.complexlist[0])
+    for i in range(len(self.complexlist[0].vertlist)):
+      if pair_of_deaths[0] == self.complexlist[0].vertlist[i].index:
+        deathcoords0 = self.complexlist[0].vertlist[i].coords
+
+      if pair_of_deaths[1] == self.complexlist[1].vertlist[i].index:
+        deathcoords1 = self.complexlist[1].vertlist[i].coords
+
+    if math.dist(deathcoords0, deathcoords1) > math.dist(point1, point2)*epsilon:
+        #print("I am death", pair_of_deaths[0])
+        if printout:
+          print("type 3 knee between key points",
+                pair_of_grapes[0][0].key_point ,
+                "and",
+                pair_of_grapes[0][1].key_point,
+               "\n( with epsilon nbhd of",
+               epsilon,
+               ")\n-----")
+        is_emptyset_knee = True
+
+    else:
+      if printout:
+        print("no type 3 knee for zero-homology",
+             "(with epsilon nbhd of",
+             epsilon,
+             ")\n-----")
+
+    ##############################################
+    # now that there are no triangles, we are looking at top-dimensional,
+    # ie, unpaired, simplices (edges) instead of birth-death pairs. 
+    # this will need to be made more robust when we add triangles.
+
+
+    for i in range(len(pair_of_grapes)):
+        # one grape is one complex
+        # all complexes have same underlying set, but different special point
+        one_d_births = pair_of_grapes[1][i].unpaired["birth"]
+        dims = pair_of_grapes[1][i].unpaired["classdim"]
+        for j in range(len(one_d_births)):
+            # find the exactly one death of the empty simplex
+            if dims[j] == 1:
+                pair_of_unpaired.append(one_d_births[j])
+
+    # i THINK this extracts the coordinates of the the unpaired things
+    # it is slower than it needs to be though
+    # DESPERATELY NEED LOOkUP FUNCTIONS SO NO HORRIBLE FOR LOOPS
+    for i in range(len(self.complexlist[0].edgelist)):
+      if pair_of_unpaired[0] == self.complexlist[0].edgelist[i].index:
+        ind0 = self.complexlist[0].edgelist[i].boundary[0]
+        for j in range(len(self.complexlist[0].vertlist)):
+          if ind0 == self.complexlist[0].vertlist[j].index:
+            unpairedcoords0 = self.complexlist[0].vertlist[j].coords
+      
+      if pair_of_unpaired[1] == self.complexlist[1].edgelist[i].index:
+        ind1 = self.complexlist[1].edgelist[i].boundary[0]
+        for j in range(len(self.complexlist[1].vertlist)):
+          if ind1 == self.complexlist[1].vertlist[j].index:
+            unpairedcoords1 = self.complexlist[1].vertlist[j].coords
+
+    if printout:
+      print("\nedges that birthed one-homology:\n",
+          pair_of_unpaired)
+
+
+    if math.dist(unpairedcoords0, unpairedcoords1) > math.dist(point1, point2)*epsilon:
         if printout:
           print("type 3 knee between key points",
               pair_of_grapes[0][0].key_point ,
