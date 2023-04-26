@@ -512,6 +512,132 @@ def make_medial_axis(numpts, epsilon, grid_density, inputpts,
         plt.savefig('../shapes_medax/' + figsavename, dpi = 300, pad_inches = 1)
     plt.show()
 
+def make_poisson(inputpts, llama, seed = 0, display = False):
+    # inputpts should be column vec of x,y coords in 2D
+    xMin = np.min(inputpts[:,0])
+    xMax = np.max(inputpts[:,0])
+    yMin = np.min(inputpts[:,1])
+    yMax = np.max(inputpts[:,1])
+    
+    # rectangle dims
+    xDelta = xMax - xMin; yDelta = yMax - yMin; 
+    areaTotal = xDelta*yDelta;
+
+    # note: llama/lambda is intensity (ie mean density) 
+    # of the Poisson pt process
+    
+    # this fixes a seed for reproducability (so it's not random)
+    seed = 0
+    g = np.random.default_rng(seed)
+    numbPoints = g.poisson(llama * areaTotal)
+
+    #Simulate a Poisson point process
+    xx = xDelta*g.uniform(0,1,numbPoints) + xMin;
+    yy = yDelta*g.uniform(0,1,numbPoints) + yMin;
+    
+    if display:
+        plt.plot(xx, yy, 'o')
+        plt.plot(inputpts[:,0], inputpts[:,1], '-o')
+        
+    points = np.column_stack([xx.ravel(), yy.ravel()])
+    return points
+
+def draw_edge(plt, p, q, *args, **kwargs):
+    plt.plot([p[0], q[0]], [p[1], q[1]], *args, **kwargs)
+
+def make_poisson_vor_med_ax(inputt, n, epsilon, 
+                            poisson_intensity, axisdim, 
+                            use_dist_based_alg = True, 
+                            printinfo = False, textboxon = True):
+
+    xMin = np.min(inputt[:,0])
+    xMax = np.max(inputt[:,0])
+    yMin = np.min(inputt[:,1])
+    yMax = np.max(inputt[:,1])
+
+    # function of control params
+    poissonpts = make_poisson(inputt, poisson_intensity, display = False);
+
+    # initial plotting: plot input (such as ellipse)
+    # also plot poisson points 
+    fig, ax = plt.subplots()
+    ax.set_aspect('equal')
+    ax.set_xlim(xMin -1, xMax + 1)
+    ax.set_ylim(yMin - 1, yMax + 1)
+
+    ax.plot(inputt[:,0], inputt[:,1], "-o")
+    ax.plot(poissonpts[:,0], poissonpts[:,1], "o")
+
+    # generate vor verts
+    vor = Voronoi(poissonpts)
+
+    # Determine if each vor point is inside polygon
+    # note: inputt means ie ellipse
+    # ridgepts are the verts of vor edges
+    inside = mplPath(inputt).contains_points(vor.vertices)
+    ridge_vertices = np.array(vor.ridge_vertices)
+
+    # voronoi packages indices such that -1 doesn't mean last element, 
+    # it means element is inf
+    infis0 = ridge_vertices[:,0] >= 0
+    infis1 = ridge_vertices[:,1] >= 0
+    # t/f vectors that say if the point indexed by ids is in or out
+    pt0inside = inside[ridge_vertices[:,0]]
+    pt1inside = inside[ridge_vertices[:,1]]
+
+    # indices of vertices of lines we want
+    # (these are the indices of vertices of voronoi edges which are 
+    # not infinite and are also inside the polygon)
+    ids = ridge_vertices[infis0 & infis1 & pt0inside & pt1inside]
+
+    # these are vor verts that we want (inside polygon and not inf)
+    # as coords, not as indices
+    verts_of_inside_vor_edges = vor.vertices[ids]
+
+    # ridge pts are input pts (poisson pt pr points)
+    # delaunay triangulation
+    ridge_points = np.array(vor.ridge_points)
+    ids2 = ridge_points[infis0 & infis1 & pt0inside & pt1inside]
+
+    # these are the del verts we want, ie the dual edges to vor edges that
+    # satisfy the constraints of being inside the polygon and not inf. 
+    # the del edges won't be infinite, but they may go a little outside
+    # the polygon. that's okay.
+    del_edges_of_good_vor_edges = vor.points[ids2]
+
+    # run over all good delaunay edges and check between verts for knee. 
+    # if knee is found, plot corresp vor edge.
+    for i in range(len(del_edges_of_good_vor_edges)):
+        vin = vineyard()
+        # re init these just to make sure we can run this multiple times
+        vin.pointset = np.empty(2)
+        vin.complexlist = []
+        vin.matrixlist = []
+        vin.keypointlist = []
+
+        # check between p0 and p1 for knees
+        p0, p1 = del_edges_of_good_vor_edges[i]
+
+        # if knee, draw the edge between v0 v1
+        v0, v1 = verts_of_inside_vor_edges[i]
+        if kneebetween(p0, p1, inputt, axisdim, vin, n = n, 
+                          i = 0, j = 1, eps = epsilon, 
+                          printout = printinfo, 
+                          use_distknee = use_dist_based_alg)[0]:
+            draw_edge(ax, v0, v1, color = 'black')
+
+    if textboxon:
+        if use_dist_based_alg:
+            alg = 'distcomp'
+        else:
+            alg = 'nearnb'
+        plt.text(xMax - (xMax - xMin)/10 - 1, yMin - .8, f" ax {axisdim}\nn: {n} \neps: {epsilon} \nalg: {alg}", 
+               fontsize = 12, bbox = dict(facecolor='white', alpha=0.75, edgecolor = 'white'))
+        plt.savefig('../shapes_medax/test.png', 
+                    dpi = 300, pad_inches = 1)
+
+    plt.show()
+
 def array2sparse(matrix):
 #     we're going to make a better repr of a matrix. 
 #     we'll have a dictionary, like this:
