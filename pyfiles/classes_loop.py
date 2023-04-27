@@ -3,6 +3,7 @@ import math
 from scipy.spatial import distance
 # visualization
 from scipy.spatial import Voronoi, voronoi_plot_2d
+from scipy.ndimage import gaussian_filter1d
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from matplotlib.colors import ListedColormap, LinearSegmentedColormap
@@ -53,6 +54,64 @@ def ellipse_example(numpts = 7, display = False):
     fig.set_figwidth(30)
     fig.set_figheight(30)
     plt.show()
+  return points
+
+def bumped_ellipse_example(numpts = 70, display=False, 
+                           bump = 0.5, k = 0.4, smooth = 1,
+                           leftpt = 0, rightpt = 2):
+    
+  # parametric equation for ellipse:
+  # F(t) = (x(t), y(t)), where x(t) = a*cos(t) and y(t) = b*sin(t) + bump*sin(t)
+
+  # parameters for ellipse shape and sampling density
+  a = 5
+  b = 2
+
+  # number of points
+  t = np.linspace(0, 2*np.pi, numpts, endpoint=False)
+  x = a*np.cos(t)
+  y = b*np.sin(t) 
+  # on the top half of the ellipse, when y > 0, 
+  # a bump function is added 
+  y2 = y + np.where(y > 0, bump*np.sin(k*t), 0)
+  
+  bumprange = set({})
+  # we only want a small bump, so between leftpt and rightpt
+  for i in range(len(x)):
+    if x[i] > leftpt and x[i] < rightpt and y[i] > 0:
+      # here we update the y coord
+      y[i] = y2[i]
+      # we want to know the indices of the bumped y coords, 
+      # as well as just before and just after, if we want to 
+      # smooth out the bump
+      bumprange.add(i - 1)
+      bumprange.add(i)
+      bumprange.add(i + 1)
+          
+  # these are the bumped indices and a small nbhd
+  bumprange = list(bumprange)
+  
+  # instead of indices, we want the actual vert locations
+  yinrange = []
+  for i in range(len(bumprange)):
+    yinrange.append(y[bumprange[i]])
+      
+  # now we want to rearrange the bump verts to be smoother
+  # then we should reinsert them in the same indices
+  smoothbump = gaussian_filter1d(np.array(yinrange), smooth)
+  j = 0
+  for i in bumprange:
+    y[i] = smoothbump[j]
+    j += 1
+          
+  points = np.column_stack((x, y))
+  
+  if display:
+    fig, ax = plt.subplots()
+    ax.set_aspect('equal')
+    ax.plot(x, y, '-o')
+    plt.show()
+
   return points
 
 def rectangle_example(numpts=4, display=False):
@@ -193,6 +252,7 @@ def half_fermat_spiral(numpts=200, a=0.5, display=False):
     plt.show()
 
   return points
+
 
 def generate_filename(n, e, g, x_shift, y_shift, name, medaxdim, use_dist):
     filename = name + str(medaxdim) +  "th_n" + str(n) +"_e"+ str(e) +\
