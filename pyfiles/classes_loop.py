@@ -113,6 +113,66 @@ def bumped_ellipse_example(numpts = 70, display=False,
     plt.show()
 
   return points
+def more_bumps_ellipse_example(numpts = 70, display=False, 
+                           bump = 0.5, k = 0.4, smooth = 1,
+                           bumpends = [[0, 2]]):
+    
+    # parametric equation for ellipse:
+    # F(t) = (x(t), y(t)), where x(t) = a*cos(t) and y(t) = b*sin(t) + bump*sin(t)
+
+    # parameters for ellipse shape and sampling density
+    a = 5
+    b = 2
+
+    # number of points
+    t = np.linspace(0, 2*np.pi, numpts, endpoint=False)
+    x = a*np.cos(t)
+    y = b*np.sin(t) 
+    # on the top half of the ellipse, when y > 0, 
+    # a bump function is added 
+    y2 = y + np.where(y > 0, bump*np.sin(k*t), 0)
+
+    bumprange = set({})
+    # we only want a small bump, so between leftpt and rightpt
+    for b in range(len(bumpends)):
+        for i in range(len(x)):
+            if x[i] > bumpends[b][0] and x[i] < bumpends[b][1] and y[i] > 0:
+                # here we update the y coord
+                y[i] = y2[i]
+                # we want to know the indices of the bumped y coords, 
+                # as well as just before and just after, if we want to 
+                # smooth out the bump
+                bumprange.add(i - 2)
+                bumprange.add(i - 1)
+                bumprange.add(i)
+                bumprange.add(i + 1)
+                bumprange.add(i + 2)
+
+    # these are the bumped indices and a small nbhd
+    bumprange = list(bumprange)
+
+    # instead of indices, we want the actual vert locations
+    yinrange = []
+    for i in range(len(bumprange)):
+        yinrange.append(y[bumprange[i]])
+
+    # now we want to rearrange the bump verts to be smoother
+    # then we should reinsert them in the same indices
+    smoothbump = gaussian_filter1d(np.array(yinrange), smooth)
+    j = 0
+    for i in bumprange:
+        y[i] = smoothbump[j]
+        j += 1
+
+    points = np.column_stack((x, y))
+
+    if display:
+        fig, ax = plt.subplots()
+        ax.set_aspect('equal')
+        ax.plot(x, y, '-o')
+        plt.show()
+
+    return points
 
 def rectangle_example(numpts=4, display=False):
     # note: this goes in cw order, hopefully not an issue
@@ -322,6 +382,8 @@ def polygon_grid(vertices, cell_size, x_bump = 0, y_bump = 0, plot = True):
         ax1.set_title("Polygon Grid")
         ax1.set_aspect("equal")
 
+        plt.savefig('../shapes_medax/polygrid.png', 
+                dpi = 300, pad_inches = 1)
         plt.show()
     return points, inside, x_range, y_range
 
@@ -596,8 +658,13 @@ def make_poisson(inputpts, llama, seed = 0, display = False):
     yy = yDelta*g.uniform(0,1,numbPoints) + yMin;
     
     if display:
-        plt.plot(xx, yy, 'o')
-        plt.plot(inputpts[:,0], inputpts[:,1], '-o')
+        fig, ax = plt.subplots()
+        ax.set_aspect('equal')
+        ax.plot(inputpts[:,0], inputpts[:,1], '-o', color = 'steelblue')
+        ax.plot([inputpts[-1,0], inputpts[0,0]], 
+          [inputpts[-1,1], inputpts[0,1]], '-o', color = 'steelblue' )
+        ax.plot(xx, yy, 'o', color = 'plum')
+        
         
     points = np.column_stack([xx.ravel(), yy.ravel()])
     return points
@@ -625,8 +692,12 @@ def make_poisson_vor_med_ax(inputt, n, epsilon,
     ax.set_xlim(xMin -1, xMax + 1)
     ax.set_ylim(yMin - 1, yMax + 1)
 
-    ax.plot(inputt[:,0], inputt[:,1], "-o")
-    ax.plot(poissonpts[:,0], poissonpts[:,1], "o")
+    ax.plot(inputt[:,0], inputt[:,1], "-o", color = 'steelblue')
+    # # Plot the last line segment to connect the last and first points
+    ax.plot([inputt[-1][0], inputt[0][0]], [inputt[-1][1], inputt[0][1]], 
+      "-o", color='steelblue')
+
+    #ax.plot(poissonpts[:,0], poissonpts[:,1], "o", color = 'plum')
 
     # generate vor verts
     vor = Voronoi(poissonpts)
@@ -684,7 +755,9 @@ def make_poisson_vor_med_ax(inputt, n, epsilon,
                           i = 0, j = 1, eps = epsilon, 
                           printout = printinfo, 
                           use_distknee = use_dist_based_alg)[0]:
-            draw_edge(ax, v0, v1, color = 'black')
+            ax.plot(v0[0], v0[1], 'o', color = 'black', markersize = 3)
+            ax.plot(v1[0], v1[1], 'o', color = 'black', markersize = 3)
+            draw_edge(ax, v0, v1, color = 'black', linewidth = 1)
 
     if textboxon:
         if use_dist_based_alg:
@@ -693,8 +766,10 @@ def make_poisson_vor_med_ax(inputt, n, epsilon,
             alg = 'nearnb'
         plt.text(xMax - (xMax - xMin)/10 - 1, yMin - .8, f" ax {axisdim}\nn: {n} \neps: {epsilon} \nalg: {alg}", 
                fontsize = 12, bbox = dict(facecolor='white', alpha=0.75, edgecolor = 'white'))
-        plt.savefig('../shapes_medax/test.png', 
-                    dpi = 300, pad_inches = 1)
+    # ax.set_xlim(-1, 1)
+    # ax.set_ylim(-1, 1)
+    plt.savefig('../shapes_medax/test.png', 
+                dpi = 300, pad_inches = 1)
 
     plt.show()
 
