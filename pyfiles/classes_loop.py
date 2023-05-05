@@ -228,6 +228,31 @@ def epicycloid_example(numpts=200, display=False):
 
   return points
 
+def hypotrochoid_example(numpts=200, display=False):
+  # parametric equation for heart shape
+  # x = 16 sin^3(t)
+  # y = 13 cos(t) - 5 cos(2t) - 2 cos(3t) - cos(4t)
+  a = 1.66
+  b = .33
+ 
+
+  # parameters for sampling density
+  t = np.linspace(0, 2*np.pi, numpts)
+  x = (a+b)*np.cos(t) + b*np.cos((a+b)*t/b)
+  y = (a+b)*np.sin(t) + b*np.sin((a+b)*t/b)
+
+
+  points = np.array(list(zip(x,y)))
+
+  if display:
+    # plot heart shape
+    fig, (ax1) = plt.subplots(ncols=1, figsize=(10, 4))
+    ax1.set_aspect("equal")
+    ax1.plot(x, y, '-o', linewidth=2)
+    plt.show()
+
+  return points
+
 def heart_example(numpts=200, display=False):
   # parametric equation for heart shape
   # x = 16 sin^3(t)
