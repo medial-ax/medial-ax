@@ -761,6 +761,12 @@ def make_poisson_vor_med_ax(inputt, n, epsilon,
     # the polygon. that's okay.
     del_edges_of_good_vor_edges = vor.points[ids2]
 
+    # standard vor plot
+    voronoi_plot_2d(vor, ax, show_vertices= False, 
+                line_alpha = 0.2, show_points = False, 
+                point_colors='orange', line_colors = 'red',
+                point_size=10)
+
     # run over all good delaunay edges and check between verts for knee. 
     # if knee is found, plot corresp vor edge.
     for i in range(len(del_edges_of_good_vor_edges)):
@@ -783,6 +789,122 @@ def make_poisson_vor_med_ax(inputt, n, epsilon,
             ax.plot(v0[0], v0[1], 'o', color = 'black', markersize = 3)
             ax.plot(v1[0], v1[1], 'o', color = 'black', markersize = 3)
             draw_edge(ax, v0, v1, color = 'black', linewidth = 1)
+
+    if textboxon:
+        if use_dist_based_alg:
+            alg = 'distcomp'
+        else:
+            alg = 'nearnb'
+        plt.text(xMax - (xMax - xMin)/10 - 1, yMin - .8, f" ax {axisdim}\nn: {n} \neps: {epsilon} \nalg: {alg}", 
+               fontsize = 12, bbox = dict(facecolor='white', alpha=0.75, edgecolor = 'white'))
+    # ax.set_xlim(-1, 1)
+    # ax.set_ylim(-1, 1)
+    plt.savefig('../shapes_medax/test.png', 
+                dpi = 300, pad_inches = 1)
+
+    plt.show()
+
+def make_poisson_del_med_ax(inputt, n, epsilon, 
+                            poisson_intensity, axisdim, 
+                            use_dist_based_alg = True, 
+                            printinfo = False, textboxon = True):
+
+    xMin = np.min(inputt[:,0])
+    xMax = np.max(inputt[:,0])
+    yMin = np.min(inputt[:,1])
+    yMax = np.max(inputt[:,1])
+
+    # function of control params
+    poissonpts = make_poisson(inputt, poisson_intensity, display = False);
+
+    # initial plotting: plot input (such as ellipse)
+    # also plot poisson points 
+    fig, ax = plt.subplots()
+    ax.set_aspect('equal')
+    ax.set_xlim(xMin -1, xMax + 1)
+    ax.set_ylim(yMin - 1, yMax + 1)
+
+    ax.plot(inputt[:,0], inputt[:,1], "-o", color = 'steelblue')
+    # # Plot the last line segment to connect the last and first points
+    ax.plot([inputt[-1][0], inputt[0][0]], [inputt[-1][1], inputt[0][1]], 
+      "-o", color='steelblue')
+
+    #ax.plot(poissonpts[:,0], poissonpts[:,1], "o", color = 'plum')
+
+    # generate vor verts
+    vor = Voronoi(poissonpts)
+
+
+    ## above stays
+    
+    # Determine if each vor point is inside polygon
+    # note: inputt means ie ellipse
+    # ridgepts are the verts of vor edges
+    # inside = mplPath(inputt).contains_points(vor.vertices)
+    inside = mplPath(inputt).contains_points(vor.points)
+    # vor indices
+    ridge_vertices = np.array(vor.ridge_vertices)
+    # del indices
+    ridge_points = np.array(vor.ridge_points)
+
+    # voronoi packages indices such that -1 doesn't mean last element, 
+    # it means element is inf
+    infis0 = ridge_vertices[:,0] >= 0
+    infis1 = ridge_vertices[:,1] >= 0
+    # t/f vectors that say if the point indexed by ids is in or out
+    # note: these are del now
+    pt0inside = inside[ridge_points[:,0]]
+    pt1inside = inside[ridge_points[:,1]]
+
+    # indices of vertices of lines we want
+    # (these are the indices of vertices of voronoi edges which are 
+    # not infinite and are also inside the polygon)
+    ids = ridge_points[infis0 & infis1 & pt0inside & pt1inside]
+
+    # these are del verts that we want (inside polygon)
+    # as coords, not as indices
+    verts_of_good_del_edges = vor.points[ids]
+
+    # ridge pts are input pts (poisson pt pr points)
+    # next is vor edges
+    
+    ids2 = ridge_vertices[infis0 & infis1 & pt0inside & pt1inside]
+
+    # these are the del verts we want, ie the dual edges to vor edges that
+    # satisfy the constraints of being inside the polygon and not inf. 
+    # the del edges won't be infinite, but they may go a little outside
+    # the polygon. that's okay.
+    vor_edges_of_good_del_edges = vor.vertices[ids2]
+
+    # standard vor plot
+    voronoi_plot_2d(vor, ax, show_vertices= False, 
+                line_alpha = 0.2, show_points = False, 
+                point_colors='orange', line_colors = 'red',
+                point_size=10)
+
+    #ax.plot(poissonpts[:,0], poissonpts[:,1], 'o', color = 'blue', markersize = 10, alpha=0.2)
+    # run over all good delaunay edges and check between verts for knee. 
+    # if knee is found, plot corresp vor edge.
+    for i in range(len(vor_edges_of_good_del_edges)):
+        vin = vineyard()
+        # re init these just to make sure we can run this multiple times
+        vin.pointset = np.empty(2)
+        vin.complexlist = []
+        vin.matrixlist = []
+        vin.keypointlist = []
+
+        # check between p0 and p1 for knees
+        p0, p1 = vor_edges_of_good_del_edges[i]
+
+        # if knee, draw the edge between v0 v1
+        d0, d1 = verts_of_good_del_edges[i]
+        if kneebetween(p0, p1, inputt, axisdim, vin, n = n, 
+                          i = 0, j = 1, eps = epsilon, 
+                          printout = printinfo, 
+                          use_distknee = use_dist_based_alg)[0]:
+            ax.plot(d0[0], d0[1], 'o', color = 'black', markersize = 3)
+            ax.plot(d1[0], d1[1], 'o', color = 'black', markersize = 3)
+            draw_edge(ax, d0, d1, color = 'black', linewidth = 1)
 
     if textboxon:
         if use_dist_based_alg:
