@@ -4,14 +4,15 @@ from scipy.spatial import distance
 # visualization
 from scipy.spatial import Voronoi, voronoi_plot_2d
 from scipy.ndimage import gaussian_filter1d
+from scipy.stats import qmc
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from matplotlib.colors import ListedColormap, LinearSegmentedColormap
 
-# these are imports for matrix handling and display
-import pandas as pd
-from copy import deepcopy
-from IPython.display import display_html  # this is needed to display pretty matrices side by side
+# # these are imports for matrix handling and display
+# import pandas as pd
+# from copy import deepcopy
+# from IPython.display import display_html  # this is needed to display pretty matrices side by side
 import time 
 
 # for poly grid
@@ -339,10 +340,19 @@ def half_fermat_spiral(numpts=200, a=0.5, display=False):
   return points
 
 
-def generate_filename(n, e, g, x_shift, y_shift, name, medaxdim, use_dist):
-    filename = name + str(medaxdim) +  "th_n" + str(n) +"_e"+ str(e) +\
-        "_g" + str(g).translate(str.maketrans('_','_',string.punctuation))
-    if x_shift != 0:
+def generate_filename(n, e, g, x_shift, y_shift, name, 
+    medaxdim, use_dist, poisson_intensity, radius):
+    filename = name + str(medaxdim) +  "th_n" + str(n)
+    if e != None: 
+      filename = filename + "_e" + str(e)
+    if g != None: 
+      filename = filename + "_g" + str(g).translate(str.maketrans('_','_',string.punctuation))
+    if poisson_intensity != None: 
+      filename = filename + "_i" + str(poisson_intensity)
+    if radius != None: 
+      filename = filename + "_r" + str(round(radius,2))
+
+    if x_shift != 0 and x_shift != None:
       neg = False
       if x_shift < 0:
         neg = True
@@ -353,7 +363,7 @@ def generate_filename(n, e, g, x_shift, y_shift, name, medaxdim, use_dist):
         filename = filename + "_xx" + \
         str(x_shift).translate(str.maketrans('_','_',string.punctuation))
 
-    if y_shift != 0:
+    if y_shift != 0 and y_shift != None:
       neg = False
       if y_shift < 0:
         neg = True
@@ -589,24 +599,33 @@ def make_medial_axis(numpts, epsilon, grid_density, inputpts,
     fig, (ax1) = plt.subplots(ncols=1, figsize=(10, 4))
     ax1.set_aspect("equal")
 
-    ax1.plot(inputpts[:,0], inputpts[:,1], "o", color = "lightblue", markersize = 15)
-    if drawgrid:
-      ax1.plot(points[inside, 0], points[inside, 1], "x", color="black")
-      ax1.plot(points[~inside, 0], points[~inside, 1], "x", color="gray")
-
+    ax1.plot(inputpts[:,0], inputpts[:,1], "o", color = "steelblue", markersize = 5)
+    # this shows inside and outside grid centers
+    # if drawgrid:
+    #   ax1.plot(points[inside, 0], points[inside, 1], "x", color="black")
+    #   ax1.plot(points[~inside, 0], points[~inside, 1], "x", color="gray")
+    
+    for x in x_range:
+      # plot vert line at x coord from ymin to ymax
+      ax1.plot([x, x], [y_range[0], y_range[-1]], color="gray", alpha = 0.2)
+    for y in y_range:
+      ax1.plot([x_range[0], x_range[-1]], [y, y], color="gray", alpha = 0.2)
 
     # Plot the line segments between the points
     for i in range(len(inputpts)-1):
-        ax1.plot([inputpts[i][0], inputpts[i+1][0]], [inputpts[i][1], inputpts[i+1][1]], color='black')
+        ax1.plot([inputpts[i][0], inputpts[i+1][0]], [inputpts[i][1], inputpts[i+1][1]], color='steelblue')
 
     # Plot the last line segment to connect the last and first points
-    ax1.plot([inputpts[-1][0], inputpts[0][0]], [inputpts[-1][1], inputpts[0][1]], color='black')
+    ax1.plot([inputpts[-1][0], inputpts[0][0]], [inputpts[-1][1], inputpts[0][1]], color='steelblue')
 
 
     # need to be able to set grid density here
     # obviously vineyards need to be init out here, this is ridiculous
-
+    totalaxislength = 0
+    start_time = time.perf_counter()
     for i in range(len(neighbs)):
+        current_time = time.perf_counter()
+        print(f"progress: {i + 1} out of {len(neighbs)} | total time elapsed: {round(current_time - start_time, 2)} sec\r",end = "")
         vin = vineyard()
         # re init these just to make sure we can run this multiple times
         vin.pointset = np.empty(2)
@@ -614,6 +633,7 @@ def make_medial_axis(numpts, epsilon, grid_density, inputpts,
         vin.matrixlist = []
         vin.keypointlist = []
 
+        # grid cell centers
         point1 = neighbs[i][0]
         point2 = neighbs[i][1]
         # point1, point2, kneedim, vin, n = 20, i = 0, j = 1, 
@@ -627,7 +647,7 @@ def make_medial_axis(numpts, epsilon, grid_density, inputpts,
           i = 0, j = 1, eps = epsilon, printout = printout, use_distknee = use_distknee)[0]:
             if plotpoints:
               ax1.plot((point1[0] + point2[0])/2, (point1[1] + point2[1])/2, 
-                       "o", color = "red",markersize = 10)
+                       "o", color = "black",markersize = 10)
 
             # we also want to plot the line between the grid cells
             # Calculate the midpoint of the line segment connecting the two vertices
@@ -638,13 +658,14 @@ def make_medial_axis(numpts, epsilon, grid_density, inputpts,
 
             # Calculate the perpendicular vector by swapping the x and y coordinates and negating one of them
             perp_vector = np.array([-vector[1], vector[0]])
-
+            # these are the ones we actually draw
             # Calculate the coordinates of the other two vertices by adding and subtracting the perpendicular vector from the midpoint
             point3 = midpoint + perp_vector / 2
             point4 = midpoint - perp_vector / 2
-
+            totalaxislength += math.sqrt((point3[0] - point4[0])**2 + (point3[1] - point4[1])**2)
+            
             # plot the line
-            ax1.plot([point3[0], point4[0]], [point3[1], point4[1]], color='red')
+            ax1.plot([point3[0], point4[0]], [point3[1], point4[1]], color='black', linewidth = 1)
         # else:
         #   ax1.plot((point1[0] + point2[0])/2, (point1[1] + point2[1])/2, 
         #                "o", color = "blue",markersize = 10)
@@ -656,10 +677,12 @@ def make_medial_axis(numpts, epsilon, grid_density, inputpts,
       plt.text(textboxcoords[0], textboxcoords[1], design + f" ax {axis}\nn: {numpts} \neps: {epsilon} \ngrid: {grid_density} \nalg: {alg}", 
                fontsize = 12, bbox = dict(facecolor='white', alpha=0.75, edgecolor = 'white'))
     if savefig:
-        plt.savefig('../shapes_medax/' + figsavename, dpi = 300, pad_inches = 1)
+        plt.savefig('../shapes_medax/'  + figsavename + '_len' + str(round(totalaxislength/2,2)) + '.png', dpi = 300, pad_inches = 1)
     plt.show()
+    print("approx length of med ax: ",totalaxislength/2)
+    # return {"length" : totalaxislength/2}
 
-def make_poisson(inputpts, llama, seed = 0, display = False):
+def make_poisson(inputpts, llama, radius, seed = 0, display = False):
     # inputpts should be column vec of x,y coords in 2D
     xMin = np.min(inputpts[:,0])
     xMax = np.max(inputpts[:,0])
@@ -692,13 +715,25 @@ def make_poisson(inputpts, llama, seed = 0, display = False):
         
         
     points = np.column_stack([xx.ravel(), yy.ravel()])
-    return points
+    # below is the tricksy blue noise thing
+    scale = max(xDelta, yDelta)
+    rng = g
+    # radius = 1/(2*(math.sqrt(llama)))
+
+    engine = qmc.PoissonDisk(d=2, radius=radius, seed=rng)
+    # these are in [0,1]
+    sample = engine.random(4*llama)
+    print(radius, llama, sample.shape)
+    scaledsample = sample*scale + np.array([xMin + xDelta/2 - scale/2, yMin + yDelta/2 - scale/2])
+    # return points
+    return scaledsample
 
 def draw_edge(plt, p, q, *args, **kwargs):
     plt.plot([p[0], q[0]], [p[1], q[1]], *args, **kwargs)
 
 def make_poisson_vor_med_ax(inputt, n, epsilon, 
-                            poisson_intensity, axisdim, 
+                            poisson_intensity, radius, axisdim,
+                            figsavename, 
                             use_dist_based_alg = True, 
                             printinfo = False, textboxon = True):
 
@@ -708,7 +743,7 @@ def make_poisson_vor_med_ax(inputt, n, epsilon,
     yMax = np.max(inputt[:,1])
 
     # function of control params
-    poissonpts = make_poisson(inputt, poisson_intensity, display = False);
+    poissonpts = make_poisson(inputt, poisson_intensity, radius, display = False);
 
     # initial plotting: plot input (such as ellipse)
     # also plot poisson points 
@@ -764,12 +799,19 @@ def make_poisson_vor_med_ax(inputt, n, epsilon,
     # standard vor plot
     voronoi_plot_2d(vor, ax, show_vertices= False, 
                 line_alpha = 0.2, show_points = False, 
-                point_colors='orange', line_colors = 'red',
+                point_colors='orange', line_colors = 'gray',
                 point_size=10)
 
     # run over all good delaunay edges and check between verts for knee. 
     # if knee is found, plot corresp vor edge.
-    for i in range(len(del_edges_of_good_vor_edges)):
+    # if knee is found, plot corresp vor edge.
+    numedges = len(del_edges_of_good_vor_edges)
+    totalaxislength = 0
+    start_time = time.perf_counter()
+    for i in range(numedges):
+        current_time = time.perf_counter()
+        print(f"progress: {i + 1} out of {numedges} | total time elapsed: {round(current_time - start_time, 2)} sec\r",end = "")
+        #print(f"total time elapsed: {round(current_time - start_time, 2)}\r",end = "")
         vin = vineyard()
         # re init these just to make sure we can run this multiple times
         vin.pointset = np.empty(2)
@@ -786,9 +828,11 @@ def make_poisson_vor_med_ax(inputt, n, epsilon,
                           i = 0, j = 1, eps = epsilon, 
                           printout = printinfo, 
                           use_distknee = use_dist_based_alg)[0]:
-            ax.plot(v0[0], v0[1], 'o', color = 'black', markersize = 3)
-            ax.plot(v1[0], v1[1], 'o', color = 'black', markersize = 3)
+            # plot verts
+            # ax.plot(v0[0], v0[1], 'o', color = 'black', markersize = 3)
+            # ax.plot(v1[0], v1[1], 'o', color = 'black', markersize = 3)
             draw_edge(ax, v0, v1, color = 'black', linewidth = 1)
+            totalaxislength += math.sqrt((v0[0] - v1[0])**2 + (v0[1] - v1[1])**2)
 
     if textboxon:
         if use_dist_based_alg:
@@ -799,13 +843,14 @@ def make_poisson_vor_med_ax(inputt, n, epsilon,
                fontsize = 12, bbox = dict(facecolor='white', alpha=0.75, edgecolor = 'white'))
     # ax.set_xlim(-1, 1)
     # ax.set_ylim(-1, 1)
-    plt.savefig('../shapes_medax/test.png', 
-                dpi = 300, pad_inches = 1)
+    plt.savefig('../shapes_medax/'  + figsavename +'_len' + str(round(totalaxislength,2)) + '.png', dpi = 300, pad_inches = 1)
 
     plt.show()
+    print("length of med ax: ",totalaxislength)
 
 def make_poisson_del_med_ax(inputt, n, epsilon, 
-                            poisson_intensity, axisdim, 
+                            poisson_intensity, radius, axisdim, 
+                            figsavename,
                             use_dist_based_alg = True, 
                             printinfo = False, textboxon = True):
 
@@ -815,7 +860,7 @@ def make_poisson_del_med_ax(inputt, n, epsilon,
     yMax = np.max(inputt[:,1])
 
     # function of control params
-    poissonpts = make_poisson(inputt, poisson_intensity, display = False);
+    poissonpts = make_poisson(inputt, poisson_intensity, radius, display = False);
 
     # initial plotting: plot input (such as ellipse)
     # also plot poisson points 
@@ -879,13 +924,19 @@ def make_poisson_del_med_ax(inputt, n, epsilon,
     # standard vor plot
     voronoi_plot_2d(vor, ax, show_vertices= False, 
                 line_alpha = 0.2, show_points = False, 
-                point_colors='orange', line_colors = 'red',
+                point_colors='orange', line_colors = 'gray',
                 point_size=10)
 
     #ax.plot(poissonpts[:,0], poissonpts[:,1], 'o', color = 'blue', markersize = 10, alpha=0.2)
     # run over all good delaunay edges and check between verts for knee. 
     # if knee is found, plot corresp vor edge.
-    for i in range(len(vor_edges_of_good_del_edges)):
+    numedges = len(vor_edges_of_good_del_edges)
+    totalaxislength = 0
+    start_time = time.perf_counter()
+    for i in range(numedges):
+        current_time = time.perf_counter()
+        print(f"progress: {i + 1} out of {numedges} | total time elapsed: {round(current_time - start_time, 2)} sec\r",end = "")
+        #print(f"total time elapsed: {round(current_time - start_time, 2)}\r",end = "")
         vin = vineyard()
         # re init these just to make sure we can run this multiple times
         vin.pointset = np.empty(2)
@@ -902,9 +953,12 @@ def make_poisson_del_med_ax(inputt, n, epsilon,
                           i = 0, j = 1, eps = epsilon, 
                           printout = printinfo, 
                           use_distknee = use_dist_based_alg)[0]:
-            ax.plot(d0[0], d0[1], 'o', color = 'black', markersize = 3)
-            ax.plot(d1[0], d1[1], 'o', color = 'black', markersize = 3)
+            # plot points
+            # ax.plot(d0[0], d0[1], 'o', color = 'black', markersize = 3)
+            # ax.plot(d1[0], d1[1], 'o', color = 'black', markersize = 3)
+            totalaxislength += math.sqrt((d0[0] - d1[0])**2 + (d0[1] - d1[1])**2)
             draw_edge(ax, d0, d1, color = 'black', linewidth = 1)
+    print("\nlength of med ax approx", totalaxislength)
 
     if textboxon:
         if use_dist_based_alg:
@@ -913,11 +967,9 @@ def make_poisson_del_med_ax(inputt, n, epsilon,
             alg = 'nearnb'
         plt.text(xMax - (xMax - xMin)/10 - 1, yMin - .8, f" ax {axisdim}\nn: {n} \neps: {epsilon} \nalg: {alg}", 
                fontsize = 12, bbox = dict(facecolor='white', alpha=0.75, edgecolor = 'white'))
-    # ax.set_xlim(-1, 1)
-    # ax.set_ylim(-1, 1)
-    plt.savefig('../shapes_medax/test.png', 
-                dpi = 300, pad_inches = 1)
-
+    # ax.set_xlim(-5, 5)
+    # ax.set_ylim(-5, 5)
+    plt.savefig('../shapes_medax/'  + figsavename +'_len' + str(round(totalaxislength,2)) + '.png', dpi = 300, pad_inches = 1)
     plt.show()
 
 def array2sparse(matrix):
