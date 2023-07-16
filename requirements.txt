@@ -1,0 +1,4 @@
+scipy ~= 1.10
+matplotlib ~= 3.7.1
+numpy ~= 1.23
+jupyter

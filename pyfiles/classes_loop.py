@@ -417,7 +417,7 @@ def polygon_grid(vertices, cell_size, x_bump = 0, y_bump = 0, plot = True):
         ax1.set_title("Polygon Grid")
         ax1.set_aspect("equal")
 
-        plt.savefig('../shapes_medax/polygrid.png', 
+        plt.savefig('./output/polygrid.png', 
                 dpi = 300, pad_inches = 1)
         plt.show()
     return points, inside, x_range, y_range
@@ -677,7 +677,7 @@ def make_medial_axis(numpts, epsilon, grid_density, inputpts,
       plt.text(textboxcoords[0], textboxcoords[1], design + f" ax {axis}\nn: {numpts} \neps: {epsilon} \ngrid: {grid_density} \nalg: {alg}", 
                fontsize = 12, bbox = dict(facecolor='white', alpha=0.75, edgecolor = 'white'))
     if savefig:
-        plt.savefig('../shapes_medax/'  + figsavename + '_len' + str(round(totalaxislength/2,2)) + '.png', dpi = 300, pad_inches = 1)
+        plt.savefig('./output/'  + figsavename + '_len' + str(round(totalaxislength/2,2)) + '.png', dpi = 300, pad_inches = 1)
     plt.show()
     print("approx length of med ax: ",totalaxislength/2)
     # return {"length" : totalaxislength/2}
@@ -843,7 +843,7 @@ def make_poisson_vor_med_ax(inputt, n, epsilon,
                fontsize = 12, bbox = dict(facecolor='white', alpha=0.75, edgecolor = 'white'))
     # ax.set_xlim(-1, 1)
     # ax.set_ylim(-1, 1)
-    plt.savefig('../shapes_medax/'  + figsavename +'_len' + str(round(totalaxislength,2)) + '.png', dpi = 300, pad_inches = 1)
+    plt.savefig('./output/'  + figsavename +'_len' + str(round(totalaxislength,2)) + '.png', dpi = 300, pad_inches = 1)
 
     plt.show()
     print("length of med ax: ",totalaxislength)
@@ -969,7 +969,7 @@ def make_poisson_del_med_ax(inputt, n, epsilon,
                fontsize = 12, bbox = dict(facecolor='white', alpha=0.75, edgecolor = 'white'))
     # ax.set_xlim(-5, 5)
     # ax.set_ylim(-5, 5)
-    plt.savefig('../shapes_medax/'  + figsavename +'_len' + str(round(totalaxislength,2)) + '.png', dpi = 300, pad_inches = 1)
+    plt.savefig('./output/'  + figsavename +'_len' + str(round(totalaxislength,2)) + '.png', dpi = 300, pad_inches = 1)
     plt.show()
 
 def array2sparse(matrix):
