@@ -2,6 +2,9 @@
 # Setup
 
 ```bash
+# Need python 3.10
+# if no venv, get venv
+pip3 install virtualenv
 # To create a new env
 virtualenv venv
 # To activate it
