@@ -1,3 +1,4 @@
+from typing import List
 import numpy as np
 import math
 from scipy.spatial import distance
@@ -885,6 +886,32 @@ def sparse2array(sparse, n):
 
 
 class simplex:
+    def point(coord: List[float], index: int):
+        """Create a new point simplex with given coordinates and index."""
+        s = simplex()
+        s.coords = coord
+        s.boundary = [-1]
+        s.index = index
+        s.orderedindex = -1
+        s.columnvalue = -1
+        s.dim = 0
+        s.radialdist = -1.0
+        s.parents = []
+        return s
+
+    def edge(boundary: List[int], index: int):
+        """Create a new edge simplex with given coordinates and index."""
+        s = simplex()
+        s.coords = []
+        s.boundary = boundary
+        s.index = index
+        s.orderedindex = -1
+        s.columnvalue = -1
+        s.dim = 1
+        s.radialdist = -1.0
+        s.parents = []
+        return s
+
     def __init__(self):
         # here we initialize everything. if defining an attribute with a function, must init func first.
         self.coords = []
