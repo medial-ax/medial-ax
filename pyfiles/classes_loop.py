@@ -551,7 +551,6 @@ def find_neighbors(i, inside, x_range, y_range):
         up = None
 
     # case five: we're in the interior and life is good
-
     # right neighbor
     if r != None and inside[i] and inside[i + 1]:
         neighbors.append(r)
