@@ -1,5 +1,5 @@
 from typing import List
-from .classes_loop import complex, simplex
+from classes_loop import complex, simplex
 
 
 def read_obj(filename: str) -> complex:
@@ -23,7 +23,7 @@ def read_obj(filename: str) -> complex:
             elif line.startswith("v"):
                 # vertex line looks like this:
                 # v -0.039375 1.021144 0.000000
-                coord = map(float, line.split(" ")[1:])
+                coord = [float(c) for c in line.split(" ")[1:]]
                 s = simplex.point(coord, point_index)
                 vertices.append(s)
                 point_index += 1
@@ -31,6 +31,7 @@ def read_obj(filename: str) -> complex:
                 # edge line looks like this:
                 # l 1 2
                 indices = map(int, line.split(" ")[1:])
+                indices = [x - 1 for x in indices]  # .obj files are 1-indexed
                 s = simplex.edge(indices, edge_index)
                 edges.append(s)
                 edge_index += 1
@@ -38,7 +39,7 @@ def read_obj(filename: str) -> complex:
                 print(line)
                 raise Exception("We don't know what to do about this yet")
         for edge in edges:
-            for i in edge.indices:
+            for i in edge.boundary:
                 vertices[i].parents.append(edge.index)
         cplx = complex()
         cplx.vertlist = vertices

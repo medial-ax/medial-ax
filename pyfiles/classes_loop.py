@@ -890,7 +890,6 @@ class simplex:
     """If the simplex is a point, this is the coordinates of the point.
         If not, this is empty."""
 
-    indices: List[int]
     boundary: List[int]
     index: int
     orderedindex: int
