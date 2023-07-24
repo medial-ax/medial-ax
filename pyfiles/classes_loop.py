@@ -81,10 +81,10 @@ def generate_filename(
     return filename
 
 
-def points_inside_polygon(vertices, cell_size, x_bump = 0, y_bump = 0):
+def points_inside_polygon(vertices, cell_size, x_bump=0, y_bump=0):
     # Compute bounding box of polygon
-    x_min, y_min = np.min(vertices, axis = 0)
-    x_max, y_max = np.max(vertices, axis = 0)
+    x_min, y_min = np.min(vertices, axis=0)
+    x_max, y_max = np.max(vertices, axis=0)
 
     # Compute grid shape and origin
     x_range = np.arange(x_min + x_bump, x_max + x_bump + cell_size, cell_size)
@@ -101,41 +101,41 @@ def points_inside_polygon(vertices, cell_size, x_bump = 0, y_bump = 0):
     return points, inside, x_range, y_range
 
 
-def polygon_grid(vertices, cell_size, x_bump = 0, y_bump = 0, plot = True):
+def polygon_grid(vertices, cell_size, x_bump=0, y_bump=0, plot=True):
     # Compute vertices inside polygons
     points, inside, x_range, y_range = points_inside_polygon(
-        vertices, cell_size, x_bump = x_bump, y_bump = y_bump
+        vertices, cell_size, x_bump=x_bump, y_bump=y_bump
     )
 
     if plot:
         # Plot polygons and grid points
-        fig, (ax1) = plt.subplots(ncols = 1, figsize = (10, 4))
-        ax1.fill(vertices[:, 0], vertices[:, 1], color = "#ccc")
+        fig, (ax1) = plt.subplots(ncols=1, figsize=(10, 4))
+        ax1.fill(vertices[:, 0], vertices[:, 1], color="#ccc")
 
-        ax1.plot(points[inside, 0], points[inside, 1], "o", color = "black")
+        ax1.plot(points[inside, 0], points[inside, 1], "o", color="black")
         # plot the outside points
-        ax1.plot(points[~inside, 0], points[~inside, 1], "x", color = "red")
+        ax1.plot(points[~inside, 0], points[~inside, 1], "x", color="red")
 
         ax1.set_title("Polygon Grid")
         ax1.set_aspect("equal")
 
-        plt.savefig("./output/polygrid.png", dpi = 300, pad_inches = 1)
+        plt.savefig("./output/polygrid.png", dpi=300, pad_inches=1)
         plt.show()
     return points, inside, x_range, y_range
 
 
 def plot_nbrs(i, points, inside, x_range, y_range):
-    fig, (ax1) = plt.subplots(ncols = 1, figsize = (10, 4))
+    fig, (ax1) = plt.subplots(ncols=1, figsize=(10, 4))
     ax1.set_aspect("equal")
-    ax1.plot(points[inside, 0], points[inside, 1], "o", color = "black")
-    ax1.plot(points[~inside, 0], points[~inside, 1], "x", color = "red")
+    ax1.plot(points[inside, 0], points[inside, 1], "o", color="black")
+    ax1.plot(points[~inside, 0], points[~inside, 1], "x", color="red")
     # length and width of grid
     # print(len(x_range), len(y_range))
     # center point
     if inside[i]:
-        ax1.plot(points[i, 0], points[i, 1], "o", color = "red", markersize = 10)
+        ax1.plot(points[i, 0], points[i, 1], "o", color="red", markersize=10)
     else:
-        ax1.plot(points[i, 0], points[i, 1], "x", color = "red", markersize = 10)
+        ax1.plot(points[i, 0], points[i, 1], "x", color="red", markersize=10)
 
     # right neighbor
     r = i + 1
@@ -1845,6 +1845,8 @@ class vineyard:
         # ie, unpaired, simplices (edges) instead of birth-death pairs.
         # this will need to be made more robust when we add triangles.
 
+        # TODO(#5): this seems related, though not exactly the closed loop assumption.
+
         for i in range(len(pair_of_grapes)):
             # one grape is one complex
             # all complexes have same underlying set, but different special point
@@ -1964,6 +1966,8 @@ class vineyard:
         # now that there are no triangles, we are looking at top-dimensional,
         # ie, unpaired, simplices (edges) instead of birth-death pairs.
         # this will need to be made more robust when we add triangles.
+
+        # TODO(#5): this seems related, though not exactly the closed loop assumption.
 
         for i in range(len(pair_of_grapes)):
             # one grape is one complex
