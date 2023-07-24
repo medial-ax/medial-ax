@@ -886,6 +886,21 @@ def sparse2array(sparse, n):
 
 
 class simplex:
+    coords: List[float]
+    """If the simplex is a point, this is the coordinates of the point.
+        If not, this is empty."""
+
+    indices: List[int]
+    boundary: List[int]
+    index: int
+    orderedindex: int
+    columnvalue: int
+    """This is the index of the column in the boundary matrix."""
+    dim: int
+    radialdist: float
+    parents: List[int]
+    """This is a list of the indices of the simplices that are the parents of this simplex."""
+
     def point(coord: List[float], index: int):
         """Create a new point simplex with given coordinates and index."""
         s = simplex()

@@ -1,3 +1,4 @@
+from typing import List
 from .classes_loop import complex, simplex
 
 
@@ -6,9 +7,10 @@ def read_obj(filename: str) -> complex:
     something??
     """
     with open(filename, "r") as f:
-        simplex_index = 0
-        vertices = []
-        edges = []
+        point_index = 0
+        edge_index = 0
+        vertices: List[simplex] = []
+        edges: List[simplex] = []
         for line in f.readlines():
             line = line.strip()
             if line.startswith("#"):
@@ -22,19 +24,22 @@ def read_obj(filename: str) -> complex:
                 # vertex line looks like this:
                 # v -0.039375 1.021144 0.000000
                 coord = map(float, line.split(" ")[1:])
-                s = simplex.point(coord, simplex_index)
+                s = simplex.point(coord, point_index)
                 vertices.append(s)
-                simplex_index += 1
+                point_index += 1
             elif line.startswith("l"):
                 # edge line looks like this:
                 # l 1 2
                 indices = map(int, line.split(" ")[1:])
-                s = simplex.edge(indices, simplex_index)
+                s = simplex.edge(indices, edge_index)
                 edges.append(s)
-                simplex_index += 1
+                edge_index += 1
             else:
                 print(line)
                 raise Exception("We don't know what to do about this yet")
+        for edge in edges:
+            for i in edge.indices:
+                vertices[i].parents.append(edge.index)
         cplx = complex()
         cplx.vertlist = vertices
         cplx.edgelist = edges
