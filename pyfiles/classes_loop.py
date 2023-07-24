@@ -1094,6 +1094,7 @@ class complex:
             self.vertlist.append(temp_simplex)
 
     def init_edges(self):
+        # TODO(#5): change this for other inputs
         for i in range(len(self.vertlist)):
             temp_edge = simplex()
             temp_edge.boundary = [i, (i + 1) % (len(self.vertlist))]
@@ -1136,6 +1137,7 @@ class complex:
 
         for i in range(len(self.vertlist)):
             temp_edge = simplex()
+            # TODO(#5): closed loop assumption
             j = (i + 1) % (len(self.vertlist))
             # i is the first vert in the edge, and j is the second.
             # this assumes we are dealing with a closed loop, in which case
