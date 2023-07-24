@@ -894,7 +894,8 @@ class simplex:
     index: int
     orderedindex: int
     columnvalue: int
-    """This is the index of the column in the boundary matrix."""
+    """This is the index of the column in the boundary matrix.  This is 1-indexed because of
+    the dummy column used for the empty set."""
     dim: int
     radialdist: float
     """This is the radial distance of the simplex from the key point."""

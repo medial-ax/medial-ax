@@ -1,5 +1,6 @@
 from typing import List
-from classes_loop import complex, simplex
+from classes_loop import simplex
+from complex import complex
 
 
 def read_obj(filename: str) -> complex:

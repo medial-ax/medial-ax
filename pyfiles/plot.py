@@ -33,36 +33,30 @@ def plot_complex(
     label_edges=False,
     label_verts=True,
     sp_pt_color="red",
-    timethings=False,
+    filename=None,
 ):
     points = np.array([v.coords for v in complex.vertlist])
-    # edges are repr as indices into points
-    edges = np.array([e.boundary for e in complex.edgelist])
 
     x = points[:, 0].flatten()
     y = points[:, 1].flatten()
 
     dists = [v.radialdist for v in complex.vertlist]
     maxx = max(dists)
-    # print(dists)
-    inds = [v.index for v in complex.vertlist]
-    # print(dists)
 
-    for edge_i, edge in enumerate(complex.edgelist):
-        # smartcolor = (1 - .8*(dists[i])/max(dists), .2, .2)
-        # change this so for i in 0 to len(x), it uses 1 - i*10%len(x)
-        # percentage = int(10*i/len(x))/10
-        percentage = dists[edge.boundary[0]] / maxx
-        # print(percentage)
-        smartcolor = color_sunset(percentage)
-        # print(smartcolor)
+    for edge in complex.edgelist:
+        # percentage = dists[edge.boundary[0]] / maxx
+        percentage = edge.columnvalue / (complex.nedges() + complex.nverts())
+        smartcolor = color_sunset(1 - percentage)
 
         point1 = complex.vertlist[edge.boundary[0]].coords
         point2 = complex.vertlist[edge.boundary[1]].coords
 
-        x_values = [point1[0], point2[0]]
-        y_values = [point1[1], point2[1]]
-        plt.plot(x_values, y_values, color=smartcolor, linewidth=3)
+        plt.plot(
+            [point1[0], point2[0]],
+            [point1[1], point2[1]],
+            color=smartcolor,
+            linewidth=3,
+        )
 
         # label edges for debugging
         if label_edges or False:
@@ -135,11 +129,20 @@ def plot_complex(
     plt.plot(
         complex.key_point[0],
         complex.key_point[1],
-        color=sp_pt_color,
+        color="black",
         marker="o",
-        markersize=1,
+        markersize=8,
+    )
+    plt.plot(
+        complex.key_point[0],
+        complex.key_point[1],
+        color="red",
+        marker="o",
+        markersize=6,
     )
 
     plt.axis("equal")
     plt.grid(True)
-    plt.show()
+    if filename:
+        plt.savefig(filename, dpi=300)
+    return plt
