@@ -897,6 +897,7 @@ class simplex:
     """This is the index of the column in the boundary matrix."""
     dim: int
     radialdist: float
+    """This is the radial distance of the simplex from the key point."""
     parents: List[int]
     """This is a list of the indices of the simplices that are the parents of this simplex."""
 
@@ -953,6 +954,10 @@ class simplex:
 
 
 class complex:
+    vertlist: List[simplex]
+    edgelist: List[simplex]
+    key_point: List[float]
+
     def __init__(self):
         # seems like it's fine to have lists as long as they're not parameters of the class
         # otherwise, they're shared by the whole class and that is no

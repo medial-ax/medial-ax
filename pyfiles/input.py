@@ -23,7 +23,8 @@ def read_obj(filename: str) -> complex:
             elif line.startswith("v"):
                 # vertex line looks like this:
                 # v -0.039375 1.021144 0.000000
-                coord = [float(c) for c in line.split(" ")[1:]]
+                # TODO(#6): read all coordinates
+                coord = [float(c) for c in line.split(" ")[1:3]]
                 s = simplex.point(coord, point_index)
                 vertices.append(s)
                 point_index += 1
