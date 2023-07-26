@@ -1,4 +1,4 @@
-from classes_loop import complex
+from complex import complex
 
 from matplotlib import pyplot as plt
 import numpy as np
