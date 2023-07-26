@@ -18,6 +18,7 @@ def color_sunset(f: float) -> tuple[float, float, float]:
         (1.0, float(0xFF) / 255, float(0xA6) / 255, float(0x00) / 255),
     ]
     bucket = int(f // 0.2)
+    # frac is percentage of way f is between 0 and 1
     frac = (f % 0.2) * 5
     bbucket = (bucket + 1) if bucket < len(lst) - 1 else bucket
     return (
