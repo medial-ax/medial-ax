@@ -45,9 +45,9 @@ class complex:
 
         def key(s: simplex):
             if s.dim == 0:
-                return (distlist[s.index], 0)
+                return (distlist[s.index], 0, s.index)
             elif s.dim == 1:
-                return (max([distlist[i] for i in s.boundary]), 1)
+                return (max([distlist[i] for i in s.boundary]), 1, s.index)
             else:
                 raise Exception("Only works for simplices of dimension 0 or 1")
 

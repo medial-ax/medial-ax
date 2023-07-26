@@ -20,6 +20,7 @@ def color_sunset(f: float) -> tuple[float, float, float]:
     bucket = int(f // 0.2)
     frac = (f % 0.2) * 5
     bbucket = (bucket + 1) if bucket < len(lst) - 1 else bucket
+    # Since the channels are <= 1, the sums below are also <= 1
     return (
         lst[bucket][1] * (1 - frac) + lst[bbucket][1] * frac,
         lst[bucket][2] * (1 - frac) + lst[bbucket][2] * frac,
@@ -45,7 +46,8 @@ def plot_complex(
 
     for edge in complex.edgelist:
         # percentage = dists[edge.boundary[0]] / maxx
-        percentage = edge.columnvalue / (complex.nedges() + complex.nverts())
+        # percentage = edge.columnvalue / (complex.nedges() + complex.nverts())
+        percentage = max([dists[v] for v in edge.boundary]) / maxx
         smartcolor = color_sunset(1 - percentage)
 
         point1 = complex.vertlist[edge.boundary[0]].coords
