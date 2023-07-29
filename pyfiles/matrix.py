@@ -69,7 +69,25 @@ class bdmatrix:
     lists.
     """
     bd_pairs: dict
+    """
+    Debugging info, set in `find_bd_pairs`.
+
+    Info about birth-death pairs. Here we are five lists
+    - `"birth"`: birth index
+    - `"death"`: death index
+    - `"classdim"`: dimension of the birth simplex
+    - `"b_simplex"`: birth simplex pretty printed simplex type (emptyset/v/e).
+    - `"d_simplex"`: death simplex pretty printed simplex type (emptyset/v/e).
+    """
     unpaired: dict
+    """
+    Debugging info, set in `find_bd_pairs`.
+
+    Info about unpaired simplices. Here we are three lists
+    - `"birth"`: birth index
+    - `"classdim"`: dimension of the simplex
+    - `"b_simplex"`: birth simplex pretty printed simplex type (emptyset/v/e).
+    """
 
     def __init__(self):
         # here, index refers as usual to the very initial index a simplex has
@@ -299,3 +317,116 @@ class bdmatrix:
             print("\nLowest Ones:")
             for key, value in self.lowestones.items():
                 print(key, ":", value)
+
+    def find_bettis(self):
+        # Betti_p = #zero_p - #low_p
+        betti_dummy = 0
+        betti_zero = 0
+        betti_one = 0
+
+        for x in self.zerocolumns["dim"]:
+            if x == -1:
+                betti_dummy += 1
+            if x == 0:
+                betti_zero += 1
+            if x == 1:
+                betti_one += 1
+
+        for x in self.lowestones["dim"]:
+            if x == -1:
+                betti_dummy -= 1
+            if x == 0:
+                betti_zero -= 1
+            if x == 1:
+                betti_one -= 1
+        return betti_dummy, betti_zero, betti_one
+
+    def find_bd_pairs(self, output=True):
+        # we reinitialize so we can run this function multiple times
+        # without worrying that things get too long and also wrong
+        self.bd_pairs = {
+            # initial index. we can't differentiate vert/edge this way,
+            # but we can by knowing classdim, so it's fine.
+            "birth": [],
+            "death": [],
+            "classdim": [],
+            "b_simplex": [],
+            "d_simplex": [],
+        }
+        self.unpaired = {
+            # classdim is the same as dim of birth simplex.
+            "birth": [],
+            "classdim": [],
+            "b_simplex": [],
+        }
+        died = True
+        paired_index = 0
+        unpaired_index = 0
+
+        for c in self.zerocolumns["col"]:
+            # col c in the matrix was a birth
+            # so we should check corresponding row to see
+            # if there is a bd pair there
+            died = False
+            # we assume first that it's an inf hom class (no death)
+            for r in self.lowestones["row"]:
+                if r == c:
+                    died = True
+            if died:
+                self.bd_pairs["classdim"].append(self.lowestones["dim"][paired_index])
+                self.bd_pairs["death"].append(
+                    self.lowestones["col_index"][paired_index]
+                )
+                self.bd_pairs["birth"].append(
+                    self.lowestones["row_index"][paired_index]
+                )
+
+                if self.lowestones["dim"][paired_index] == -1:
+                    self.bd_pairs["b_simplex"].append("emptyset")
+                    self.bd_pairs["d_simplex"].append("v")
+                if self.lowestones["dim"][paired_index] == 0:
+                    self.bd_pairs["b_simplex"].append("v")
+                    self.bd_pairs["d_simplex"].append("e")
+                if self.lowestones["dim"][paired_index] == 1:
+                    self.bd_pairs["b_simplex"].append("e")
+                paired_index += 1
+            if died == False:
+                self.unpaired["birth"].append(
+                    self.zerocolumns["col_index"][unpaired_index]
+                )
+                self.unpaired["classdim"].append(
+                    self.zerocolumns["dim"][unpaired_index]
+                )
+                if self.zerocolumns["dim"][unpaired_index] == -1:
+                    self.unpaired["b_simplex"].append("emptyset")
+                if self.zerocolumns["dim"][unpaired_index] == 0:
+                    self.unpaired["b_simplex"].append("v")
+                if self.zerocolumns["dim"][unpaired_index] == 1:
+                    self.unpaired["b_simplex"].append("e")
+            unpaired_index += 1
+        if output:
+            # this is more the actual output
+            # print("birth death pairs")
+            # for keys, value in self.bd_pairs.items():
+            #    print(keys, value)
+            # print("\n")
+            # print("infinite homology classes")
+            # for keys, value in self.unpaired.items():
+            #    print(keys, value)
+
+            # this is the pretty print output
+            print("simplices labeled by initial val, not column:\n")
+            for i in range(len(self.bd_pairs["birth"])):
+                # fstrings enable v0 instead of v 0
+                print(
+                    f'{self.bd_pairs["b_simplex"][i]}{self.bd_pairs["birth"][i]}',
+                    "birthed a",
+                    f'{self.bd_pairs["classdim"][i]}dim h class killed by',
+                    f'{self.bd_pairs["d_simplex"][i]}{self.bd_pairs["death"][i]}',
+                )
+            for i in range(len(self.unpaired["birth"])):
+                print(
+                    f'{self.unpaired["b_simplex"][i]}{self.unpaired["birth"][i]}',
+                    "birthed an inf",
+                    f'{self.unpaired["classdim"][i]}dim h class',
+                )
