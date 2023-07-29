@@ -3,7 +3,10 @@ from typing import List
 from scipy.spatial import distance
 
 
-def augment_with_radialdist(complex: complex):
+def augment_with_radialdist(complex: complex) -> List[float]:
+    """
+    Sets the `radialdist` attribute of every vertex in the complex.
+    """
     ret = []
     for s in complex.vertlist:
         # This has to be the squared euclidean distance, and not just the regular one.
