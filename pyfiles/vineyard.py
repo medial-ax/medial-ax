@@ -93,7 +93,6 @@ class vineyard:
                 print(key, ":", value)
 
         # add to vineyard
-        self.pointset = points
         self.complexlist.append(s_complex)
         self.matrixlist.append(matrix)
         self.keypointlist.append(key_point)
@@ -229,40 +228,36 @@ class vineyard:
         return is_emptyset_knee, is_zero_knee, epsilon
 
     def is_dist_knee(self, int_one, int_two, point1, point2, eps=1, printout=False):
-        # there may be more things we need to update if the ints are not 0 and 1
-        # read is_knee for rest of comments
+        # This is mostly a copy of `vineyard.is_knee`.
 
         pair_of_grapes = [
             [self.complexlist[0], self.complexlist[1]],
             [self.matrixlist[0], self.matrixlist[1]],
         ]
 
+        def nth_complex(i: int) -> complex:
+            return pair_of_grapes[0][i]
+
+        def nth_matrix(i: int) -> bdmatrix:
+            return pair_of_grapes[1][i]
+
         pair_of_deaths = []
         dims_of_deaths = []
         pair_of_unpaired = []
 
-        # A knee involves two dims, a d dim death and a d + 1 birth. We refer to
-        # a knee by the lower (death) dimension.
         is_emptyset_knee = False
         is_zero_knee = False
 
         for i in range(len(pair_of_grapes)):
-            # One grape is one complex. All complexes have same underlying set,
-            # but different special point
-            deaths = pair_of_grapes[1][i].bd_pairs["death"]
-
-            dims = pair_of_grapes[1][i].bd_pairs["classdim"]
+            deaths = nth_matrix(i).bd_pairs["death"]
+            dims = nth_matrix(i).bd_pairs["classdim"]
             for j in range(len(deaths)):
-                # find the exactly one death of the empty simplex
                 if dims[j] == -1:
                     pair_of_deaths.append(deaths[j])
 
         if printout:
             print("verts that killed the empy set: \n", pair_of_deaths)
 
-        # note, we are already referring to the simplices by their index, which
-        # was the initial parametric sampling, so they are in order so we can
-        # use this number to find nearest neighbor relationship
         epsilon = eps
 
         # range is inclusive on left and excl on right, so need +1 if the dist
@@ -275,11 +270,10 @@ class vineyard:
         for i in range(len(self.complexlist[0].vertlist)):
             if pair_of_deaths[0] == self.complexlist[0].vertlist[i].index:
                 deathcoords0 = self.complexlist[0].vertlist[i].coords
-
             if pair_of_deaths[1] == self.complexlist[1].vertlist[i].index:
                 deathcoords1 = self.complexlist[1].vertlist[i].coords
 
-        if math.dist(deathcoords0, deathcoords1) > math.dist(point1, point2) * epsilon:
+        if math.dist(point1, point2) * epsilon < math.dist(deathcoords0, deathcoords1):
             # print("I am death", pair_of_deaths[0])
             if printout:
                 print(
@@ -302,17 +296,9 @@ class vineyard:
                     ")\n-----",
                 )
 
-        # now that there are no triangles, we are looking at top-dimensional,
-        # ie, unpaired, simplices (edges) instead of birth-death pairs. this
-        # will need to be made more robust when we add triangles.
-
-        # TODO(#5): this seems related, though not exactly the closed loop assumption.
-
         for i in range(len(pair_of_grapes)):
-            # One grape is one complex. All complexes have same underlying set,
-            # but different special point
-            one_d_births = pair_of_grapes[1][i].unpaired["birth"]
-            dims = pair_of_grapes[1][i].unpaired["classdim"]
+            one_d_births = nth_matrix(i).unpaired["birth"]
+            dims = nth_matrix(i).unpaired["classdim"]
             for j in range(len(one_d_births)):
                 # find the exactly one death of the empty simplex
                 if dims[j] == 1:
@@ -337,9 +323,8 @@ class vineyard:
         if printout:
             print("\nedges that birthed one-homology:\n", pair_of_unpaired)
 
-        if (
-            math.dist(unpairedcoords0, unpairedcoords1)
-            > math.dist(point1, point2) * epsilon
+        if math.dist(point1, point2) * epsilon < math.dist(
+            unpairedcoords0, unpairedcoords1
         ):
             if printout:
                 print(
