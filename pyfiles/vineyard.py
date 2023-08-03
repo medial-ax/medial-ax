@@ -11,7 +11,7 @@ from pyfiles.matrix import bdmatrix
 
 
 class vineyard:
-    pointset: np.array
+    pointset: np.ndarray
     complexlist: List[cplx.complex]
     matrixlist: List[mat.bdmatrix]
     keypointlist: List[List[float]]
@@ -34,7 +34,7 @@ class vineyard:
     def add_complex(
         self,
         complex: cplx.complex,
-        key_point,
+        key_point: np.ndarray,
         show_details=True,
         timethings=False,
     ):
@@ -227,7 +227,15 @@ class vineyard:
 
         return is_emptyset_knee, is_zero_knee, epsilon
 
-    def is_dist_knee(self, int_one, int_two, point1, point2, eps=1, printout=False):
+    def is_dist_knee(
+        self,
+        int_one,
+        int_two,
+        point1: np.ndarray,
+        point2: np.ndarray,
+        eps=1,
+        printout=False,
+    ):
         # This is mostly a copy of `vineyard.is_knee`.
 
         pair_of_grapes = [

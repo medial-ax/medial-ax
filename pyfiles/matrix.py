@@ -1,7 +1,10 @@
+from typing import Dict, List, Set
 import numpy as np
 
+import complex as cp
 
-def array2sparse(matrix):
+
+def array2sparse(matrix: np.ndarray) -> Dict[int, Set[int]]:
     #     we're going to make a better repr of a matrix.
     #     we'll have a dictionary, like this:
     #     d = {
@@ -22,7 +25,7 @@ def array2sparse(matrix):
     return sparseboii
 
 
-def findlowestone(sparsemat, col_num):
+def findlowestone(sparsemat: Dict[int, Set[int]], col_num: int):
     # a fast way to find the lowest one
     # in a column in a sparse dict repr of
     # a boundary matrix
@@ -33,7 +36,7 @@ def findlowestone(sparsemat, col_num):
         return max(sparsemat[col_num])
 
 
-def sparse2array(sparse, n):
+def sparse2array(sparse: Dict[int, Set[int]], n: int) -> np.ndarray:
     # n can be either height or width
     # by construction we only have square matrices
     matrix = np.zeros((n, n), dtype=int)
@@ -45,8 +48,8 @@ def sparse2array(sparse, n):
 
 
 class bdmatrix:
-    initmatrix: np.array
-    redmatrix: np.array
+    initmatrix: np.ndarray
+    redmatrix: np.ndarray
 
     lowestones: dict
     """
@@ -127,7 +130,7 @@ class bdmatrix:
             "b_simplex": [],
         }
 
-    def make_matrix(self, orderedcplx):
+    def make_matrix(self, orderedcplx: cp.complex):
         """
         Initialize `self.initmatrix` from the given ordered complex.
         """
@@ -249,7 +252,7 @@ class bdmatrix:
         self.zerocolumns["dim"].append(-1)
         self.zerocolumns["col_index"].append(-1)
 
-    def find_lows_zeros(self, all_simplices, output=False):
+    def find_lows_zeros(self, all_simplices: List[cp.simplex], output=False):
         """
         Compute stuff about the reduced matrix, like which columns are zeroed,
         and which simplices correspond to the lowest 1.
@@ -264,7 +267,7 @@ class bdmatrix:
         # I am pretty sure it is always first
         # I am also pretty sure there is always a 1 in row one
 
-        # NOTE: this makes the lists in `lowestones` not the same lenght, since
+        # NOTE: this makes the lists in `lowestones` not the same length, since
         # this one will have one more element. We'll have to remember this when
         # we use it.
         #

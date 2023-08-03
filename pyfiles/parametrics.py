@@ -11,7 +11,8 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 from matplotlib.colors import ListedColormap, LinearSegmentedColormap
 
-def ellipse_example(numpts=7, display=False):
+
+def ellipse_example(numpts=7, display=False) -> np.ndarray:
     # parametric eq for ellipse:
     # $F(t) = (x(t), y(t))$, where $x(t) = a*cos(t)$ and $y(t) = b*sin(t)$
 
@@ -23,7 +24,7 @@ def ellipse_example(numpts=7, display=False):
     c = numpts
     t = np.arange(0.0, 6.28, 6.28 / c)
     if display:
-        fig, (ax1, ax2) = plt.subplots(1, 2, sharey = True)
+        fig, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
     x = a * np.cos(t)
     y = b * np.sin(t)
     points = np.array(list(zip(x, y)))
@@ -59,7 +60,7 @@ def ellipse_example(numpts=7, display=False):
 
 def bumped_ellipse_example(
     numpts=70, display=False, bump=0.5, k=0.4, smooth=1, leftpt=0, rightpt=2
-):
+) -> np.ndarray:
     # parametric equation for ellipse:
     # F(t) = (x(t), y(t)), where x(t) = a*cos(t) and y(t) = b*sin(t) + bump*sin(t)
 
@@ -117,7 +118,7 @@ def bumped_ellipse_example(
 
 def more_bumps_ellipse_example(
     numpts=70, display=False, bump=0.5, k=0.4, smooth=1, bumpends=[[0, 2]]
-):
+) -> np.ndarray:
     # parametric equation for ellipse:
     # F(t) = (x(t), y(t)), where x(t) = a*cos(t) and y(t) = b*sin(t) + bump*sin(t)
 
@@ -176,7 +177,7 @@ def more_bumps_ellipse_example(
     return points
 
 
-def rectangle_example(numpts=4, display=False):
+def rectangle_example(numpts=4, display=False) -> np.ndarray:
     # note: this goes in cw order, hopefully not an issue
     # parameters for rectangle shape and sampling density
     width = 8
@@ -211,7 +212,7 @@ def rectangle_example(numpts=4, display=False):
     return points
 
 
-def epicycloid_example(numpts=200, display=False):
+def epicycloid_example(numpts=200, display=False) -> np.ndarray:
     # parametric equation for heart shape
     # x = 16 sin^3(t)
     # y = 13 cos(t) - 5 cos(2t) - 2 cos(3t) - cos(4t)
@@ -232,7 +233,7 @@ def epicycloid_example(numpts=200, display=False):
     return points
 
 
-def hypotrochoid_example(numpts=200, display=False):
+def hypotrochoid_example(numpts=200, display=False) -> np.ndarray:
     # parametric equation for heart shape
     # x = 16 sin^3(t)
     # y = 13 cos(t) - 5 cos(2t) - 2 cos(3t) - cos(4t)
@@ -256,7 +257,7 @@ def hypotrochoid_example(numpts=200, display=False):
     return points
 
 
-def heart_example(numpts=200, display=False):
+def heart_example(numpts=200, display=False) -> np.ndarray:
     # parametric equation for heart shape
     # x = 16 sin^3(t)
     # y = 13 cos(t) - 5 cos(2t) - 2 cos(3t) - cos(4t)
@@ -277,7 +278,7 @@ def heart_example(numpts=200, display=False):
     return points
 
 
-def rose_example(numpts=200, display=False):
+def rose_example(numpts=200, display=False) -> np.ndarray:
     # parametric equation for heart shape
     # x = 16 sin^3(t)
     # y = 13 cos(t) - 5 cos(2t) - 2 cos(3t) - cos(4t)
@@ -298,7 +299,7 @@ def rose_example(numpts=200, display=False):
     return points
 
 
-def fermat_spiral(numpts=400, a=5, display=False):
+def fermat_spiral(numpts=400, a=5, display=False) -> np.ndarray:
     # parametric equation for Fermat's Spiral
     # r^2 = a^2 * theta
     # https://elepa.files.wordpress.com/2013/11/fifty-famous-curves.pdf
@@ -324,7 +325,7 @@ def fermat_spiral(numpts=400, a=5, display=False):
     return points
 
 
-def half_fermat_spiral(numpts=200, a=0.5, display=False):
+def half_fermat_spiral(numpts=200, a=0.5, display=False) -> np.ndarray:
     # parametric equation for Fermat's Spiral
     # r^2 = a^2 * theta
 

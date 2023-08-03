@@ -98,7 +98,7 @@ class complex:
     def nverts(self):
         return len(self.vertlist)
 
-    def sort_by_dist(self, distlist):
+    def sort_by_dist(self, distlist: List[float]):
         """Sort the vertices with the given list of distances.  Other simplices
         are ordered by the largest distance of any face simplex.
 
