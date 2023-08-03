@@ -1,5 +1,7 @@
 from copy import deepcopy
 import time
+import math
+
 from typing import Callable, List, callable, int
 import numpy as np
 
@@ -209,6 +211,142 @@ class vineyard:
                     nth_complex(0).key_point,
                     "and",
                     nth_complex(1).key_point,
+                    "\n( with epsilon nbhd of",
+                    epsilon,
+                    ")",
+                )
+
+            is_zero_knee = True
+        else:
+            if printout:
+                print(
+                    "no type 3 knee for one-homology",
+                    "(with epsilon nbhd of",
+                    epsilon,
+                    ")",
+                )
+
+        return is_emptyset_knee, is_zero_knee, epsilon
+
+    def is_dist_knee(self, int_one, int_two, point1, point2, eps=1, printout=False):
+        # there may be more things we need to update if the ints are not 0 and 1
+        # read is_knee for rest of comments
+
+        pair_of_grapes = [
+            [self.complexlist[0], self.complexlist[1]],
+            [self.matrixlist[0], self.matrixlist[1]],
+        ]
+
+        pair_of_deaths = []
+        dims_of_deaths = []
+        pair_of_unpaired = []
+
+        # A knee involves two dims, a d dim death and a d + 1 birth. We refer to
+        # a knee by the lower (death) dimension.
+        is_emptyset_knee = False
+        is_zero_knee = False
+
+        for i in range(len(pair_of_grapes)):
+            # One grape is one complex. All complexes have same underlying set,
+            # but different special point
+            deaths = pair_of_grapes[1][i].bd_pairs["death"]
+
+            dims = pair_of_grapes[1][i].bd_pairs["classdim"]
+            for j in range(len(deaths)):
+                # find the exactly one death of the empty simplex
+                if dims[j] == -1:
+                    pair_of_deaths.append(deaths[j])
+
+        if printout:
+            print("verts that killed the empy set: \n", pair_of_deaths)
+
+        # note, we are already referring to the simplices by their index, which
+        # was the initial parametric sampling, so they are in order so we can
+        # use this number to find nearest neighbor relationship
+        epsilon = eps
+
+        # range is inclusive on left and excl on right, so need +1 if the dist
+        # between simps on input object is smaller than dist between comparison
+        # points on grid print(pair_of_deaths[0]) need a function to look up,
+        # given a vertex by index in complex 0 and complex 1, the corresponding
+        # simplex coords
+
+        # print(self.complexlist[0])
+        for i in range(len(self.complexlist[0].vertlist)):
+            if pair_of_deaths[0] == self.complexlist[0].vertlist[i].index:
+                deathcoords0 = self.complexlist[0].vertlist[i].coords
+
+            if pair_of_deaths[1] == self.complexlist[1].vertlist[i].index:
+                deathcoords1 = self.complexlist[1].vertlist[i].coords
+
+        if math.dist(deathcoords0, deathcoords1) > math.dist(point1, point2) * epsilon:
+            # print("I am death", pair_of_deaths[0])
+            if printout:
+                print(
+                    "type 3 knee between key points",
+                    pair_of_grapes[0][0].key_point,
+                    "and",
+                    pair_of_grapes[0][1].key_point,
+                    "\n( with epsilon nbhd of",
+                    epsilon,
+                    ")\n-----",
+                )
+            is_emptyset_knee = True
+
+        else:
+            if printout:
+                print(
+                    "no type 3 knee for zero-homology",
+                    "(with epsilon nbhd of",
+                    epsilon,
+                    ")\n-----",
+                )
+
+        # now that there are no triangles, we are looking at top-dimensional,
+        # ie, unpaired, simplices (edges) instead of birth-death pairs. this
+        # will need to be made more robust when we add triangles.
+
+        # TODO(#5): this seems related, though not exactly the closed loop assumption.
+
+        for i in range(len(pair_of_grapes)):
+            # One grape is one complex. All complexes have same underlying set,
+            # but different special point
+            one_d_births = pair_of_grapes[1][i].unpaired["birth"]
+            dims = pair_of_grapes[1][i].unpaired["classdim"]
+            for j in range(len(one_d_births)):
+                # find the exactly one death of the empty simplex
+                if dims[j] == 1:
+                    pair_of_unpaired.append(one_d_births[j])
+
+        # I THINK this extracts the coordinates of the the unpaired things. It
+        # is slower than it needs to be though. DESPERATELY NEED LOOKUP
+        # FUNCTIONS SO NO HORRIBLE FOR LOOPS.
+        for i in range(len(self.complexlist[0].edgelist)):
+            if pair_of_unpaired[0] == self.complexlist[0].edgelist[i].index:
+                ind0 = self.complexlist[0].edgelist[i].boundary[0]
+                for j in range(len(self.complexlist[0].vertlist)):
+                    if ind0 == self.complexlist[0].vertlist[j].index:
+                        unpairedcoords0 = self.complexlist[0].vertlist[j].coords
+
+            if pair_of_unpaired[1] == self.complexlist[1].edgelist[i].index:
+                ind1 = self.complexlist[1].edgelist[i].boundary[0]
+                for j in range(len(self.complexlist[1].vertlist)):
+                    if ind1 == self.complexlist[1].vertlist[j].index:
+                        unpairedcoords1 = self.complexlist[1].vertlist[j].coords
+
+        if printout:
+            print("\nedges that birthed one-homology:\n", pair_of_unpaired)
+
+        if (
+            math.dist(unpairedcoords0, unpairedcoords1)
+            > math.dist(point1, point2) * epsilon
+        ):
+            if printout:
+                print(
+                    "type 3 knee between key points",
+                    pair_of_grapes[0][0].key_point,
+                    "and",
+                    pair_of_grapes[0][1].key_point,
                     "\n( with epsilon nbhd of",
                     epsilon,
                     ")",
