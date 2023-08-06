@@ -2,7 +2,7 @@ from copy import deepcopy
 import time
 import math
 
-from typing import Callable, List, int
+from typing import Callable, List
 import numpy as np
 
 import complex as cplx

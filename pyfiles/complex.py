@@ -90,7 +90,7 @@ class complex:
         self.key_point = [0.0, 0.0]
 
     def __repr__(self):
-        return f"number of verts is {self.nverts()}, and number of edges is {self.nedges()} 2"
+        return f"number of verts is {self.nverts()}, and number of edges is {self.nedges()}."
 
     def nedges(self):
         return len(self.edgelist)
