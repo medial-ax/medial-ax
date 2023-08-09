@@ -14,9 +14,9 @@ deactivate
 pip install -r requirements.txt
 ```
 
-We've using `black` as our formatter.
-
 ## VS Code
+We're using `black` as our formatter.
+
 We're type annotating the Python code.  To ensure these are actually checked,
 put this in your `settings.json`:
 
