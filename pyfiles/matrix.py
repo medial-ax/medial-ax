@@ -166,7 +166,13 @@ class bdmatrix:
                 x = None
         self.initmatrix = orderedmat
 
-    def reduce(self):
+    def reduce(self, every_step=None):
+        """
+        `every_step`: callback function after a column operation has been done. Takes three arguments:
+        1. The sparse matrix.
+        2. The indices of the columns being added.
+        3. The old target column.
+        """
         # array2sparse is at top of file
         sparsemat = array2sparse(self.initmatrix)
         # print(sparsemat)
@@ -195,7 +201,10 @@ class bdmatrix:
                                 == findlowestone(sparsemat, j)
                                 and findlowestone(sparsemat, j0) != None
                             ):
+                                old_j = sparsemat[j]
                                 sparsemat[j] = sparsemat[j] ^ sparsemat[j0]
+                                if every_step:
+                                    every_step(sparsemat, (j, j0), old_j)
                                 # restart the while loop
                                 should_restart = True
                                 break

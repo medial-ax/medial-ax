@@ -92,7 +92,7 @@ def plot_complex(
                     # bbox=dict(facecolor="blue", alpha=0.75, edgecolor="white"),
                 )
 
-        plt.plot(*point1, color=smartcolor, marker="o", markersize=4)
+        plt.plot(*point1, color=smartcolor, marker="o", markersize=5)
         # add labels to points
         # white, sampling index
         if label_verts and False:
