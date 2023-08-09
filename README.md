@@ -14,6 +14,16 @@ deactivate
 pip install -r requirements.txt
 ```
 
+We've using `black` as our formatter.
+
+## VS Code
+We're type annotating the Python code.  To ensure these are actually checked,
+put this in your `settings.json`:
+
+```json
+    "python.analysis.typeCheckingMode": "basic"
+```
+
 ## Tests
 
 We've also got tests. To run the tests, run
