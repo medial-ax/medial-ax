@@ -1,6 +1,6 @@
 from typing import List
 
-import complex as cp
+from . import complex as cp
 
 
 def read_obj(filename: str) -> cp.complex:

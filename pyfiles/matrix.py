@@ -1,7 +1,7 @@
 from typing import Dict, List, Set
 import numpy as np
 
-import complex as cp
+from . import complex as cp
 
 
 def array2sparse(matrix: np.ndarray) -> Dict[int, Set[int]]:

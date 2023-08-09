@@ -5,9 +5,9 @@ import math
 from typing import Callable, List
 import numpy as np
 
-import complex as cplx
-import matrix as mat
-from pyfiles.matrix import bdmatrix
+from . import complex as cplx
+from . import matrix as mat
+from .matrix import bdmatrix
 
 
 class vineyard:
