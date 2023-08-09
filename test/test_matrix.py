@@ -5,9 +5,9 @@ from pyfiles import matrix as mat
 import numpy as np
 
 
-class TestTest(unittest.TestCase):
-    def setUp(self) -> None:
-        self.init_matrix = np.array(
+class TestMatrixReduction(unittest.TestCase):
+    def test_can_add_cols_in_rev_order(self):
+        init_matrix = np.array(
             [
                 [0, 1, 0, 0, 0, 0, 0, 0],
                 [0, 1, 1, 0, 0, 0, 0, 0],
@@ -19,8 +19,7 @@ class TestTest(unittest.TestCase):
                 [0, 0, 0, 0, 0, 0, 0, 0],
             ]
         )
-
-        self.reduced_matrix = np.array(
+        correct_reduced = np.array(
             [
                 [0, 1, 0, 0, 0, 0, 0, 1],
                 [0, 1, 1, 0, 0, 0, 0, 0],
@@ -32,10 +31,78 @@ class TestTest(unittest.TestCase):
                 [0, 0, 0, 0, 0, 0, 0, 0],
             ]
         )
-
-    def test_reduction_works(self):
         matrix = mat.bdmatrix()
-        matrix.initmatrix = self.init_matrix
+        matrix.initmatrix = init_matrix
         reduced = matrix.reduce()
-        all_entries_are_equal = (reduced == self.reduced_matrix).all()
+        all_entries_are_equal = (reduced == correct_reduced).all()
+        self.assertTrue(all_entries_are_equal)
+
+    def test_triangle(self):
+        init_matrix = np.array(
+            [
+                [0, 1, 1, 1, 0, 0, 0],
+                [0, 0, 0, 0, 1, 0, 1],
+                [0, 0, 0, 0, 1, 1, 0],
+                [0, 0, 0, 0, 0, 1, 1],
+                [0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0],
+            ]
+        )
+        correct_reduced = np.array(
+            [
+                [0, 1, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 1, 0, 0],
+                [0, 0, 0, 0, 1, 1, 0],
+                [0, 0, 0, 0, 0, 1, 0],
+                [0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0],
+            ]
+        )
+        matrix = mat.bdmatrix()
+        matrix.initmatrix = init_matrix
+        reduced = matrix.reduce()
+        all_entries_are_equal = (reduced == correct_reduced).all()
+        self.assertTrue(all_entries_are_equal)
+
+    def test_two_disjoint_triangles(self):
+        init_matrix = np.array(
+            [
+                [0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 1, 0, 0],
+                [0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            ]
+        )
+        correct_reduced = np.array(
+            [
+                [0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            ]
+        )
+        matrix = mat.bdmatrix()
+        matrix.initmatrix = init_matrix
+        reduced = matrix.reduce()
+        all_entries_are_equal = (reduced == correct_reduced).all()
         self.assertTrue(all_entries_are_equal)
