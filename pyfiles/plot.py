@@ -1,7 +1,10 @@
 from .complex import complex
+from .matrix import bdmatrix, sparse2array
 
 from matplotlib import pyplot as plt
 import numpy as np
+import pandas as pd
+from IPython.display import display_html
 
 
 def color_heat(f: float) -> tuple[float, float, float]:
@@ -149,3 +152,54 @@ def plot_complex(
     if filename:
         plt.savefig(filename, dpi=300)
     return plt
+
+
+class PandasMatrix:
+    """
+    Convenient class to print out a matrix reduction with the pandas html stuff.
+
+    ## Usage
+    ```python
+    with ourplot.PandasMatrix(matrix) as p:
+        matrix.reduce(every_step=p.every_step)
+    ```
+    """
+
+    cell_hover = {  # for row hover use <tr> instead of <td>
+        "selector": "td:hover",
+        "props": [("background-color", "#ffffb3")],
+    }
+
+    def __init__(self, matrix: bdmatrix):
+        self.dfstyles = [
+            pd.DataFrame(matrix.initmatrix)
+            .style.applymap(PandasMatrix.highlight_cells)
+            .set_table_styles([PandasMatrix.cell_hover], "columns")
+            .set_table_attributes("style='display:inline'")
+            .set_caption("Initial matrix")
+            ._repr_html_()
+        ]
+        self.matrix = matrix
+
+    def every_step(self, sparse, indices, old_j):
+        df_styler = (
+            pd.DataFrame(sparse2array(sparse, self.matrix.initmatrix.shape[0]))
+            .style.applymap(PandasMatrix.highlight_cells)
+            .set_table_styles([PandasMatrix.cell_hover], "columns")
+            .set_table_attributes("style='display:inline'")
+            .set_caption(f"column {indices[1]} added to column {indices[0]}")
+            ._repr_html_()
+        )
+        self.dfstyles.append(df_styler)
+
+    def highlight_cells(val):
+        color = "#FF0044" if val == 1 else ""
+        style = "display:inline"
+        return "background-color: {}".format(color)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, _, _1, _2):
+        stylestring = "".join(self.dfstyles)
+        display_html(stylestring, raw=True)
