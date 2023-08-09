@@ -1,4 +1,4 @@
-from typing import Callable, Dict, List, Set, Tuple
+from typing import Callable, Dict, List, Optional, Set, Tuple
 import numpy as np
 
 from . import complex as cp
@@ -168,7 +168,9 @@ class bdmatrix:
 
     def reduce(
         self,
-        every_step: Callable[["bdmatrix", Tuple[int, int], np.ndarray], None] = None,
+        every_step: Optional[
+            Callable[[Dict[int, Set[int]], Tuple[int, int], Set[int]], None]
+        ] = None,
     ):
         """
         `every_step`: callback function after a column operation has been done. Takes three arguments:

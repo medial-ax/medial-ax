@@ -123,7 +123,7 @@ class vineyard:
             [self.matrixlist[0], self.matrixlist[1]],
         ]
 
-        def nth_complex(i: int) -> complex:
+        def nth_complex(i: int) -> cplx.complex:
             return pair_of_grapes[0][i]
 
         def nth_matrix(i: int) -> bdmatrix:
