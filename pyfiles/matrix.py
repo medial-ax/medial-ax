@@ -1,4 +1,4 @@
-from typing import Dict, List, Set
+from typing import Callable, Dict, List, Set, Tuple
 import numpy as np
 
 from . import complex as cp
@@ -166,7 +166,10 @@ class bdmatrix:
                 x = None
         self.initmatrix = orderedmat
 
-    def reduce(self, every_step=None):
+    def reduce(
+        self,
+        every_step: Callable[["bdmatrix", Tuple[int, int], np.ndarray], None] = None,
+    ):
         """
         `every_step`: callback function after a column operation has been done. Takes three arguments:
         1. The sparse matrix.

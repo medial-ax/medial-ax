@@ -1,3 +1,4 @@
+from typing import Tuple
 from .complex import complex
 from .matrix import bdmatrix, sparse2array
 
@@ -181,7 +182,7 @@ class PandasMatrix:
         ]
         self.matrix = matrix
 
-    def every_step(self, sparse, indices, old_j):
+    def every_step(self, sparse: bdmatrix, indices: Tuple[int, int], old_j: np.ndarray):
         df_styler = (
             pd.DataFrame(sparse2array(sparse, self.matrix.initmatrix.shape[0]))
             .style.applymap(PandasMatrix.highlight_cells)
