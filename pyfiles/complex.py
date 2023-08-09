@@ -43,7 +43,7 @@ class simplex:
         return s
 
     def edge(boundary: List[int], index: int):
-        """Create a new edge simplex with given coordinates and index."""
+        """Create a new edge simplex with given boundary and index."""
         s = simplex()
         s.coords = []
         s.boundary = boundary
@@ -55,7 +55,6 @@ class simplex:
         return s
 
     def __init__(self):
-        # here we initialize everything. if defining an attribute with a function, must init func first.
         self.coords = []
         self.boundary = []
         self.index = -1
