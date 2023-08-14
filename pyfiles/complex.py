@@ -31,6 +31,17 @@ class simplex:
     parents: List[int]
     """This is a list of the indices of the simplices that are the parents of this simplex."""
 
+    def empty():
+        """Create a new simplex for the empty set."""
+        s = simplex()
+        s.coords = []
+        s.boundary = []
+        s.index = -1
+        s.orderedindex = -1
+        s.radialdist = -1.0
+        s.parents = []
+        return s
+
     def point(coord: List[float], index: int):
         """Create a new point simplex with given coordinates and index."""
         s = simplex()

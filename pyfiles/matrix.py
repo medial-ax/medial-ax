@@ -25,7 +25,7 @@ def array2sparse(matrix: np.ndarray) -> Dict[int, Set[int]]:
     return sparseboii
 
 
-def findlowestone(sparsemat: Dict[int, Set[int]], col_num: int):
+def findlowestone(sparsemat: Dict[int, Set[int]], col_num: int) -> Optional[int]:
     # a fast way to find the lowest one
     # in a column in a sparse dict repr of
     # a boundary matrix
@@ -50,6 +50,15 @@ def sparse2array(sparse: Dict[int, Set[int]], n: int) -> np.ndarray:
 class bdmatrix:
     initmatrix: np.ndarray
     redmatrix: np.ndarray
+
+    reduced: Optional[np.ndarray]
+    """
+    Reduced matrix, if computed.
+    """
+    sparse_reduced: Optional[Dict[int, Set[int]]]
+    """
+    `reduced`, but in sparse form.
+    """
 
     lowestones: dict
     """
@@ -212,7 +221,10 @@ class bdmatrix:
                 if len(sparsemat[j]) == 0:
                     sparsemat.pop(j)
         # print("\n", sparsemat)
+
+        self.sparse_reduced = sparsemat
         backtomat = sparse2array(sparsemat, len(self.initmatrix[:][0]))
+        self.reduced = backtomat
 
         # NEXT: ondra's sneaky trick to speed up by an order of n:
         # reduce by dimension first (higher to lower), and L-R within
@@ -322,6 +334,48 @@ class bdmatrix:
             print("\nLowest Ones:")
             for key, value in self.lowestones.items():
                 print(key, ":", value)
+
+    def compute_lowest_1s(self, simplices: List[cp.simplex]) -> List[Dict[str, int]]:
+        """
+        Compute information about the lowest 1s in the reduced matrix. `reduce` must be called
+        before this is called.
+        Returns a list of objects with these fields:
+         - `col`
+         - `row`
+         - `dim`
+         - `col_index`
+         - `row_index`
+
+        just like the previous version.  See `find_lows_zeros` for more info.
+        """
+        i2simplex = {s.columnvalue: s for s in simplices}
+        i2simplex[0] = cp.simplex.empty()
+        if not self.sparse_reduced:
+            raise Exception("Must call `reduce` before `compute_lowest_1s`")
+        lowest = []
+        zeroed = []
+        # TODO: should double check the 1 here; looks funny.
+        for col in range(1, self.initmatrix.shape[0]):
+            rows = self.sparse_reduced.get(col, set())
+            low = max(rows) if rows else None
+            if low == None:
+                simplex = i2simplex[col]
+                item = {
+                    "col": col,
+                    "dim": simplex.dim(),
+                    "col_index": simplex.index,
+                }
+                zeroed.append(item)
+            else:
+                item = {
+                    "col": col,
+                    "row": low,
+                    "dim": i2simplex[low].dim(),
+                    "col_index": i2simplex[col].index,
+                    "row_index": i2simplex[low].index,
+                }
+                lowest.append(item)
+        return lowest, zeroed
 
     def find_bettis(self):
         # Betti_p = #zero_p - #low_p
@@ -435,3 +489,13 @@ class bdmatrix:
                     "birthed an inf",
                     f'{self.unpaired["classdim"][i]}dim h class',
                 )
+
+
+class birth_death:
+    __slots__ = ["b", "d"]
+    b: cp.simplex
+    d: cp.simplex
+
+    def __init__(self, b: cp.simplex, d: cp.simplex):
+        self.b = b
+        self.d = d
