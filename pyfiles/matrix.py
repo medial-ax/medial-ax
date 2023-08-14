@@ -168,6 +168,9 @@ class bdmatrix:
         every_step: Optional[
             Callable[[Dict[int, Set[int]], Tuple[int, int], Set[int]], None]
         ] = None,
+        after_column_reduced: Optional[
+            Callable[[Dict[int, Set[int]], int], None]
+        ] = None,
     ):
         """
         `every_step`: callback function after a column operation has been done. Takes three arguments:
@@ -213,6 +216,8 @@ class bdmatrix:
                     if should_restart:
                         continue
                     else:
+                        if after_column_reduced:
+                            after_column_reduced(sparsemat, j)
                         break
 
         # get rid of empty cols
@@ -422,6 +427,13 @@ class bdmatrix:
         paired_index = 0
         unpaired_index = 0
 
+        # We're looking for a zeroed out column `c` with the same index as a row `r`
+        # containing the lowest 1 in its column.
+
+        # If no such pair exist, then we've gotten a hom class.  For instance,
+        # the last edge in a triangle will be zeroed out, but without a triangle
+        # to fill the hole, it's a hom class.
+
         for c in self.zerocolumns["col"]:
             # col c in the matrix was a birth
             # so we should check corresponding row to see
@@ -430,6 +442,7 @@ class bdmatrix:
             # we assume first that it's an inf hom class (no death)
             for r in self.lowestones["row"]:
                 if r == c:
+                    print(f"r={r} c={c}")
                     died = True
             if died:
                 self.bd_pairs["classdim"].append(self.lowestones["dim"][paired_index])
