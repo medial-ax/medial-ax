@@ -73,7 +73,7 @@ class bdmatrix:
     """
     bd_pairs: dict
     """
-    Debugging info, set in `find_bd_pairs`.
+    Debugging info, set in `find_bd_pairs`.  This is also used in `vineyard.is_knee`.
 
     Info about birth-death pairs. Here we are five lists
     - `"birth"`: birth index
@@ -139,31 +139,19 @@ class bdmatrix:
         orderedmat = np.zeros((n, n), dtype=int)
 
         # give all verts columns a 1 at position 0 because of empty simplex
-        for i in range(len(orderedcplx.vertlist)):
-            # column (orderedcplx.vertlist[i].columnvalue), row 0, gets a 1
-            orderedmat[0][orderedcplx.vertlist[i].columnvalue] = 1
+        for vertex in orderedcplx.vertlist:
+            orderedmat[0][vertex.columnvalue] = 1
 
-        # next, go over edges
+        # Easy access to columnvalue when all we have is index.
+        vertex_index_to_columnvalue = {
+            v.index: v.columnvalue for v in orderedcplx.vertlist
+        }
+
         for edge in orderedcplx.edgelist:
-            # column (orderedcplx.edgelist[i].columnvalue), row j, gets a 1 if
-            # orderedcplx.edgelist[i].boundary contains j
-            index_k = edge.boundary[0]
-            index_m = edge.boundary[1]
-            # now need to find row containing index k,m.
-            # it is of form simplx.columnvalue = k
-            # need to find simplex.columnvalue s.t. simplex.index = k
-            for x in orderedcplx.vertlist:
-                if x.index == index_k:
-                    orderedmat[x.columnvalue][edge.columnvalue] = 1
-                    break
-            else:
-                x = None
-            for x in orderedcplx.vertlist:
-                if x.index == index_m:
-                    orderedmat[x.columnvalue][edge.columnvalue] = 1
-                    break
-            else:
-                x = None
+            [i, j] = edge.boundary
+            orderedmat[vertex_index_to_columnvalue[i]][edge.columnvalue] = 1
+            orderedmat[vertex_index_to_columnvalue[j]][edge.columnvalue] = 1
+
         self.initmatrix = orderedmat
 
     def reduce(
