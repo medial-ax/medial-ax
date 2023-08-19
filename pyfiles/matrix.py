@@ -207,6 +207,10 @@ class bdmatrix:
         #    end while
         # end for
 
+        # Call the function for the empty simplex.
+        if after_column_reduced:
+            after_column_reduced(sparsemat, 0)
+
         number_of_cols = len(self.initmatrix[:][0])
         for j in range(number_of_cols):
             if j in sparsemat.keys():

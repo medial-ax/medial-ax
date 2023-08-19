@@ -200,6 +200,9 @@ class ordering:
         return self.i2o[(dim, index)]
 
     def simplex(self, i):
+        """
+        Get the simplex corresponding to this column index.
+        """
         (dim, index) = self.o2i[i]
         if dim == -1:
             return simplex.empty()
