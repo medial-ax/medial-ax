@@ -1,5 +1,5 @@
 from typing import Tuple
-from .complex import complex
+from .complex import complex, ordering
 from .matrix import bdmatrix, sparse2array
 
 from matplotlib import pyplot as plt
@@ -171,27 +171,50 @@ class PandasMatrix:
         "props": [("background-color", "#ffffb3")],
     }
 
-    def __init__(self, matrix: bdmatrix):
-        self.dfstyles = [
-            pd.DataFrame(matrix.initmatrix)
-            .style.applymap(PandasMatrix.highlight_cells)
-            .set_table_styles([PandasMatrix.cell_hover], "columns")
-            .set_table_attributes("style='display:inline'")
-            .set_caption("Initial matrix")
-            ._repr_html_()
-        ]
+    ord: ordering
+    matrix: bdmatrix
+
+    def __init__(self, matrix: bdmatrix, ord: ordering):
+        self.ord = ord
         self.matrix = matrix
 
+        df = pd.DataFrame(matrix.initmatrix)
+        df.rename(columns=self.column_style(), index=self.column_style(), inplace=True)
+        s = df.style
+        s.applymap(PandasMatrix.highlight_cells)
+        s.set_table_styles([PandasMatrix.cell_hover], "columns")
+        s.set_table_attributes("style='display:inline'")
+        s.set_caption("Initial matrix")
+        html = s._repr_html_()
+        self.dfstyles = [html]
+
+    def column_style(self):
+        """
+        Compute how a column in the table should be rendered.
+        """
+        n = self.matrix.initmatrix.shape[0]
+        ret = {}
+        for i in range(n):
+            simplex = self.ord.simplex(i)
+            if simplex.dim() == -1:
+                c = "∅"
+            elif simplex.dim() == 0:
+                c = f"v{simplex.index}"
+            elif simplex.dim() == 1:
+                c = f"e{simplex.index}"
+            ret[i] = f"{i}|{c}"
+        return ret
+
     def every_step(self, sparse: bdmatrix, indices: Tuple[int, int], old_j: np.ndarray):
-        df_styler = (
-            pd.DataFrame(sparse2array(sparse, self.matrix.initmatrix.shape[0]))
-            .style.applymap(PandasMatrix.highlight_cells)
-            .set_table_styles([PandasMatrix.cell_hover], "columns")
-            .set_table_attributes("style='display:inline'")
-            .set_caption(f"column {indices[1]} added to column {indices[0]}")
-            ._repr_html_()
-        )
-        self.dfstyles.append(df_styler)
+        df = pd.DataFrame(sparse2array(sparse, self.matrix.initmatrix.shape[0]))
+        df.rename(columns=self.column_style(), index=self.column_style(), inplace=True)
+        s = df.style
+        s.applymap(PandasMatrix.highlight_cells)
+        s.set_table_styles([PandasMatrix.cell_hover], "columns")
+        s.set_table_attributes("style='display:inline'")
+        s.set_caption(f"column {indices[1]} added to column {indices[0]}")
+        html = s._repr_html_()
+        self.dfstyles.append(html)
 
     def highlight_cells(val):
         color = "#FF0044" if val == 1 else ""

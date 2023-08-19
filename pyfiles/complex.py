@@ -82,10 +82,16 @@ class simplex:
         return len(self.boundary) - 1
 
     def __repr__(self):
-        # IN PROGRESS
-        # f strings are easy way to turn things into strings
-        return f"simplex ind {self.index}, dim {self.dim()}, bd {self.boundary}, col val {self.columnvalue}"
-        # usage: print(rect), where rect is a Rectangle
+        dim = self.dim()
+        if dim == -1:
+            c = "∅"
+        elif dim == 0:
+            c = f"v{self.index}"
+        elif dim == 1:
+            c = f"e{self.index}"
+        else:
+            raise Exception("Only works for simplices of dimension 0 or 1")
+        return f"simplex {c} bd {self.boundary}"
 
 
 class complex:
@@ -157,11 +163,13 @@ class ordering:
         vert_distances = [
             distance.sqeuclidean(key_point, s.coords) for s in complex.vertlist
         ]
-        all_simplices = complex.vertlist + complex.edgelist
+        all_simplices = [simplex.empty()] + complex.vertlist + complex.edgelist
 
         def key(s: simplex):
             dim = s.dim()
-            if dim == 0:
+            if dim == -1:
+                return (-1, 0, s.index)
+            elif dim == 0:
                 return (vert_distances[s.index], 0, s.index)
             elif dim == 1:
                 return (max([vert_distances[i] for i in s.boundary]), 1, s.index)
@@ -169,7 +177,7 @@ class ordering:
                 raise Exception("Only works for simplices of dimension 0 or 1")
 
         all_simplices.sort(key=key)
-        pairs = [((s.dim(), s.index), i + 1) for i, s in enumerate(all_simplices)]
+        pairs = [((s.dim(), s.index), i) for i, s in enumerate(all_simplices)]
 
         o = ordering()
         o.complex = complex
@@ -190,3 +198,14 @@ class ordering:
         given dimension.
         """
         return self.i2o[(dim, index)]
+
+    def simplex(self, i):
+        (dim, index) = self.o2i[i]
+        if dim == -1:
+            return simplex.empty()
+        elif dim == 0:
+            return [v for v in self.complex.vertlist if v.index == index][0]
+        elif dim == 1:
+            return [e for e in self.complex.edgelist if e.index == index][0]
+        else:
+            raise Exception("Only works for simplices of dimension 0 or 1")

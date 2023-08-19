@@ -175,9 +175,10 @@ class bdmatrix:
             mat.initmatrix[0][matrix_index] = 1
 
         for edge in ordering.complex.edgelist:
+            edge_i = ordering.matrix_index(edge)
             [i, j] = edge.boundary
-            mat.initmatrix[ordering.matrix_index_for_dim(0, i)][edge.columnvalue] = 1
-            mat.initmatrix[ordering.matrix_index_for_dim(0, j)][edge.columnvalue] = 1
+            mat.initmatrix[ordering.matrix_index_for_dim(0, i)][edge_i] = 1
+            mat.initmatrix[ordering.matrix_index_for_dim(0, j)][edge_i] = 1
 
         return mat
 
@@ -196,9 +197,7 @@ class bdmatrix:
         2. The indices of the columns being added.
         3. The old target column.
         """
-        # array2sparse is at top of file
         sparsemat = array2sparse(self.initmatrix)
-        # print(sparsemat)
 
         # from monster book:
         # j is column
@@ -208,9 +207,7 @@ class bdmatrix:
         #    end while
         # end for
 
-        # note: it's a square matrix by construction.
         number_of_cols = len(self.initmatrix[:][0])
-        # j is an index, but we use it as a key
         for j in range(number_of_cols):
             if j in sparsemat.keys():
                 # while there is col_j0 left of col_j with low(j0) = low(j)
