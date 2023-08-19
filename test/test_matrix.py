@@ -2,7 +2,7 @@ from collections import defaultdict
 from typing import Dict, List
 import unittest
 
-from pyfiles import matrix as mat, input as inp, complex as cp
+from pyfiles import matrix as mat, input as inp, complex as cplx
 
 import numpy as np
 
@@ -122,7 +122,7 @@ class TestMatrixReduction(unittest.TestCase):
         """
         our_complex = inp.read_obj("./input/two_triangles.obj")
         our_complex.key_point = (0.4, 0.3)
-        distlist = cp.augment_with_radialdist(our_complex)
+        distlist = cplx.augment_with_radialdist(our_complex)
         all_simplices = our_complex.sort_by_dist(distlist)
         matrix = mat.bdmatrix()
         matrix.make_matrix(our_complex)

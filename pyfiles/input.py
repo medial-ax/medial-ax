@@ -1,17 +1,17 @@
 from typing import List
 
-from . import complex as cp
+from . import complex as cplx
 
 
-def read_obj(filename: str) -> cp.complex:
+def read_obj(filename: str) -> cplx.complex:
     """Read the `.obj` with the given filename and return
     something??
     """
     with open(filename, "r") as f:
         point_index = 0
         edge_index = 0
-        vertices: List[cp.simplex] = []
-        edges: List[cp.simplex] = []
+        vertices: List[cplx.simplex] = []
+        edges: List[cplx.simplex] = []
         for line in f.readlines():
             line = line.strip()
             if line.startswith("#"):
@@ -26,7 +26,7 @@ def read_obj(filename: str) -> cp.complex:
                 # v -0.039375 1.021144 0.000000
                 # TODO(#6): read all coordinates
                 coord = [float(c) for c in line.split(" ")[1:3]]
-                s = cp.simplex.point(coord, point_index)
+                s = cplx.simplex.point(coord, point_index)
                 vertices.append(s)
                 point_index += 1
             elif line.startswith("l"):
@@ -34,7 +34,7 @@ def read_obj(filename: str) -> cp.complex:
                 # l 1 2
                 indices = map(int, line.split(" ")[1:])
                 indices = [x - 1 for x in indices]  # .obj files are 1-indexed
-                s = cp.simplex.edge(indices, edge_index)
+                s = cplx.simplex.edge(indices, edge_index)
                 edges.append(s)
                 edge_index += 1
             else:
@@ -43,7 +43,7 @@ def read_obj(filename: str) -> cp.complex:
         for edge in edges:
             for i in edge.boundary:
                 vertices[i].parents.append(edge.index)
-        cplx = cp.complex()
-        cplx.vertlist = vertices
-        cplx.edgelist = edges
-        return cplx
+        complex = cplx.complex()
+        complex.vertlist = vertices
+        complex.edgelist = edges
+        return complex

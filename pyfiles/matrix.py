@@ -1,7 +1,7 @@
 from typing import Callable, Dict, List, Optional, Set, Tuple
 import numpy as np
 
-from . import complex as cp
+from . import complex as cplx
 
 
 def array2sparse(matrix: np.ndarray) -> Dict[int, Set[int]]:
@@ -139,7 +139,7 @@ class bdmatrix:
             "b_simplex": [],
         }
 
-    def make_matrix(self, orderedcplx: cp.complex):
+    def make_matrix(self, orderedcplx: cplx.complex):
         """
         Initialize `self.initmatrix` from the given ordered complex.
         """
@@ -162,6 +162,24 @@ class bdmatrix:
             orderedmat[vertex_index_to_columnvalue[j]][edge.columnvalue] = 1
 
         self.initmatrix = orderedmat
+
+    def from_ordering(ordering: cplx.ordering):
+        mat = bdmatrix()
+
+        n = ordering.complex.nedges() + ordering.complex.nverts() + 1
+        mat.initmatrix = np.zeros((n, n), dtype=int)
+
+        # give all verts columns a 1 at position 0 because of empty simplex
+        for vertex in ordering.complex.vertlist:
+            matrix_index = ordering.matrix_index(vertex)
+            mat.initmatrix[0][matrix_index] = 1
+
+        for edge in ordering.complex.edgelist:
+            [i, j] = edge.boundary
+            mat.initmatrix[ordering.matrix_index_for_dim(0, i)][edge.columnvalue] = 1
+            mat.initmatrix[ordering.matrix_index_for_dim(0, j)][edge.columnvalue] = 1
+
+        return mat
 
     def reduce(
         self,
@@ -271,7 +289,7 @@ class bdmatrix:
         self.zerocolumns["dim"].append(-1)
         self.zerocolumns["col_index"].append(-1)
 
-    def find_lows_zeros(self, all_simplices: List[cp.simplex], output=False):
+    def find_lows_zeros(self, all_simplices: List[cplx.simplex], output=False):
         """
         Compute stuff about the reduced matrix, like which columns are zeroed,
         and which simplices correspond to the lowest 1.
@@ -340,7 +358,7 @@ class bdmatrix:
             for key, value in self.lowestones.items():
                 print(key, ":", value)
 
-    def compute_lowest_1s(self, simplices: List[cp.simplex]) -> List[Dict[str, int]]:
+    def compute_lowest_1s(self, simplices: List[cplx.simplex]) -> List[Dict[str, int]]:
         """
         Compute information about the lowest 1s in the reduced matrix. `reduce` must be called
         before this is called.
@@ -354,7 +372,7 @@ class bdmatrix:
         just like the previous version.  See `find_lows_zeros` for more info.
         """
         i2simplex = {s.columnvalue: s for s in simplices}
-        i2simplex[0] = cp.simplex.empty()
+        i2simplex[0] = cplx.simplex.empty()
         if not self.sparse_reduced:
             raise Exception("Must call `reduce` before `compute_lowest_1s`")
         lowest = []
@@ -506,9 +524,9 @@ class bdmatrix:
 
 class birth_death:
     __slots__ = ["b", "d"]
-    b: cp.simplex
-    d: cp.simplex
+    b: cplx.simplex
+    d: cplx.simplex
 
-    def __init__(self, b: cp.simplex, d: cp.simplex):
+    def __init__(self, b: cplx.simplex, d: cplx.simplex):
         self.b = b
         self.d = d

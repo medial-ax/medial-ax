@@ -1,4 +1,5 @@
-from typing import List
+from typing import Dict, List, Tuple
+import numpy as np
 
 from scipy.spatial import distance
 
@@ -137,3 +138,55 @@ class complex:
             assert b.columnvalue < e.columnvalue
 
         return all_simplices
+
+
+class ordering:
+    complex: complex
+    key_point: np.ndarray
+
+    o2i: Dict[int, Tuple[int, int]]
+    """column value to unique index.  The unique index is (dim, index)."""
+    i2m: Dict[Tuple[int, int], int]
+    """unique index to column value.  The unique index is (dim, index)."""
+
+    def by_dist_to(complex: complex, key_point: np.ndarray):
+        """
+        Create an ordering of the simplices in the complex by their distance to
+        the given point.
+        """
+        vert_distances = [
+            distance.sqeuclidean(key_point, s.coords) for s in complex.vertlist
+        ]
+        all_simplices = complex.vertlist + complex.edgelist
+
+        def key(s: simplex):
+            dim = s.dim()
+            if dim == 0:
+                return (vert_distances[s.index], 0, s.index)
+            elif dim == 1:
+                return (max([vert_distances[i] for i in s.boundary]), 1, s.index)
+            else:
+                raise Exception("Only works for simplices of dimension 0 or 1")
+
+        all_simplices.sort(key=key)
+        pairs = [((s.dim(), s.index), i + 1) for i, s in enumerate(all_simplices)]
+
+        o = ordering()
+        o.complex = complex
+        o.key_point = key_point
+        o.i2o = dict(pairs)
+        o.o2i = dict([(v, k) for k, v in pairs])
+        return o
+
+    def matrix_index(self, simplex: simplex):
+        """
+        Return the column index of the simplex in the boundary matrix.
+        """
+        return self.i2o[(simplex.dim(), simplex.index)]
+
+    def matrix_index_for_dim(self, dim, index):
+        """
+        Return the column index of the simplex in the boundary matrix for the
+        given dimension.
+        """
+        return self.i2o[(dim, index)]
