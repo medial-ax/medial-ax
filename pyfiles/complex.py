@@ -2,6 +2,7 @@ from typing import Dict, List, Tuple
 import numpy as np
 
 from scipy.spatial import distance
+from pprint import pprint
 
 
 def augment_with_radialdist(complex: complex) -> List[float]:
@@ -81,6 +82,18 @@ class simplex:
     def dim(self):
         return len(self.boundary) - 1
 
+    def prettyrepr(self):
+        dim = self.dim()
+        if dim == -1:
+            c = "∅"
+        elif dim == 0:
+            c = f"v{self.index}"
+        elif dim == 1:
+            c = f"e{self.index}"
+        else:
+            raise Exception("Only works for simplices of dimension 0 or 1")
+        return c
+
     def __repr__(self):
         dim = self.dim()
         if dim == -1:
@@ -152,8 +165,15 @@ class ordering:
 
     o2i: Dict[int, Tuple[int, int]]
     """column value to unique index.  The unique index is (dim, index)."""
-    i2m: Dict[Tuple[int, int], int]
+    i2o: Dict[Tuple[int, int], int]
     """unique index to column value.  The unique index is (dim, index)."""
+
+    def list_unique_index(self):
+        """
+        Return a list of the unique indices in the ordering.
+        """
+        n = 1 + self.complex.nverts() + self.complex.nedges()
+        return [self.o2i[i] for i in range(n)]
 
     def by_dist_to(complex: complex, key_point: np.ndarray):
         """
@@ -212,3 +232,35 @@ class ordering:
             return [e for e in self.complex.edgelist if e.index == index][0]
         else:
             raise Exception("Only works for simplices of dimension 0 or 1")
+
+    def compute_transpositions(self, other):
+        """
+        `self` should be the ordering at we already have the reduced matrix.
+
+        Returns two things:
+
+         1. A list of `(Simplex, Simplex)` for each swap
+         2. A list of the full order after each swap, which is used for plotitng.
+        """
+        our = self.list_unique_index()
+        n = len(our)
+        full_order = [list(range(n))]
+        swaps = []
+        for _ in range(n):
+            for i in range(n - 1):
+                if other.i2o[our[i]] > other.i2o[our[i + 1]]:
+                    our[i], our[i + 1] = our[i + 1], our[i]
+                    swaps.append(
+                        (
+                            self.simplex(self.i2o[our[i]]),
+                            self.simplex(self.i2o[our[i + 1]]),
+                        )
+                    )
+                    full_order.append([self.i2o[o] for o in our])
+
+        return swaps, full_order
+
+    def __repr__(self):
+        return " — ".join(
+            [self.simplex(self.i2o[s]).prettyrepr() for s in self.list_unique_index()]
+        )

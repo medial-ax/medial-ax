@@ -31,6 +31,12 @@ class vineyard:
         return f"hello i am a vineyard"
         # usage: print(vin), where vin is a vineyard
 
+    # def reduce_at_point(self, point):
+    #     pass
+
+    # def add_point(self, point):
+    #     pass
+
     def add_complex(
         self,
         complex: cplx.complex,

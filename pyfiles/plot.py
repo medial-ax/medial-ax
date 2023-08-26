@@ -6,6 +6,7 @@ from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
 from IPython.display import display_html
+from pprint import pprint
 
 
 def color_heat(f: float) -> tuple[float, float, float]:
@@ -40,6 +41,7 @@ def plot_complex(
     label_verts=True,
     sp_pt_color="red",
     filename=None,
+    key_point: np.ndarray = None,
 ):
     points = np.array([v.coords for v in complex.vertlist])
 
@@ -66,7 +68,7 @@ def plot_complex(
         )
 
         # label edges for debugging
-        if label_edges or False:
+        if label_edges and False:
             # label edge
             avg_x = (point1[0] + point2[0]) / 2
             avg_y = (point1[1] + point2[1]) / 2
@@ -99,16 +101,6 @@ def plot_complex(
         plt.plot(*point1, color=smartcolor, marker="o", markersize=5)
         # add labels to points
         # white, sampling index
-        if label_verts and False:
-            offset2 = 0.0
-            plt.text(
-                x[i] + offset2,
-                y[i] + offset2,
-                str(complex.vertlist[i].index),
-                fontsize=12,
-                color="black",
-                # bbox=dict(facecolor="white", alpha=0.75, edgecolor="white"),
-            )
 
         if extras and False:
             # blue, column assignment
@@ -132,21 +124,39 @@ def plot_complex(
                 # bbox=dict(facecolor="red", alpha=0.75, edgecolor="white"),
             )
 
+    if label_verts:
+        for vertex in complex.vertlist:
+            x, y = vertex.coords
+            offset2 = 0.0
+            plt.text(
+                x + offset2,
+                y + offset2,
+                f"v{vertex.index}",
+                fontsize=12,
+                color="black",
+                bbox=dict(facecolor="white", alpha=0.75, edgecolor="white"),
+            )
+
+    if label_edges:
+        for edge in complex.edgelist:
+            point1 = complex.vertlist[edge.boundary[0]].coords
+            point2 = complex.vertlist[edge.boundary[1]].coords
+            x = (point1[0] + point2[0]) / 2
+            y = (point1[1] + point2[1]) / 2
+            offset2 = 0.0
+            plt.text(
+                x + offset2,
+                y + offset2,
+                f"e{edge.index}",
+                fontsize=12,
+                color="black",
+                bbox=dict(facecolor="white", alpha=0.75, edgecolor="white"),
+            )
+
     # plot key point (we calculate dist from this)
-    plt.plot(
-        complex.key_point[0],
-        complex.key_point[1],
-        color="black",
-        marker="o",
-        markersize=8,
-    )
-    plt.plot(
-        complex.key_point[0],
-        complex.key_point[1],
-        color="red",
-        marker="o",
-        markersize=6,
-    )
+    if key_point:
+        plt.plot(key_point[0], key_point[1], color="black", marker="o", markersize=8)
+        plt.plot(key_point[0], key_point[1], color="red", marker="o", markersize=6)
 
     plt.axis("equal")
     plt.grid(True)
@@ -227,3 +237,39 @@ class PandasMatrix:
     def __exit__(self, _, _1, _2):
         stylestring = "".join(self.dfstyles)
         display_html(stylestring, raw=True)
+
+
+def plot_orders_with_bubbles(o1: ordering, o2: ordering):
+    def indices_of(numbers, other_list):
+        """
+        For elements `[a, b, c]` we want to find the positions of each element
+        in `other_list`. If `other_list == [b, a, c]` we want to get `[1, 0, 2]`,
+        because `a` is in index 1, b in index 0, and c in index 2 in `other_list`.
+        """
+        indices = []
+        for e in numbers:
+            i = other_list.index(e)
+            indices.append(i)
+        return indices
+
+    swaps, lst = o1.compute_transpositions(o2)
+    lst = [indices_of(lst[0], l) for l in lst]
+
+    plt.plot(lst)
+    plt.yticks(
+        range(len(lst[0])),
+        [f"{o1.simplex(i).prettyrepr()}" for i in range(len(lst[0]))],
+    )
+    plt.show()
+
+    plot_complex(o1.complex, label_edges=True, label_verts=True)
+    plt.plot(*o1.key_point, color="black", marker="o", markersize=8)
+    plt.plot(*o1.key_point, color="red", marker="o", markersize=6)
+    plt.plot(*o2.key_point, color="black", marker="o", markersize=8)
+    plt.plot(*o2.key_point, color="blue", marker="o", markersize=6)
+    plt.show()
+    pprint(o1)
+    pprint(o2)
+
+    print("Swaps:")
+    print("\n".join([f"  {s.prettyrepr()} — {t.prettyrepr()}" for (s, t) in swaps]))
