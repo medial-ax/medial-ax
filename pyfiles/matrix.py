@@ -1,4 +1,5 @@
-from typing import Callable, Dict, List, Optional, Set, Tuple
+from collections import defaultdict
+from typing import Callable, DefaultDict, Dict, List, Optional, Set, Tuple
 import numpy as np
 
 from . import complex as cplx
@@ -50,6 +51,9 @@ def sparse2array(sparse: Dict[int, Set[int]], n: int) -> np.ndarray:
 class bdmatrix:
     initmatrix: np.ndarray
     redmatrix: np.ndarray
+    """
+    Probably this is old and should not be used any more?
+    """
 
     reduced: Optional[np.ndarray]
     """
@@ -523,11 +527,62 @@ class bdmatrix:
                 )
 
 
-class birth_death:
-    __slots__ = ["b", "d"]
-    b: cplx.simplex
-    d: cplx.simplex
+class reduction_knowledge:
+    """
+    This class is used to keep track of knowledge we obtain in the reduction
+    process. This includes
+     - Betti numbers
+    """
 
-    def __init__(self, b: cplx.simplex, d: cplx.simplex):
-        self.b = b
-        self.d = d
+    ord: cplx.ordering
+
+    bettis: DefaultDict[int, int]
+
+    birth_death_pairs: Dict[int, int]
+    """If the homology class is infinite, the value is `-1`."""
+    death_birth_pairs: Dict[int, int]
+
+    low: Dict[int, int]
+
+    def __init__(self, matrix: bdmatrix, ord: cplx.ordering):
+        self.matrix = matrix
+        self.ordering = ord
+        self.bettis = defaultdict(int)
+        self.birth_death_pairs = dict()
+        """birth_death_pairs[row] = col"""
+        self.death_birth_pairs = dict()
+        """death_birth_pairs[col] = row"""
+
+    def run(self):
+        self.matrix.reduce(
+            every_step=self.every_step, after_column_reduced=self.after_column_reduced
+        )
+
+    def every_step(self, sparsemat, indices, old_target):
+        pass
+
+    def after_column_reduced(self, sparsemat, col):
+        c = sparsemat.get(col, set())
+        if c:
+            lowest = max(c)
+            birth = self.ordering.simplex(lowest)
+            self.bettis[birth.dim()] -= 1
+            self.birth_death_pairs[lowest] = col
+            self.death_birth_pairs[col] = lowest
+        else:
+            s = self.ordering.simplex(col)
+            self.bettis[s.dim()] += 1
+            # NOTE: We record all births as living forever; if it gets killed,
+            # this will be overwritten in the `if c:` branch.
+            self.birth_death_pairs[col] = -1
+
+    def gives_birth(self, i: int) -> bool:
+        """`True` if the simplex at row index `i` gave birth."""
+        return i in self.birth_death_pairs
+
+    def gives_death(self, i: int) -> bool:
+        """`True` if the simplex at column index `i` gave death."""
+        return i in self.death_birth_pairs
+
+    def low(self, i: int) -> bool:
+        return self.gives_death(i)

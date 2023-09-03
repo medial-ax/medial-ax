@@ -126,7 +126,6 @@ class TestMatrixReduction(unittest.TestCase):
         all_simplices = our_complex.sort_by_dist(distlist)
         matrix = mat.bdmatrix()
         matrix.make_matrix(our_complex)
-        matrix.initmatrix
         matrix.redmatrix = matrix.reduce()
         matrix.find_lows_zeros(all_simplices)
 

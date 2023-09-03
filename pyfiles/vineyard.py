@@ -7,7 +7,6 @@ import numpy as np
 
 from . import complex as cplx
 from . import matrix as mat
-from .matrix import bdmatrix
 
 
 class vineyard:
@@ -132,7 +131,7 @@ class vineyard:
         def nth_complex(i: int) -> cplx.complex:
             return pair_of_grapes[0][i]
 
-        def nth_matrix(i: int) -> bdmatrix:
+        def nth_matrix(i: int) -> mat.bdmatrix:
             return pair_of_grapes[1][i]
 
         pair_of_deaths = []
@@ -252,7 +251,7 @@ class vineyard:
         def nth_complex(i: int) -> complex:
             return pair_of_grapes[0][i]
 
-        def nth_matrix(i: int) -> bdmatrix:
+        def nth_matrix(i: int) -> mat.bdmatrix:
             return pair_of_grapes[1][i]
 
         pair_of_deaths = []
@@ -362,3 +361,97 @@ class vineyard:
                 )
 
         return is_emptyset_knee, is_zero_knee, epsilon
+
+    def perform_one_swap(
+        self,
+        ordering: cplx.ordering,
+        matrix: mat.bdmatrix,
+        i: int,
+        rk: mat.reduction_knowledge,
+    ):
+        # This function performs one swap of two simplices and computes the
+        # reduced matrix for the "post-swap" ordering. Notation:
+        # - D, or `matrix.initmatrix`, is the incidence matrix (+ empty set)
+        # - R, or `matrix.reduced`, is the reduced matrix
+        # - V  records how R was reduced by doing the same column operations to
+        #   the identity matrix. R = DV
+        # - U is the multiplicative inverse of V.  RU = D
+        # - P is the permuatation matrix that swaps the columns and rows
+        #   corresponding to two simplices.  `P.T A P` performs the swap.
+
+        # The output of this function is the new decomposition R' U' which are
+        # the inputs R U but with the swaps performed, and still R being reduced
+        # and U upper triangular.
+        P = np.eye(matrix.initmatrix.shape[0])
+        # NOTE: this swaps COLUMN `swap_index` with `swap_index + 1`
+        P[:, [i, i + 1]] = P[:, [i + 1, i]]
+
+        # TODO
+        U = np.eye(2)  # it's important to have two eyes
+        R = matrix.reduced
+
+        # Case 1: σi and σi+1 both give birth.
+        # TODO:
+        # Let U [i, i + 1] = 0, just in case.
+        if rk.gives_birth(i) and rk.gives_birth(i + 1):
+            # Case 1.1: there are columns k and ℓ with low(k) = i, low(ℓ) = i +
+            # 1, and R[i, ℓ] = 1.
+            k = rk.birth_death_pairs[i]
+            l = rk.birth_death_pairs[i + 1]
+            if k != -1 and l != -1 and R[i, l] == 1:
+                # Case 1.1.1: k < ℓ.
+                if k < l:
+                    # Add column k of P RP to column ℓ; add row ℓ of P U P to row k.
+                    raise NotImplementedError()
+                # Case 1.1.2: ℓ < k.
+                if l < k:
+                    # Add column ℓ of P RP to column k; add row k of
+                    # P U P to row ℓ. We witness a change in the pairing but not of
+                    # Faustian type.
+                    raise NotImplementedError()
+            # Case 1.2: such columns k and ℓ do not exist.
+            else:
+                # Done.
+                raise NotImplementedError()
+
+        # Case 2: σi and σi+1 both give death.
+        if rk.gives_death(i) and rk.gives_death(i + 1):
+            # Case 2.1: U [i, i + 1] = 1.
+            if U[i, i + 1] == 1:
+                # Add row i + 1 of U to row i; add column i of R to column i + 1.
+
+                # Case 2.1.1: low(i) < low(i + 1).
+                if rk.low(i) < rk.low(i + 1):
+                    # Done.
+                    raise NotImplementedError()
+                # Case 2.1.2: low(i + 1) < low(i).
+                else:
+                    # Add column i of P RP to column i + 1; add row i + 1 of P U
+                    # P to row i. We witness a non-Faustian type change of the
+                    # pairing.
+                    raise NotImplementedError()
+            # Case 2.2: U [i, i + 1] = 0.
+            else:
+                # Done.
+                raise NotImplementedError()
+
+        # Case 3: σi gives death and σi+1 gives birth.
+        if rk.gives_death(i) and rk.gives_birth(i + 1):
+            # Case 3.1: U [i, i + 1] = 1.
+            if U[i, i + 1] == 1:
+                # Add row i + 1 of U to row i.
+                # Add column i of R to column i + 1.
+                # Furthermore, add column i of P RP to column i + 1.
+                # Add row i + 1 of P U P to row i.
+                # We witness a Faustian type change in the pairing.
+                raise NotImplementedError()
+            # Case 3.2: U [i, i + 1] = 0.
+            else:
+                raise NotImplementedError()
+
+        # Case 4: σi gives birth and σi+1 gives death.
+        if rk.gives_birth(i) and rk.gives_death(i + 1):
+            # Set U [i, i + 1] = 0, just in case.
+            raise NotImplementedError()
+
+        # TODO: return stuff here maybe.
