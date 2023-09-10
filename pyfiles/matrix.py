@@ -544,6 +544,10 @@ class reduction_knowledge:
 
     low: Dict[int, int]
 
+    adds: List[Tuple[int, int]]
+    """All of the column adds performed when reducing the matrix as tuples
+    `(target, other)` for when `other` is added onto `target`."""
+
     def __init__(self, matrix: bdmatrix, ord: cplx.ordering):
         self.matrix = matrix
         self.ordering = ord
@@ -552,6 +556,7 @@ class reduction_knowledge:
         """birth_death_pairs[row] = col"""
         self.death_birth_pairs = dict()
         """death_birth_pairs[col] = row"""
+        self.adds = []
 
     def run(self):
         self.matrix.reduce(
@@ -559,7 +564,7 @@ class reduction_knowledge:
         )
 
     def every_step(self, sparsemat, indices, old_target):
-        pass
+        self.adds.append(indices)
 
     def after_column_reduced(self, sparsemat, col):
         c = sparsemat.get(col, set())

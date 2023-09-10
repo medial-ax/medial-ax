@@ -252,7 +252,7 @@ def plot_orders_with_bubbles(o1: ordering, o2: ordering):
             indices.append(i)
         return indices
 
-    swaps, lst = o1.compute_transpositions(o2)
+    swaps, lst, _ = o1.compute_transpositions(o2)
     lst = [indices_of(lst[0], l) for l in lst]
 
     plt.plot(lst)

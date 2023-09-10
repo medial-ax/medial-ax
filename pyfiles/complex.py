@@ -246,10 +246,12 @@ class ordering:
         n = len(our)
         full_order = [list(range(n))]
         swaps = []
+        index_swaps = []
         for _ in range(n):
             for i in range(n - 1):
                 if other.i2o[our[i]] > other.i2o[our[i + 1]]:
                     our[i], our[i + 1] = our[i + 1], our[i]
+                    index_swaps.append(i)
                     swaps.append(
                         (
                             self.simplex(self.i2o[our[i]]),
@@ -258,7 +260,7 @@ class ordering:
                     )
                     full_order.append([self.i2o[o] for o in our])
 
-        return swaps, full_order
+        return swaps, full_order, index_swaps
 
     def __repr__(self):
         return " — ".join(
