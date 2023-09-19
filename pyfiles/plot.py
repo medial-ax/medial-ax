@@ -42,7 +42,11 @@ def plot_complex(
     sp_pt_color="red",
     filename=None,
     key_point: np.ndarray = None,
+    ax: plt.Axes = None,
 ):
+    if not ax:
+        _, ax = plt.subplots()
+
     points = np.array([v.coords for v in complex.vertlist])
 
     x = points[:, 0].flatten()
@@ -60,75 +64,22 @@ def plot_complex(
         point1 = complex.vertlist[edge.boundary[0]].coords
         point2 = complex.vertlist[edge.boundary[1]].coords
 
-        plt.plot(
+        ax.plot(
             [point1[0], point2[0]],
             [point1[1], point2[1]],
             color=smartcolor,
             linewidth=3,
         )
 
-        # label edges for debugging
-        if label_edges and False:
-            # label edge
-            avg_x = (point1[0] + point2[0]) / 2
-            avg_y = (point1[1] + point2[1]) / 2
-            plt.text(
-                avg_x,
-                avg_y,
-                "e" + str(edge.index),
-                fontsize=12,
-                # bbox=dict(facecolor="white", alpha=0.75, edgecolor="white"),
-            )
-            if extras:
-                shift = 0.4
-                plt.text(
-                    avg_x,
-                    avg_y + shift,
-                    "e" + str(edge.orderedindex),
-                    fontsize=12,
-                    # bbox=dict(facecolor="red", alpha=0.75, edgecolor="white"),
-                )
-                shift2 = -0.4
-                plt.text(
-                    avg_x,
-                    avg_y + shift2,
-                    "c" + str(edge.columnvalue),
-                    fontsize=12,
-                    color="white",
-                    # bbox=dict(facecolor="blue", alpha=0.75, edgecolor="white"),
-                )
-
-        plt.plot(*point1, color=smartcolor, marker="o", markersize=5)
+        ax.plot(*point1, color=smartcolor, marker="o", markersize=5)
         # add labels to points
         # white, sampling index
-
-        if extras and False:
-            # blue, column assignment
-            offset3 = -0.9
-            plt.text(
-                x[i] + offset3,
-                y[i],
-                "c" + str(complex.vertlist[i].columnvalue),
-                fontsize=12,
-                color="white",
-                # bbox=dict(facecolor="blue", alpha=0.75, edgecolor="black"),
-            )
-            # red, dist from pt
-            # offset makes the label not sit on the point exactly
-            offset = 0.6
-            plt.text(
-                x[i] + offset,
-                y[i],
-                str(complex.vertlist[i].orderedindex),
-                fontsize=12,
-                # bbox=dict(facecolor="red", alpha=0.75, edgecolor="white"),
-            )
 
     if label_verts:
         for vertex in complex.vertlist:
             x, y = vertex.coords
             offset2 = 0.0
-            plt.text(
+            ax.text(
                 x + offset2,
                 y + offset2,
                 f"v{vertex.index}",
@@ -144,7 +95,7 @@ def plot_complex(
             x = (point1[0] + point2[0]) / 2
             y = (point1[1] + point2[1]) / 2
             offset2 = 0.0
-            plt.text(
+            ax.text(
                 x + offset2,
                 y + offset2,
                 f"e{edge.index}",
@@ -155,14 +106,27 @@ def plot_complex(
 
     # plot key point (we calculate dist from this)
     if key_point:
-        plt.plot(key_point[0], key_point[1], color="black", marker="o", markersize=8)
-        plt.plot(key_point[0], key_point[1], color="red", marker="o", markersize=6)
+        ax.plot(key_point[0], key_point[1], color="black", marker="o", markersize=8)
+        ax.plot(key_point[0], key_point[1], color="red", marker="o", markersize=6)
 
-    plt.axis("equal")
-    plt.grid(True)
+    ax.axis("equal")
     if filename:
-        plt.savefig(filename, dpi=300)
-    return plt
+        ax.savefig(filename, dpi=300)
+    return ax
+
+
+grid_color = "#cf578e"
+
+
+def plot_grid(ax: plt.Axes, points: np.ndarray, edges: np.ndarray):
+    ax.plot(points[:, 0], points[:, 1], "o", markersize=3, color=grid_color)
+    ax.plot(
+        points[:, 0][edges.T],
+        points[:, 1][edges.T],
+        linestyle="-",
+        linewidth=0.5,
+        color=grid_color,
+    )
 
 
 class PandasMatrix:
