@@ -1,6 +1,7 @@
 from typing import Tuple
 from .complex import complex, ordering
 from .matrix import bdmatrix, sparse2array
+from .grid import Grid
 
 from matplotlib import pyplot as plt
 import numpy as np
@@ -118,11 +119,11 @@ def plot_complex(
 grid_color = "#cf578e"
 
 
-def plot_grid(ax: plt.Axes, points: np.ndarray, edges: np.ndarray):
-    ax.plot(points[:, 0], points[:, 1], "o", markersize=3, color=grid_color)
+def plot_grid(ax: plt.Axes, grid: Grid):
+    ax.plot(grid.points[:, 0], grid.points[:, 1], "o", markersize=3, color=grid_color)
     ax.plot(
-        points[:, 0][edges.T],
-        points[:, 1][edges.T],
+        grid.points[:, 0][grid.edge_indices.T],
+        grid.points[:, 1][grid.edge_indices.T],
         linestyle="-",
         linewidth=0.5,
         color=grid_color,
