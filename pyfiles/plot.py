@@ -72,7 +72,18 @@ def plot_complex(
             linewidth=3,
         )
 
-        ax.plot(*point1, color=smartcolor, marker="o", markersize=5)
+    for edge in complex.edgelist:
+        percentage = max([dists[v] for v in edge.boundary]) / maxx
+        smartcolor = color_sunset(1 - percentage)
+        point1 = complex.vertlist[edge.boundary[0]].coords
+        ax.plot(
+            *point1,
+            color=smartcolor,
+            marker="o",
+            markersize=7,
+            markeredgecolor="white",
+            markeredgewidth=1,
+        )
         # add labels to points
         # white, sampling index
 
@@ -120,13 +131,20 @@ grid_color = "#cf578e"
 
 
 def plot_grid(ax: plt.Axes, grid: Grid):
-    ax.plot(grid.points[:, 0], grid.points[:, 1], "o", markersize=3, color=grid_color)
+    # ax.plot(
+    #     grid.points[:, 0],
+    #     grid.points[:, 1],
+    #     "o",
+    #     markersize=2,
+    #     color=grid_color,
+    # )
     ax.plot(
         grid.points[:, 0][grid.edge_indices.T],
         grid.points[:, 1][grid.edge_indices.T],
         linestyle="-",
         linewidth=0.5,
         color=grid_color,
+        alpha=0.5,
     )
 
 
@@ -170,7 +188,7 @@ class PandasMatrix:
         n = self.matrix.initmatrix.shape[0]
         ret = {}
         for i in range(n):
-            simplex = self.ord.simplex(i)
+            simplex = self.ord.get_simplex(i)
             if simplex.dim() == -1:
                 c = "∅"
             elif simplex.dim() == 0:
@@ -223,7 +241,7 @@ def plot_orders_with_bubbles(o1: ordering, o2: ordering):
     plt.plot(lst)
     plt.yticks(
         range(len(lst[0])),
-        [f"{o1.simplex(i).prettyrepr()}" for i in range(len(lst[0]))],
+        [f"{o1.get_simplex(i).prettyrepr()}" for i in range(len(lst[0]))],
     )
     plt.show()
 

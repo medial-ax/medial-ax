@@ -192,6 +192,12 @@ class ordering:
             elif dim == 0:
                 return (vert_distances[s.index], 0, s.index)
             elif dim == 1:
+                # TODO: think more about if the ordering here has to be constant so that we don't get a bunch of irrelevant swaps
+                # [first_vert, last_vert] = sorted(
+                #     [vert_distances[i] for i in s.boundary]
+                # )
+                # # return (last_vert, 1, first_vert)
+                # return (last_vert, 1, s.index)
                 return (max([vert_distances[i] for i in s.boundary]), 1, s.index)
             else:
                 raise Exception("Only works for simplices of dimension 0 or 1")
@@ -219,7 +225,7 @@ class ordering:
         """
         return self.i2o[(dim, index)]
 
-    def simplex(self, i):
+    def get_simplex(self, i):
         """
         Get the simplex corresponding to this column index.
         """
@@ -233,14 +239,17 @@ class ordering:
         else:
             raise Exception("Only works for simplices of dimension 0 or 1")
 
-    def compute_transpositions(self, other):
+    def compute_transpositions(
+        self, other
+    ) -> Tuple[List[Tuple[simplex, simplex]], List[List[int]], List[int]]:
         """
         `self` should be the ordering at we already have the reduced matrix.
 
-        Returns two things:
+        Returns three things:
 
          1. A list of `(Simplex, Simplex)` for each swap
          2. A list of the full order after each swap, which is used for plotitng.
+         3. A list of indices into the list that we're sorting, corresponding to each swap. `i` in this list means that `i` and `i+1` were swapped.
         """
         our = self.list_unique_index()
         n = len(our)
@@ -254,8 +263,8 @@ class ordering:
                     index_swaps.append(i)
                     swaps.append(
                         (
-                            self.simplex(self.i2o[our[i]]),
-                            self.simplex(self.i2o[our[i + 1]]),
+                            self.get_simplex(self.i2o[our[i]]),
+                            self.get_simplex(self.i2o[our[i + 1]]),
                         )
                     )
                     full_order.append([self.i2o[o] for o in our])
@@ -264,5 +273,8 @@ class ordering:
 
     def __repr__(self):
         return " — ".join(
-            [self.simplex(self.i2o[s]).prettyrepr() for s in self.list_unique_index()]
+            [
+                self.get_simplex(self.i2o[s]).prettyrepr()
+                for s in self.list_unique_index()
+            ]
         )

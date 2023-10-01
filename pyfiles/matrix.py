@@ -570,12 +570,12 @@ class reduction_knowledge:
         c = sparsemat.get(col, set())
         if c:
             lowest = max(c)
-            birth = self.ordering.simplex(lowest)
+            birth = self.ordering.get_simplex(lowest)
             self.bettis[birth.dim()] -= 1
             self.birth_death_pairs[lowest] = col
             self.death_birth_pairs[col] = lowest
         else:
-            s = self.ordering.simplex(col)
+            s = self.ordering.get_simplex(col)
             self.bettis[s.dim()] += 1
             # NOTE: We record all births as living forever; if it gets killed,
             # this will be overwritten in the `if c:` branch.
