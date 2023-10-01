@@ -196,8 +196,7 @@ class ordering:
                 # [first_vert, last_vert] = sorted(
                 #     [vert_distances[i] for i in s.boundary]
                 # )
-                # # return (last_vert, 1, first_vert)
-                # return (last_vert, 1, s.index)
+                # return (last_vert, 1, first_vert)
                 return (max([vert_distances[i] for i in s.boundary]), 1, s.index)
             else:
                 raise Exception("Only works for simplices of dimension 0 or 1")

@@ -555,8 +555,8 @@ def do_vineyards_for_two_points(
             if s1.dim() == target_dim and s2.dim() == target_dim:
                 found_faustian = True
 
-            if s1.dim() != s2.dim():
-                raise Exception("This should not happen")
+            # if s1.dim() != s2.dim():
+            #     raise Exception(f"This should not happen: {s1.dim()} != {s2.dim()}")
 
         RRUU = (RR @ UU) % 2
         # assert (RRUU == PDP).all(), "Something is wrong with the column reduction"
