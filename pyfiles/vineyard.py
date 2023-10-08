@@ -8,6 +8,7 @@ import numpy as np
 from . import complex as cplx
 from . import matrix as mat
 from . import plot as ourplot
+from . import utils as utils
 
 
 class vineyard:
@@ -507,37 +508,44 @@ def perform_one_swap(
 def do_vineyards_for_two_points(
     complex: cplx.complex, a: np.ndarray, b: np.ndarray, target_dim: int
 ):
+    """Run the vineyards algorithm for two points. Fully reduce the matrix for the first point."""
+
     debug_yes = (
         np.linalg.norm(a - np.array([0.6, 0.2])) < 0.0001
         and np.linalg.norm(b - np.array([0.6, 0.4])) < 0.0001
     )
-    t0 = time.perf_counter()
-    """Run the vineyards algorithm for two points. Fully reduce the matrix for the first point."""
-    a_ordering = cplx.ordering.by_dist_to(complex, a)
-    a_matrix = mat.bdmatrix.from_ordering(a_ordering)
-    a_knowledge = mat.reduction_knowledge(a_matrix, a_ordering)
-    a_knowledge.run()
-
-    t1 = time.perf_counter()
+    with utils.Timed("vineyard from scratch"):
+        a_ordering = cplx.ordering.by_dist_to(complex, a)
+        a_matrix = mat.bdmatrix.from_ordering(a_ordering)
+        a_knowledge = mat.reduction_knowledge(a_matrix, a_ordering)
+        a_knowledge.run()
 
     # R = DV
     D = a_matrix.initmatrix
     R = a_matrix.reduced
 
-    V = np.eye(D.shape[0], dtype=int)
-    for target, other in a_knowledge.adds:
-        V[:, target] = (V[:, target] + V[:, other]) % 2
-    assert (((D @ V) % 2) == R).all(), "Something is wrong with the column reduction"
+    with utils.Timed("create V"):
+        V = np.eye(D.shape[0], dtype=int)
+        for target, other in a_knowledge.adds:
+            V[:, target] = (V[:, target] + V[:, other]) % 2
+        assert (
+            ((D @ V) % 2) == R
+        ).all(), "Something is wrong with the column reduction"
 
-    # RU = D
-    U = matrix_inverse(V)
-    assert (((R @ U) % 2) == D).all(), "Something is wrong with the column reduction"
+    with utils.Timed("create U"):
+        # RU = D
+        U = matrix_inverse(V)
+        assert (
+            ((R @ U) % 2) == D
+        ).all(), "Something is wrong with the column reduction"
 
-    b_ordering = cplx.ordering.by_dist_to(complex, b)
+    with utils.Timed("create B"):
+        b_ordering = cplx.ordering.by_dist_to(complex, b)
 
-    (swapped_simplices, _, swapped_indices) = a_ordering.compute_transpositions(
-        b_ordering
-    )
+    with utils.Timed("compute_transpositions"):
+        (swapped_simplices, _, swapped_indices) = a_ordering.compute_transpositions(
+            b_ordering
+        )
 
     # if yes:
     #     ourplot.plot_orders_with_bubbles(a_ordering, b_ordering)
@@ -565,45 +573,41 @@ def do_vineyards_for_two_points(
     found_faustian = False
     tricksy_different_dim = False
     # print(f"swapped_indices = #{len(swapped_indices)}")
-    for swap_i, i in enumerate(swapped_indices):
-        P = permutation_matrix(R.shape[0], i, i + 1)
-        PDP = (P.T @ D @ P) % 2
-        (RR, UU, faustian_swap) = perform_one_swap(i, a_knowledge, R, U, index_map)
-        index_map[i], index_map[i + 1] = (
-            index_map[i + 1],
-            index_map[i],
-        )
+    with utils.Timed("do swaps"):
+        for swap_i, i in enumerate(swapped_indices):
+            P = permutation_matrix(R.shape[0], i, i + 1)
+            PDP = (P.T @ D @ P) % 2
+            (RR, UU, faustian_swap) = perform_one_swap(i, a_knowledge, R, U, index_map)
+            index_map[i], index_map[i + 1] = (
+                index_map[i + 1],
+                index_map[i],
+            )
 
-        if faustian_swap:
-            s1, s2 = swapped_simplices[swap_i]
-            # TODO: double check that this is actually the correct check for figuring out if we're on the MA.
-            # TODO: Mabye these are always the same?
-            if debug_yes:
-                print(s1.dim(), s1, s2)
+            if faustian_swap:
+                s1, s2 = swapped_simplices[swap_i]
+                # TODO: double check that this is actually the correct check for figuring out if we're on the MA.
+                # TODO: Mabye these are always the same?
+                if debug_yes:
+                    print(s1.dim(), s1, s2)
 
-            skip = False
-            if s1.dim() == 0 and s2.dim() == 0:
-                cob1 = set(complex.get_coboundary(s1))
-                cob2 = set(complex.get_coboundary(s2))
-                if cob1 & cob2:
-                    skip = True
+                skip = False
+                if s1.dim() == 0 and s2.dim() == 0:
+                    cob1 = set(complex.get_coboundary(s1))
+                    cob2 = set(complex.get_coboundary(s2))
+                    if cob1 & cob2:
+                        skip = True
 
-            if not skip and s1.dim() == target_dim and s2.dim() == target_dim:
-                found_faustian = True
+                if not skip and s1.dim() == target_dim and s2.dim() == target_dim:
+                    found_faustian = True
 
-            if not skip and s1.dim() != s2.dim():
-                print(f"This should not happen: {s1.dim()} != {s2.dim()}")
-                tricksy_different_dim = True
+                if not skip and s1.dim() != s2.dim():
+                    print(f"This should not happen: {s1.dim()} != {s2.dim()}")
+                    tricksy_different_dim = True
 
-        RRUU = (RR @ UU) % 2
-        # assert (RRUU == PDP).all(), "Something is wrong with the column reduction"
-        R = RR
-        U = UU
-        D = PDP
-
-    t2 = time.perf_counter()
-
-    # print(f"from scratch: {(t1 - t0) * 1000}ms")
-    # print(f"   vineyards: {(t2 - t1) * 1000}ms")
+            RRUU = (RR @ UU) % 2
+            # assert (RRUU == PDP).all(), "Something is wrong with the column reduction"
+            R = RR
+            U = UU
+            D = PDP
 
     return found_faustian, tricksy_different_dim
