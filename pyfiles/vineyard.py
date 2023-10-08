@@ -561,104 +561,102 @@ def do_vineyards_for_two_points(
         np.linalg.norm(a - np.array([0.6, 0.2])) < 0.0001
         and np.linalg.norm(b - np.array([0.6, 0.4])) < 0.0001
     )
-    with utils.Timed("Reduction from scratch"):
+    with utils.Timed("Reduction"):
         a_ordering = cplx.ordering.by_dist_to(complex, a)
         a_matrix = mat.bdmatrix.from_ordering(a_ordering)
         a_knowledge = mat.reduction_knowledge(a_matrix, a_ordering)
         a_knowledge.run()
 
     # R = DV
-    D = SneakyMatrix.from_dense(a_matrix.initmatrix)
-    R = SneakyMatrix.from_dense(a_matrix.reduced)
+    with utils.Timed("Vineyards.setup: D, R"):
+        D = SneakyMatrix.from_dense(a_matrix.initmatrix)
+        R = SneakyMatrix.from_dense(a_matrix.reduced)
 
-    with utils.Timed("create V"):
+    with utils.Timed("Vineyards.setup: create V"):
         V = SneakyMatrix.eye(D.shape[0])
         for target, other in a_knowledge.adds:
             V.add_cols(target, other)
+        # assert (
+        #     ((D.to_dense() @ V.to_dense()) % 2) == R.to_dense()
+        # ).all(), "DV should be R"
 
-        with utils.Timed("create V [check]"):
-            assert (
-                ((D.to_dense() @ V.to_dense()) % 2) == R.to_dense()
-            ).all(), "DV should be R"
+    with utils.Timed("Vineyards.setup: create U"):
+        gf_v = GF2(V.to_dense())
+        gv_inv = np.linalg.inv(gf_v)
+        U_t = SneakyMatrix.from_dense(gv_inv.T)
+        # RU = D
+        assert (
+            ((R.to_dense() @ U_t.to_dense().T) % 2) == D.to_dense()
+        ).all(), "RU should be D"
 
-    with utils.Timed("create U"):
-        with utils.Timed("create U [gf_v]"):
-            gf_v = GF2(V.to_dense())
-        with utils.Timed("create U [gv_inv]"):
-            gv_inv = np.linalg.inv(gf_v)
-        with utils.Timed("create U [U_t]"):
-            U_t = SneakyMatrix.from_dense(gv_inv.T)
-        with utils.Timed("create U [check]"):
-            # RU = D
-            assert (
-                ((R.to_dense() @ U_t.to_dense().T) % 2) == D.to_dense()
-            ).all(), "RU should be D"
-
-    with utils.Timed("vineyards.step"):
-        with utils.Timed("create ordering from B"):
+    with utils.Timed("Vineyards"):
+        with utils.Timed("Vineyards: new ordering"):
             b_ordering = cplx.ordering.by_dist_to(complex, b)
 
-        with utils.Timed("compute_transpositions between the orderings"):
+        with utils.Timed("Vineyards: transpositions"):
             (swapped_simplices, _, swapped_indices) = a_ordering.compute_transpositions(
                 b_ordering
             )
 
-        # if yes:
-        #     ourplot.plot_orders_with_bubbles(a_ordering, b_ordering)
+        with utils.Timed("Vineyards: repair"):
+            # Make a map that we can use to map "swapped indices" to the indices
+            # that we can use in `a_knowledge`. That is, inside
+            # `perform_one_swap` we want to map the "swapped" indices to their
+            # original indices. The map starts as identity. After these swaps
+            # [(3,4), (2,3)] the map should be
+            #
+            #   { 0: 0,  1: 1,  2: 2,  3: 3,  4: 4,  5: 5,  6: 6}   (id)
+            #   { 0: 0,  1: 1,  2: 2,  3: 4,  4: 3,  5: 5,  6: 6}   (after (3,4))
+            #   { 0: 0,  1: 1,  2: 4,  3: 2,  4: 3,  5: 5,  6: 6}   (after (2,3))
+            #
+            # The operation we want is to map indices from the updated matrix to
+            # the original matrix, so that we can ask `a_knowledge` about the
+            # simplices that we're looking at in the updated matrix. For
+            # instance, after a few swaps we might be interested in the
+            # dimension of the simplex that is at index 2.  This is how the
+            # permutations look, and how we want to map them:
+            #
+            # .  0 . 1 . 2 . 3 . 4 . 5 . 6      (index)
+            # -----------------------------------------
+            # .  a . b . c . d . e . f . g      (id)
+            # .  a . b . c . e . d . f . g      (after (3,4))
+            # .  a . b . e . c . d . f . g      (after (2,3))
+            # .          ^ . (want to map 2 ---> 4)
+            index_map = dict({i: i for i in range(a_matrix.initmatrix.shape[0])})
 
-        # Make a map that we can use to map "swapped indices" to the indices that we can use in `a_knowledge`.
-        # That is, inside `perform_one_swap` we want to map the "swapped" indices to their original indices.
-        # The map starts as identity. After these swaps [(3,4), (2,3)] the map should be
-        #   { 0: 0,  1: 1,  2: 2,  3: 3,  4: 4,  5: 5,  6: 6}   (id)
-        #   { 0: 0,  1: 1,  2: 2,  3: 4,  4: 3,  5: 5,  6: 6}   (after (3,4))
-        #   { 0: 0,  1: 1,  2: 4,  3: 2,  4: 3,  5: 5,  6: 6}   (after (2,3))
-        #
-        # The operation we want is to map indices from the updated matrix to the original matrix,
-        # so that we can ask `a_knowledge` about the simplices that we're looking at in the updated matrix.
-        # For instance, after a few swaps we might be interested in the dimension of the simplex that is
-        # at index 2.  This is how the permutations look, and how we want to map them:
-        #
-        # .  0 . 1 . 2 . 3 . 4 . 5 . 6      (index)
-        # -----------------------------------------
-        # .  a . b . c . d . e . f . g      (id)
-        # .  a . b . c . e . d . f . g      (after (3,4))
-        # .  a . b . e . c . d . f . g      (after (2,3))
-        # .          ^ . (want to map 2 ---> 4)
-        index_map = dict({i: i for i in range(a_matrix.initmatrix.shape[0])})
+            found_faustian = False
+            tricksy_different_dim = False
+            # print(f"swapped_indices = #{len(swapped_indices)}")
+            for swap_i, i in enumerate(swapped_indices):
+                # P = permutation_matrix(R.shape[0], i, i + 1)
+                # PDP = (P.T @ D @ P) % 2
+                D.swap_cols_and_rows(i, i + 1)
 
-        found_faustian = False
-        tricksy_different_dim = False
-        # print(f"swapped_indices = #{len(swapped_indices)}")
-        for swap_i, i in enumerate(swapped_indices):
-            # P = permutation_matrix(R.shape[0], i, i + 1)
-            # PDP = (P.T @ D @ P) % 2
-            D.swap_cols_and_rows(i, i + 1)
+                (_, _, faustian_swap) = perform_one_swap(
+                    i, a_knowledge, R, U_t, index_map
+                )
+                index_map[i], index_map[i + 1] = (
+                    index_map[i + 1],
+                    index_map[i],
+                )
 
-            (_, _, faustian_swap) = perform_one_swap(i, a_knowledge, R, U_t, index_map)
-            index_map[i], index_map[i + 1] = (
-                index_map[i + 1],
-                index_map[i],
-            )
+                if faustian_swap:
+                    s1, s2 = swapped_simplices[swap_i]
 
-            if faustian_swap:
-                s1, s2 = swapped_simplices[swap_i]
-                # TODO: double check that this is actually the correct check for figuring out if we're on the MA.
-                # TODO: Mabye these are always the same?
-                if debug_yes:
-                    print(s1.dim(), s1, s2)
+                    # Pruning
+                    # If we get two vertices that share an edge, skip the swap.
+                    skip = False
+                    if s1.dim() == 0 and s2.dim() == 0:
+                        cob1 = set(complex.get_coboundary(s1))
+                        cob2 = set(complex.get_coboundary(s2))
+                        if cob1 & cob2:
+                            skip = True
 
-                skip = False
-                if s1.dim() == 0 and s2.dim() == 0:
-                    cob1 = set(complex.get_coboundary(s1))
-                    cob2 = set(complex.get_coboundary(s2))
-                    if cob1 & cob2:
-                        skip = True
+                    if not skip and s1.dim() == target_dim and s2.dim() == target_dim:
+                        found_faustian = True
 
-                if not skip and s1.dim() == target_dim and s2.dim() == target_dim:
-                    found_faustian = True
+                    if not skip and s1.dim() != s2.dim():
+                        print(f"This should not happen: {s1.dim()} != {s2.dim()}")
+                        tricksy_different_dim = True
 
-                if not skip and s1.dim() != s2.dim():
-                    print(f"This should not happen: {s1.dim()} != {s2.dim()}")
-                    tricksy_different_dim = True
-
-        return found_faustian, tricksy_different_dim
+            return found_faustian, tricksy_different_dim

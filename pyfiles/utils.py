@@ -37,7 +37,7 @@ class Timed:
         print("|======== Timed report ========")
         for k, v in Timed.times.items():
             print(
-                f"| {k: >{maxlen}}: {v / 1e6:10.2f}ms  ({v / 1e6 / Timed.count[k]:6.3f}ms per; #{Timed.count[k]})"
+                f"| {k: <{maxlen}}: {v / 1e6:10.2f}ms  ({v / 1e6 / Timed.count[k]:6.3f}ms per; #{Timed.count[k]})"
             )
         print("|==============================")
         Timed.times.clear()

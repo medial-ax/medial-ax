@@ -5,6 +5,8 @@ import numpy as np
 from scipy.spatial import distance
 from pprint import pprint
 
+from pyfiles.utils import Timed
+
 
 def augment_with_radialdist(complex: complex) -> List[float]:
     """
@@ -282,10 +284,25 @@ class ordering:
         swaps = []
         index_swaps = []
 
-        # Bubble sort the list of indices to find the swaps. The key is `i -> other.i2o[our[i]]``
+        # Bubble sort the list of indices to find the swaps. The key is `i ->
+        # other.i2o[our[i]]`, so that we sort `our` by the order in `other`.
 
-        for _ in range(n):
-            for i in range(n - 1):
+        # Compute upper and lower bounds on the two orders so that we don't have
+        # to blindly check all pairs if the two orders are already mostly
+        # sorted. If the two orders are the same in a segment from the start,
+        # this will never be touched by the swaps, so we can start at the first
+        # index where they differ.  Same for the end.
+        i0 = 0
+        while i0 < n and other.i2o[our[i0]] == other.i2o[our[i0 + 1]]:
+            i0 += 1
+        i1 = n - 1
+        while i0 < i1 and other.i2o[our[i1 - 1]] == other.i2o[our[i1]]:
+            i1 -= 1
+        steps = i1 - i0 + 1
+
+        for _ in range(steps):
+            did_swap = False
+            for i in range(i0, i1):
                 if other.i2o[our[i]] > other.i2o[our[i + 1]]:
                     our[i], our[i + 1] = our[i + 1], our[i]
                     index_swaps.append(i)
@@ -296,6 +313,9 @@ class ordering:
                         )
                     )
                     full_order.append([self.i2o[o] for o in our])
+                    did_swap = True
+            if not did_swap:
+                break
 
         return swaps, full_order, index_swaps
 
