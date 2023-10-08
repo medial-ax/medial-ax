@@ -18,7 +18,8 @@ class Time:
 
 class Timed:
     label: str
-    dict = defaultdict(int)
+    times = defaultdict(int)
+    count = defaultdict(int)
 
     def __init__(self, label: str):
         self.label = label
@@ -28,12 +29,16 @@ class Timed:
 
     def __exit__(self, _, _1, _2):
         end = perf_counter_ns()
-        Timed.dict[self.label] += end - self.start
+        Timed.times[self.label] += end - self.start
+        Timed.count[self.label] += 1
 
     def report():
-        maxlen = max([len(s) for s in Timed.dict.keys()])
+        maxlen = max([len(s) for s in Timed.times.keys()])
         print("|======== Timed report ========")
-        for k, v in Timed.dict.items():
-            print(f"| {k: >{maxlen}}: {v / 1e6:10.2f}ms")
+        for k, v in Timed.times.items():
+            print(
+                f"| {k: >{maxlen}}: {v / 1e6:10.2f}ms  ({v / 1e6 / Timed.count[k]:6.3f}ms per; #{Timed.count[k]})"
+            )
         print("|==============================")
-        Timed.dict.clear()
+        Timed.times.clear()
+        Timed.count.clear()

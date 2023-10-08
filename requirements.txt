@@ -4,3 +4,4 @@ numpy ~= 1.23
 jupyter
 pandas == 2.0.3
 black
+galois == 0.3

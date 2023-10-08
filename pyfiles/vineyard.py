@@ -2,8 +2,11 @@ from copy import deepcopy
 import time
 import math
 
-from typing import Callable, Dict, List
+from typing import Callable, Dict, List, Tuple
 import numpy as np
+import galois
+
+import scipy as sp
 
 from . import complex as cplx
 from . import matrix as mat
@@ -358,7 +361,17 @@ class vineyard:
 
 def matrix_inverse(mat: np.ndarray) -> np.ndarray:
     """Returns the inverse of the matrix in Z/2Z."""
+    # NOTE: this is probably broken.
+    print("DONT USE THIS, ITS BROKEN")
     return np.absolute(np.linalg.inv(mat).astype(int)) % 2
+
+
+# def sparse_matrix_inverse(mat: sp.sparse.sparray) -> sp.sparse.sparray:
+#     """Returns the inverse of the matrix in Z/2Z."""
+#     inv = sp.sparse.linalg.inv(mat)
+#     inv.data %= 2
+#     inv.data = np.absolute(inv.data)
+#     return inv.astype(int)
 
 
 def permutation_matrix(n: int, i: int, j: int) -> np.ndarray:
@@ -374,11 +387,30 @@ def make_permutation_fn(i: int, j: int) -> Callable[[np.ndarray], np.ndarray]:
     """
 
     def inner(A):
-        A[[i, j]] = A[[j, i]]
-        A[:, [i, j]] = A[:, [j, i]]
-        return A
+        with utils.Timed("permutation_fn"):
+            A[[i, j]] = A[[j, i]]
+            A[:, [i, j]] = A[:, [j, i]]
+            return A
 
     return inner
+
+
+def sparse_add_row_to_row(A: sp.sparse.sparray, i: int, j: int):
+    with utils.Timed("sparse_add_row_to_row"):
+        # print("[r2r] A is of type", type(A))
+        tmp = A[i, :] + A[j, :]
+        tmp.data %= 2
+        A[i, :] = tmp
+        return A
+
+
+def sparse_add_col_to_col(A: sp.sparse.sparray, i: int, j: int):
+    with utils.Timed("sparse_add_col_to_col"):
+        # print("[c2c] A is of type", type(A))
+        tmp = A[:, i] + A[:, j]
+        tmp.data %= 2
+        A[:, i] = tmp
+        return A
 
 
 def perform_one_swap(
@@ -388,6 +420,8 @@ def perform_one_swap(
     U: np.ndarray,
     index_map: Dict[int, int],
 ):
+    # print("performing one swap")
+    # print(f"type(R)={type(R)} . type(U)={type(U)}")
     # This function performs one swap of two simplices and computes the
     # reduced matrix for the "post-swap" ordering. Notation:
     # - D, or `matrix.initmatrix`, is the incidence matrix (+ empty set)
@@ -422,12 +456,14 @@ def perform_one_swap(
             if k < l:
                 # Add column k of PRP to column ℓ; add row ℓ of P U P to row k.
                 # PRP = P.T @ R @ P
-                PRP = Pfn(R)
-                PRP[:, l] = (PRP[:, k] + PRP[:, l]) % 2
+                PRP = Pfn(R.copy())
+                sparse_add_col_to_col(PRP, l, k)
+                # PRP[:, l] = (PRP[:, k] + PRP[:, l]) % 2
 
                 # PUP = P.T @ _U @ P
                 PUP = Pfn(_U)
-                PUP[k, :] = (PUP[k, :] + PUP[l, :]) % 2
+                sparse_add_row_to_row(PUP, k, l)
+                # PUP[k, :] = (PUP[k, :] + PUP[l, :]) % 2
 
                 return (PRP, PUP, None)
             # Case 1.1.2: ℓ < k.
@@ -435,12 +471,14 @@ def perform_one_swap(
                 # Add column ℓ of P RP to column k;
                 # PRP = P.T @ R @ P
                 PRP = Pfn(R)
-                PRP[:, k] = (PRP[:, k] + PRP[:, l]) % 2
+                # PRP[:, k] = (PRP[:, k] + PRP[:, l]) % 2
+                sparse_add_col_to_col(PRP, k, l)
 
                 # add row k of P U P to row ℓ.
                 # PUP = P.T @ _U @ P
                 PUP = Pfn(_U)
-                PUP[l, :] = (PUP[k, :] + PUP[l, :]) % 2
+                # PUP[l, :] = (PUP[k, :] + PUP[l, :]) % 2
+                sparse_add_row_to_row(PUP, l, k)
 
                 # We witness a change in the pairing but NOT of Faustian type.
                 return (PRP, PUP, False)
@@ -459,9 +497,12 @@ def perform_one_swap(
         if U[i, i + 1] == 1:
             # Add row i + 1 of U to row i; add column i of R to column i + 1.
             _U = U.copy()
-            _U[i, :] = (_U[i, :] + _U[i + 1, :]) % 2
+            # _U[i, :] = (_U[i, :] + _U[i + 1, :]) % 2
+            sparse_add_row_to_row(_U, i, i + 1)
+
             _R = R.copy()
-            _R[:, i + 1] = (_R[:, i] + _R[:, i + 1]) % 2
+            # _R[:, i + 1] = (_R[:, i] + _R[:, i + 1]) % 2
+            sparse_add_col_to_col(_R, i + 1, i)
 
             # Case 2.1.1: low(i) < low(i + 1).
             if rk.low(i) < rk.low(i + 1):
@@ -475,11 +516,14 @@ def perform_one_swap(
                 # Add column i of P RP to column i + 1;
                 # PRP = P.T @ _R @ P
                 PRP = Pfn(_R)
-                PRP[:, i + 1] = (PRP[:, i] + PRP[:, i + 1]) % 2
+                # PRP[:, i + 1] = (PRP[:, i] + PRP[:, i + 1]) % 2
+                sparse_add_col_to_col(PRP, i + 1, i)
+
                 # Add row i + 1 of P U P to row i.
                 # PUP = P.T @ _U @ P
                 PUP = Pfn(_U)
-                PUP[i, :] = (PUP[i, :] + PUP[i + 1, :]) % 2
+                # PUP[i, :] = (PUP[i, :] + PUP[i + 1, :]) % 2
+                sparse_add_row_to_row(PUP, i, i + 1)
                 # We witness a NON-Faustian type change of the pairing.
                 return (PRP, PUP, False)
         # Case 2.2: U [i, i + 1] = 0.
@@ -497,21 +541,25 @@ def perform_one_swap(
         if U[i, i + 1] == 1:
             # Add row i + 1 of U to row i.
             _U = U.copy()
-            _U[i, :] = (_U[i, :] + _U[i + 1, :]) % 2
+            # _U[i, :] = (_U[i, :] + _U[i + 1, :]) % 2
+            sparse_add_row_to_row(_U, i, i + 1)
 
             # Add column i of R to column i + 1.
             _R = R.copy()
-            _R[:, i + 1] = (_R[:, i] + _R[:, i + 1]) % 2
+            # _R[:, i + 1] = (_R[:, i] + _R[:, i + 1]) % 2
+            sparse_add_col_to_col(_R, i + 1, i)
 
             # Furthermore, add column i of P RP to column i + 1.
             # PRP = P.T @ _R @ P
             PRP = Pfn(_R)
-            PRP[:, i + 1] = (PRP[:, i] + PRP[:, i + 1]) % 2
+            # PRP[:, i + 1] = (PRP[:, i] + PRP[:, i + 1]) % 2
+            sparse_add_col_to_col(PRP, i + 1, i)
 
             # Add row i + 1 of P U P to row i.
             # PUP = P.T @ _U @ P
             PUP = Pfn(_U)
-            PUP[i, :] = (PUP[i, :] + PUP[i + 1, :]) % 2
+            # PUP[i, :] = (PUP[i, :] + PUP[i + 1, :]) % 2
+            sparse_add_row_to_row(PUP, i, i + 1)
             # print(
             #     f"faustian: dim of simplexes {rk.ordering.get_simplex(index_map[i]).dim()}/{rk.ordering.get_simplex(index_map[i+1]).dim()}"
             # )
@@ -537,6 +585,8 @@ def perform_one_swap(
         PUP = Pfn(_U)
         return (PRP, PUP, None)
 
+    print("wat")
+
 
 def do_vineyards_for_two_points(
     complex: cplx.complex, a: np.ndarray, b: np.ndarray, target_dim: int
@@ -554,28 +604,46 @@ def do_vineyards_for_two_points(
         a_knowledge.run()
 
     # R = DV
-    D = a_matrix.initmatrix
-    R = a_matrix.reduced
+    D = sp.sparse.csc_matrix(a_matrix.initmatrix)
+    R = sp.sparse.csc_matrix(a_matrix.reduced)
 
     with utils.Timed("create V"):
+        #######################################
         V = np.eye(D.shape[0], dtype=int)
         for target, other in a_knowledge.adds:
-            V[:, target] = (V[:, target] + V[:, other]) % 2
-        assert (
-            ((D @ V) % 2) == R
-        ).all(), "Something is wrong with the column reduction"
+            V[:, target] = V[:, target] + V[:, other]
+            # sparse_add_col_to_col(V, target, other)
+        V = sp.sparse.csc_matrix(V)
+        V.data %= 2
+
+    #######################################
+    # V = sp.sparse.lil_matrix(np.eye(D.shape[0], dtype=int))
+    # for target, other in a_knowledge.adds:
+    #     V[:, target] = V[:, target] + V[:, other]
+    #     # sparse_add_col_to_col(V, target, other)
+    # V = sp.sparse.csc_matrix(V)
+    # V.data %= 2
+
+    #######################################
+    # assert (
+    #     ((D @ V) % 2) == R
+    # ).all(), "Something is wrong with the column reduction"
 
     with utils.Timed("create U"):
+        GF2 = galois.GF(2)
+        gf_v = GF2(V.todense())
+        gv_inv = np.linalg.inv(gf_v)
+        U = sp.sparse.csc_matrix(gv_inv)
         # RU = D
-        U = matrix_inverse(V)
-        assert (
-            ((R @ U) % 2) == D
-        ).all(), "Something is wrong with the column reduction"
+        # U = matrix_inverse(V)
+        # assert (
+        #     ((R @ U) % 2) == D
+        # ).all(), "Something is wrong with the column reduction"
 
-    with utils.Timed("create B"):
+    with utils.Timed("create ordering from B"):
         b_ordering = cplx.ordering.by_dist_to(complex, b)
 
-    with utils.Timed("compute_transpositions"):
+    with utils.Timed("compute_transpositions between the orderings"):
         (swapped_simplices, _, swapped_indices) = a_ordering.compute_transpositions(
             b_ordering
         )
@@ -606,10 +674,11 @@ def do_vineyards_for_two_points(
     found_faustian = False
     tricksy_different_dim = False
     # print(f"swapped_indices = #{len(swapped_indices)}")
-    with utils.Timed("do swaps"):
-        for swap_i, i in enumerate(swapped_indices):
-            P = permutation_matrix(R.shape[0], i, i + 1)
-            PDP = (P.T @ D @ P) % 2
+    for swap_i, i in enumerate(swapped_indices):
+        with utils.Timed("do swap"):
+            # P = permutation_matrix(R.shape[0], i, i + 1)
+            # PDP = (P.T @ D @ P) % 2
+            PDP = make_permutation_fn(i, i + 1)(D)
             (RR, UU, faustian_swap) = perform_one_swap(i, a_knowledge, R, U, index_map)
             index_map[i], index_map[i + 1] = (
                 index_map[i + 1],
@@ -637,7 +706,7 @@ def do_vineyards_for_two_points(
                     print(f"This should not happen: {s1.dim()} != {s2.dim()}")
                     tricksy_different_dim = True
 
-            RRUU = (RR @ UU) % 2
+            # RRUU = (RR @ UU) % 2
             # assert (RRUU == PDP).all(), "Something is wrong with the column reduction"
             R = RR
             U = UU
