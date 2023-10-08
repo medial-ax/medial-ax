@@ -38,7 +38,7 @@ class SneakyMatrix:
         sm = SneakyMatrix()
         (rows, cols) = mat.shape
         for c in range(cols):
-            entries = [r for r in range(rows) if mat[r, c] == 1]
+            entries = set(np.where(mat[:, c] == 1)[0])
             sm.entries[c] = set(entries)
         sm.cols = cols
         sm.rows = rows

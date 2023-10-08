@@ -281,6 +281,9 @@ class ordering:
         full_order = [list(range(n))]
         swaps = []
         index_swaps = []
+
+        # Bubble sort the list of indices to find the swaps. The key is `i -> other.i2o[our[i]]``
+
         for _ in range(n):
             for i in range(n - 1):
                 if other.i2o[our[i]] > other.i2o[our[i + 1]]:
