@@ -8,6 +8,8 @@ import galois
 
 import scipy as sp
 
+from pyfiles.sneaky_matrix import SneakyMatrix
+
 from . import complex as cplx
 from . import matrix as mat
 from . import plot as ourplot
@@ -416,8 +418,8 @@ def sparse_add_col_to_col(A: sp.sparse.sparray, i: int, j: int):
 def perform_one_swap(
     i: int,
     rk: mat.reduction_knowledge,
-    R: np.ndarray,
-    U: np.ndarray,
+    R: SneakyMatrix,
+    U_t: SneakyMatrix,
     index_map: Dict[int, int],
 ):
     # print("performing one swap")
@@ -439,13 +441,12 @@ def perform_one_swap(
     # P is the permutation matrix that swaps the things
     # NOTE: this swaps COLUMN `swap_index` with `swap_index + 1`
     # P = permutation_matrix(R.shape[0], i, i + 1)
-    Pfn = make_permutation_fn(i, i + 1)
+    # Pfn = make_permutation_fn(i, i + 1)
 
     # Case 1: σi and σi+1 both give birth.
     if rk.gives_birth(index_map[i]) and rk.gives_birth(index_map[i + 1]):
         # Let U [i, i + 1] = 0, just in case.
-        _U = U.copy()
-        _U[i, i + 1] = 0
+        U_t[i + 1, i] = 0
 
         # Case 1.1: there are columns k and ℓ with low(k) = i, low(ℓ) = i +
         # 1, and R[i, ℓ] = 1.
@@ -455,137 +456,98 @@ def perform_one_swap(
             # Case 1.1.1: k < ℓ.
             if k < l:
                 # Add column k of PRP to column ℓ; add row ℓ of P U P to row k.
-                # PRP = P.T @ R @ P
-                PRP = Pfn(R.copy())
-                sparse_add_col_to_col(PRP, l, k)
-                # PRP[:, l] = (PRP[:, k] + PRP[:, l]) % 2
+                R.swap_cols_and_rows(i, i + 1)
+                R.add_cols(l, k)
 
-                # PUP = P.T @ _U @ P
-                PUP = Pfn(_U)
-                sparse_add_row_to_row(PUP, k, l)
-                # PUP[k, :] = (PUP[k, :] + PUP[l, :]) % 2
+                U_t.swap_cols_and_rows(i, i + 1)
+                U_t.add_cols(k, l)
 
-                return (PRP, PUP, None)
+                return (R, U_t, None)
             # Case 1.1.2: ℓ < k.
             if l < k:
                 # Add column ℓ of P RP to column k;
-                # PRP = P.T @ R @ P
-                PRP = Pfn(R)
-                # PRP[:, k] = (PRP[:, k] + PRP[:, l]) % 2
-                sparse_add_col_to_col(PRP, k, l)
+                R.swap_cols_and_rows(i, i + 1)
+                R.add_cols(k, l)
 
                 # add row k of P U P to row ℓ.
-                # PUP = P.T @ _U @ P
-                PUP = Pfn(_U)
-                # PUP[l, :] = (PUP[k, :] + PUP[l, :]) % 2
-                sparse_add_row_to_row(PUP, l, k)
+                U_t.swap_cols_and_rows(i, i + 1)
+                U_t.add_cols(l, k)
 
                 # We witness a change in the pairing but NOT of Faustian type.
-                return (PRP, PUP, False)
+                return (R, U_t, False)
+            raise Exception("k = l; This should never happen.")
         # Case 1.2: such columns k and ℓ do not exist.
         else:
             # Done.
             # PRP = P.T @ R @ P
-            PRP = Pfn(R)
-            # PUP = P.T @ _U @ P
-            PUP = Pfn(_U)
-            return (PRP, PUP, None)
+            R.swap_cols_and_rows(i, i + 1)
+            U_t.swap_cols_and_rows(i, i + 1)
+            return (R, U_t, None)
 
     # Case 2: σi and σi+1 both give death.
     if rk.gives_death(index_map[i]) and rk.gives_death(index_map[i + 1]):
         # Case 2.1: U [i, i + 1] = 1.
-        if U[i, i + 1] == 1:
+        if U_t[i + 1, i] == 1:
             # Add row i + 1 of U to row i; add column i of R to column i + 1.
-            _U = U.copy()
-            # _U[i, :] = (_U[i, :] + _U[i + 1, :]) % 2
-            sparse_add_row_to_row(_U, i, i + 1)
+            U_t.add_cols(i, i + 1)
+            R.add_cols(i + 1, i)
 
-            _R = R.copy()
-            # _R[:, i + 1] = (_R[:, i] + _R[:, i + 1]) % 2
-            sparse_add_col_to_col(_R, i + 1, i)
+            R.swap_cols_and_rows(i, i + 1)
+            U_t.swap_cols_and_rows(i, i + 1)
 
             # Case 2.1.1: low(i) < low(i + 1).
             if rk.low(i) < rk.low(i + 1):
-                # PRP = P.T @ _R @ P
-                PRP = Pfn(_R)
-                # PUP = P.T @ _U @ P
-                PUP = Pfn(_U)
-                return (PRP, PUP, None)
+                return (R, U_t, None)
             # Case 2.1.2: low(i + 1) < low(i).
             else:
                 # Add column i of P RP to column i + 1;
-                # PRP = P.T @ _R @ P
-                PRP = Pfn(_R)
-                # PRP[:, i + 1] = (PRP[:, i] + PRP[:, i + 1]) % 2
-                sparse_add_col_to_col(PRP, i + 1, i)
-
+                R.add_cols(i + 1, i)
                 # Add row i + 1 of P U P to row i.
-                # PUP = P.T @ _U @ P
-                PUP = Pfn(_U)
-                # PUP[i, :] = (PUP[i, :] + PUP[i + 1, :]) % 2
-                sparse_add_row_to_row(PUP, i, i + 1)
+                U_t.add_cols(i, i + 1)
                 # We witness a NON-Faustian type change of the pairing.
-                return (PRP, PUP, False)
+                return (R, U_t, False)
         # Case 2.2: U [i, i + 1] = 0.
         else:
             # Done.
-            # PRP = P.T @ R @ P
-            PRP = Pfn(R)
-            # PUP = P.T @ U @ P
-            PUP = Pfn(U)
-            return (PRP, PUP, None)
+            R.swap_cols_and_rows(i, i + 1)
+            U_t.swap_cols_and_rows(i, i + 1)
+            return (R, U_t, None)
 
     # Case 3: σi gives death and σi+1 gives birth.
     if rk.gives_death(index_map[i]) and rk.gives_birth(index_map[i + 1]):
         # Case 3.1: U [i, i + 1] = 1.
-        if U[i, i + 1] == 1:
+        if U_t[i + 1, i] == 1:
             # Add row i + 1 of U to row i.
-            _U = U.copy()
-            # _U[i, :] = (_U[i, :] + _U[i + 1, :]) % 2
-            sparse_add_row_to_row(_U, i, i + 1)
+            U_t.add_cols(i, i + 1)
 
             # Add column i of R to column i + 1.
-            _R = R.copy()
-            # _R[:, i + 1] = (_R[:, i] + _R[:, i + 1]) % 2
-            sparse_add_col_to_col(_R, i + 1, i)
+            R.add_cols(i + 1, i)
 
             # Furthermore, add column i of P RP to column i + 1.
-            # PRP = P.T @ _R @ P
-            PRP = Pfn(_R)
-            # PRP[:, i + 1] = (PRP[:, i] + PRP[:, i + 1]) % 2
-            sparse_add_col_to_col(PRP, i + 1, i)
+            R.swap_cols_and_rows(i, i + 1)
+            R.add_cols(i + 1, i)
 
             # Add row i + 1 of P U P to row i.
-            # PUP = P.T @ _U @ P
-            PUP = Pfn(_U)
-            # PUP[i, :] = (PUP[i, :] + PUP[i + 1, :]) % 2
-            sparse_add_row_to_row(PUP, i, i + 1)
-            # print(
-            #     f"faustian: dim of simplexes {rk.ordering.get_simplex(index_map[i]).dim()}/{rk.ordering.get_simplex(index_map[i+1]).dim()}"
-            # )
+            U_t.swap_cols_and_rows(i, i + 1)
+            U_t.add_cols(i, i + 1)
 
             # We witness a Faustian type change in the pairing.
-            return (PRP, PUP, True)
+            return (R, U_t, True)
         # Case 3.2: U [i, i + 1] = 0.
         else:
-            # PRP = P.T @ R @ P
-            PRP = Pfn(R)
-            # PUP = P.T @ U @ P
-            PUP = Pfn(U)
-            return (PRP, PUP, None)
+            R.swap_cols_and_rows(i, i + 1)
+            U_t.swap_cols_and_rows(i, i + 1)
+            return (R, U_t, None)
 
     # Case 4: σi gives birth and σi+1 gives death.
     if rk.gives_birth(index_map[i]) and rk.gives_death(index_map[i + 1]):
         # Set U [i, i + 1] = 0, just in case.
-        _U = U.copy()
-        _U[i, i + 1] = 0
-        # PRP = P.T @ R @ P
-        PRP = Pfn(R)
-        # PUP = P.T @ _U @ P
-        PUP = Pfn(_U)
-        return (PRP, PUP, None)
+        U_t[i + 1, i] = 0
+        R.swap_cols_and_rows(i, i + 1)
+        U_t.swap_cols_and_rows(i, i + 1)
+        return (R, U_t, None)
 
-    print("wat")
+    raise Exception("bottom of the function; This should never happen.")
 
 
 def do_vineyards_for_two_points(
@@ -604,41 +566,27 @@ def do_vineyards_for_two_points(
         a_knowledge.run()
 
     # R = DV
-    D = sp.sparse.csc_matrix(a_matrix.initmatrix)
-    R = sp.sparse.csc_matrix(a_matrix.reduced)
+    D = SneakyMatrix.from_dense(a_matrix.initmatrix)
+    R = SneakyMatrix.from_dense(a_matrix.reduced)
 
     with utils.Timed("create V"):
-        #######################################
-        V = np.eye(D.shape[0], dtype=int)
+        V = SneakyMatrix.eye(D.shape[0])
         for target, other in a_knowledge.adds:
-            V[:, target] = V[:, target] + V[:, other]
-            # sparse_add_col_to_col(V, target, other)
-        V = sp.sparse.csc_matrix(V)
-        V.data %= 2
+            V.add_cols(target, other)
 
-    #######################################
-    # V = sp.sparse.lil_matrix(np.eye(D.shape[0], dtype=int))
-    # for target, other in a_knowledge.adds:
-    #     V[:, target] = V[:, target] + V[:, other]
-    #     # sparse_add_col_to_col(V, target, other)
-    # V = sp.sparse.csc_matrix(V)
-    # V.data %= 2
-
-    #######################################
-    # assert (
-    #     ((D @ V) % 2) == R
-    # ).all(), "Something is wrong with the column reduction"
+        assert (
+            ((D.to_dense() @ V.to_dense()) % 2) == R.to_dense()
+        ).all(), "DV should be R"
 
     with utils.Timed("create U"):
         GF2 = galois.GF(2)
-        gf_v = GF2(V.todense())
+        gf_v = GF2(V.to_dense())
         gv_inv = np.linalg.inv(gf_v)
-        U = sp.sparse.csc_matrix(gv_inv)
+        U_t = SneakyMatrix.from_dense(gv_inv.T)
         # RU = D
-        # U = matrix_inverse(V)
-        # assert (
-        #     ((R @ U) % 2) == D
-        # ).all(), "Something is wrong with the column reduction"
+        assert (
+            ((R.to_dense() @ U_t.to_dense().T) % 2) == D.to_dense()
+        ).all(), "RU should be D"
 
     with utils.Timed("create ordering from B"):
         b_ordering = cplx.ordering.by_dist_to(complex, b)
@@ -678,8 +626,9 @@ def do_vineyards_for_two_points(
         with utils.Timed("do swap"):
             # P = permutation_matrix(R.shape[0], i, i + 1)
             # PDP = (P.T @ D @ P) % 2
-            PDP = make_permutation_fn(i, i + 1)(D)
-            (RR, UU, faustian_swap) = perform_one_swap(i, a_knowledge, R, U, index_map)
+            D.swap_cols_and_rows(i, i + 1)
+
+            (_, _, faustian_swap) = perform_one_swap(i, a_knowledge, R, U_t, index_map)
             index_map[i], index_map[i + 1] = (
                 index_map[i + 1],
                 index_map[i],
@@ -705,11 +654,5 @@ def do_vineyards_for_two_points(
                 if not skip and s1.dim() != s2.dim():
                     print(f"This should not happen: {s1.dim()} != {s2.dim()}")
                     tricksy_different_dim = True
-
-            # RRUU = (RR @ UU) % 2
-            # assert (RRUU == PDP).all(), "Something is wrong with the column reduction"
-            R = RR
-            U = UU
-            D = PDP
 
     return found_faustian, tricksy_different_dim

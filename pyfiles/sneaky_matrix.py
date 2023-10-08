@@ -53,6 +53,17 @@ class SneakyMatrix:
         sm.rows = rows
         return sm
 
+    def eye(n: int) -> SneakyMatrix:
+        """
+        Construct a new square identity matrix with the given number of rows and columns.
+        """
+        sm = SneakyMatrix()
+        sm.cols = n
+        sm.rows = n
+        for i in range(n):
+            sm.entries[i] = {i}
+        return sm
+
     def __init__(self):
         self.entries = defaultdict(set)
         self.row_map = keydefaultdict()
@@ -83,7 +94,7 @@ class SneakyMatrix:
             raise Exception("Row index out of bounds")
         elif c < 0 or c >= self.cols:
             raise Exception("Column index out of bounds")
-        return 1 if r in map(lambda r: self.row_map[r], self.entries[c]) else 0
+        return 1 if self.row_map[r] in self.entries[c] else 0
 
     def copy(self) -> SneakyMatrix:
         """
@@ -102,20 +113,47 @@ class SneakyMatrix:
                 mat[r, c] = 1
         return mat
 
-    def swap_cols(self, i, j):
+    def swap_cols(self, c1, c2):
         """
         Swap columns i and j.
         """
-        self.entries[i], self.entries[j] = self.entries[j], self.entries[i]
+        if c1 < 0 or c1 >= self.cols:
+            raise Exception(
+                f"Column index out of bounds: 0 <!= {c1} <!= {self.cols}",
+            )
+        if c2 < 0 or c2 >= self.cols:
+            raise Exception(
+                f"Column index out of bounds: 0 <!= {c2} <!= {self.cols}",
+            )
+        self.entries[c1], self.entries[c2] = self.entries[c2], self.entries[c1]
 
-    def swap_rows(self, i, j):
+    def swap_rows(self, r1, r2):
         """
-        Swap rows i and j.
+        Swap rows r1 and r2.
         """
-        self.row_map[i], self.row_map[j] = self.row_map[j], self.row_map[i]
+        if r1 < 0 or r1 >= self.rows:
+            raise Exception(
+                f"Row index out of bounds: 0 <!= {r1} <!= {self.rows}",
+            )
+        if r2 < 0 or r2 >= self.rows:
+            raise Exception(
+                f"Row index out of bounds: 0 <!= {r2} <!= {self.rows}",
+            )
+        self.row_map[r1], self.row_map[r2] = self.row_map[r2], self.row_map[r1]
 
-    def add_cols(self, i, j):
+    def swap_cols_and_rows(self, a, b):
+        """
+        Swap columns a and b, and rows a and b.
+        """
+        self.swap_cols(a, b)
+        self.swap_rows(a, b)
+
+    def add_cols(self, c1, c2):
         """
         Add column j to column i.
         """
-        self.entries[i].symmetric_difference_update(self.entries[j])
+        self.entries[c1].symmetric_difference_update(self.entries[c2])
+
+    @property
+    def shape(self):
+        return (self.rows, self.cols)
