@@ -404,7 +404,7 @@ def perform_one_swap(
 
     # P is the permutation matrix that swaps the things
     # NOTE: this swaps COLUMN `swap_index` with `swap_index + 1`
-    P = permutation_matrix(R.shape[0], i, i + 1)
+    # P = permutation_matrix(R.shape[0], i, i + 1)
     Pfn = make_permutation_fn(i, i + 1)
 
     # Case 1: σi and σi+1 both give birth.
