@@ -2,7 +2,7 @@ from copy import deepcopy
 import time
 import math
 
-from typing import Callable, List
+from typing import Callable, Dict, List
 import numpy as np
 
 from . import complex as cplx
@@ -371,6 +371,7 @@ def perform_one_swap(
     rk: mat.reduction_knowledge,
     R: np.ndarray,
     U: np.ndarray,
+    index_map: Dict[int, int],
 ):
     # This function performs one swap of two simplices and computes the
     # reduced matrix for the "post-swap" ordering. Notation:
@@ -391,17 +392,15 @@ def perform_one_swap(
     P = permutation_matrix(R.shape[0], i, i + 1)
 
     # Case 1: σi and σi+1 both give birth.
-    if rk.gives_birth(i) and rk.gives_birth(i + 1):
+    if rk.gives_birth(index_map[i]) and rk.gives_birth(index_map[i + 1]):
         # Let U [i, i + 1] = 0, just in case.
-        # TODO: figure out what this is about
-        # assert U[i, i + 1] == 0
         _U = U.copy()
         _U[i, i + 1] = 0
 
         # Case 1.1: there are columns k and ℓ with low(k) = i, low(ℓ) = i +
         # 1, and R[i, ℓ] = 1.
-        k = rk.birth_death_pairs[i]
-        l = rk.birth_death_pairs[i + 1]
+        k = rk.birth_death_pairs[index_map[i]]
+        l = rk.birth_death_pairs[index_map[i + 1]]
         if k != -1 and l != -1 and R[i, l] == 1:
             # Case 1.1.1: k < ℓ.
             if k < l:
@@ -433,7 +432,7 @@ def perform_one_swap(
             return (PRP, PUP, None)
 
     # Case 2: σi and σi+1 both give death.
-    if rk.gives_death(i) and rk.gives_death(i + 1):
+    if rk.gives_death(index_map[i]) and rk.gives_death(index_map[i + 1]):
         # Case 2.1: U [i, i + 1] = 1.
         if U[i, i + 1] == 1:
             # Add row i + 1 of U to row i; add column i of R to column i + 1.
@@ -465,7 +464,7 @@ def perform_one_swap(
             return (PRP, PUP, None)
 
     # Case 3: σi gives death and σi+1 gives birth.
-    if rk.gives_death(i) and rk.gives_birth(i + 1):
+    if rk.gives_death(index_map[i]) and rk.gives_birth(index_map[i + 1]):
         # Case 3.1: U [i, i + 1] = 1.
         if U[i, i + 1] == 1:
             # Add row i + 1 of U to row i.
@@ -483,6 +482,9 @@ def perform_one_swap(
             # Add row i + 1 of P U P to row i.
             PUP = P.T @ _U @ P
             PUP[i, :] = (PUP[i, :] + PUP[i + 1, :]) % 2
+            # print(
+            #     f"faustian: dim of simplexes {rk.ordering.get_simplex(index_map[i]).dim()}/{rk.ordering.get_simplex(index_map[i+1]).dim()}"
+            # )
 
             # We witness a Faustian type change in the pairing.
             return (PRP, PUP, True)
@@ -493,10 +495,8 @@ def perform_one_swap(
             return (PRP, PUP, None)
 
     # Case 4: σi gives birth and σi+1 gives death.
-    if rk.gives_birth(i) and rk.gives_death(i + 1):
+    if rk.gives_birth(index_map[i]) and rk.gives_death(index_map[i + 1]):
         # Set U [i, i + 1] = 0, just in case.
-        # TODO: figure out what this is about
-        # assert U[i, i + 1] == 0
         _U = U.copy()
         _U[i, i + 1] = 0
         PRP = P.T @ R @ P
@@ -507,15 +507,18 @@ def perform_one_swap(
 def do_vineyards_for_two_points(
     complex: cplx.complex, a: np.ndarray, b: np.ndarray, target_dim: int
 ):
-    yes = (
+    debug_yes = (
         np.linalg.norm(a - np.array([0.6, 0.2])) < 0.0001
         and np.linalg.norm(b - np.array([0.6, 0.4])) < 0.0001
     )
+    t0 = time.perf_counter()
     """Run the vineyards algorithm for two points. Fully reduce the matrix for the first point."""
     a_ordering = cplx.ordering.by_dist_to(complex, a)
     a_matrix = mat.bdmatrix.from_ordering(a_ordering)
     a_knowledge = mat.reduction_knowledge(a_matrix, a_ordering)
     a_knowledge.run()
+
+    t1 = time.perf_counter()
 
     # R = DV
     D = a_matrix.initmatrix
@@ -539,24 +542,50 @@ def do_vineyards_for_two_points(
     # if yes:
     #     ourplot.plot_orders_with_bubbles(a_ordering, b_ordering)
 
+    # Make a map that we can use to map "swapped indices" to the indices that we can use in `a_knowledge`.
+    # That is, inside `perform_one_swap` we want to map the "swapped" indices to their original indices.
+    # The map starts as identity. After these swaps [(3,4), (2,3)] the map should be
+    #   { 0: 0,  1: 1,  2: 2,  3: 3,  4: 4,  5: 5,  6: 6}   (id)
+    #   { 0: 0,  1: 1,  2: 2,  3: 4,  4: 3,  5: 5,  6: 6}   (after (3,4))
+    #   { 0: 0,  1: 1,  2: 4,  3: 2,  4: 3,  5: 5,  6: 6}   (after (2,3))
+    #
+    # The operation we want is to map indices from the updated matrix to the original matrix,
+    # so that we can ask `a_knowledge` about the simplices that we're looking at in the updated matrix.
+    # For instance, after a few swaps we might be interested in the dimension of the simplex that is
+    # at index 2.  This is how the permutations look, and how we want to map them:
+    #
+    # .  0 . 1 . 2 . 3 . 4 . 5 . 6      (index)
+    # -----------------------------------------
+    # .  a . b . c . d . e . f . g      (id)
+    # .  a . b . c . e . d . f . g      (after (3,4))
+    # .  a . b . e . c . d . f . g      (after (2,3))
+    # .          ^ . (want to map 2 ---> 4)
+    index_map = dict({i: i for i in range(a_matrix.initmatrix.shape[0])})
+
     found_faustian = False
+    tricksy_different_dim = False
     # print(f"swapped_indices = #{len(swapped_indices)}")
     for swap_i, i in enumerate(swapped_indices):
         P = permutation_matrix(R.shape[0], i, i + 1)
         PDP = (P.T @ D @ P) % 2
-        (RR, UU, faustian_swap) = perform_one_swap(i, a_knowledge, R, U)
+        (RR, UU, faustian_swap) = perform_one_swap(i, a_knowledge, R, U, index_map)
+        index_map[i], index_map[i + 1] = (
+            index_map[i + 1],
+            index_map[i],
+        )
 
         if faustian_swap:
             s1, s2 = swapped_simplices[swap_i]
             # TODO: double check that this is actually the correct check for figuring out if we're on the MA.
             # TODO: Mabye these are always the same?
-            if yes:
+            if debug_yes:
                 print(s1.dim(), s1, s2)
             if s1.dim() == target_dim and s2.dim() == target_dim:
                 found_faustian = True
 
-            # if s1.dim() != s2.dim():
-            #     raise Exception(f"This should not happen: {s1.dim()} != {s2.dim()}")
+            if s1.dim() != s2.dim():
+                print(f"This should not happen: {s1.dim()} != {s2.dim()}")
+                tricksy_different_dim = True
 
         RRUU = (RR @ UU) % 2
         # assert (RRUU == PDP).all(), "Something is wrong with the column reduction"
@@ -564,4 +593,9 @@ def do_vineyards_for_two_points(
         U = UU
         D = PDP
 
-    return found_faustian
+    t2 = time.perf_counter()
+
+    # print(f"from scratch: {(t1 - t0) * 1000}ms")
+    # print(f"   vineyards: {(t2 - t1) * 1000}ms")
+
+    return found_faustian, tricksy_different_dim
