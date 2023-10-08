@@ -36,3 +36,4 @@ class Timed:
         for k, v in Timed.dict.items():
             print(f"| {k: >{maxlen}}: {v / 1e6:10.2f}ms")
         print("|==============================")
+        Timed.dict.clear()

@@ -362,9 +362,23 @@ def matrix_inverse(mat: np.ndarray) -> np.ndarray:
 
 
 def permutation_matrix(n: int, i: int, j: int) -> np.ndarray:
-    P = np.eye(n)
+    P = np.eye(n, dtype=int)
     P[:, [i, j]] = P[:, [j, i]]
     return P
+
+
+def make_permutation_fn(i: int, j: int) -> Callable[[np.ndarray], np.ndarray]:
+    """
+    Alternative to `permutation_matrix` that doesn't involve making a whole
+    matrix just to swap around some columns.
+    """
+
+    def inner(A):
+        A[[i, j]] = A[[j, i]]
+        A[:, [i, j]] = A[:, [j, i]]
+        return A
+
+    return inner
 
 
 def perform_one_swap(
@@ -391,6 +405,7 @@ def perform_one_swap(
     # P is the permutation matrix that swaps the things
     # NOTE: this swaps COLUMN `swap_index` with `swap_index + 1`
     P = permutation_matrix(R.shape[0], i, i + 1)
+    Pfn = make_permutation_fn(i, i + 1)
 
     # Case 1: σi and σi+1 both give birth.
     if rk.gives_birth(index_map[i]) and rk.gives_birth(index_map[i + 1]):
@@ -406,21 +421,25 @@ def perform_one_swap(
             # Case 1.1.1: k < ℓ.
             if k < l:
                 # Add column k of PRP to column ℓ; add row ℓ of P U P to row k.
-                PRP = P.T @ R @ P
+                # PRP = P.T @ R @ P
+                PRP = Pfn(R)
                 PRP[:, l] = (PRP[:, k] + PRP[:, l]) % 2
 
-                PUP = P.T @ _U @ P
+                # PUP = P.T @ _U @ P
+                PUP = Pfn(_U)
                 PUP[k, :] = (PUP[k, :] + PUP[l, :]) % 2
 
                 return (PRP, PUP, None)
             # Case 1.1.2: ℓ < k.
             if l < k:
                 # Add column ℓ of P RP to column k;
-                PRP = P.T @ R @ P
+                # PRP = P.T @ R @ P
+                PRP = Pfn(R)
                 PRP[:, k] = (PRP[:, k] + PRP[:, l]) % 2
 
                 # add row k of P U P to row ℓ.
-                PUP = P.T @ _U @ P
+                # PUP = P.T @ _U @ P
+                PUP = Pfn(_U)
                 PUP[l, :] = (PUP[k, :] + PUP[l, :]) % 2
 
                 # We witness a change in the pairing but NOT of Faustian type.
@@ -428,8 +447,10 @@ def perform_one_swap(
         # Case 1.2: such columns k and ℓ do not exist.
         else:
             # Done.
-            PRP = P.T @ R @ P
-            PUP = P.T @ _U @ P
+            # PRP = P.T @ R @ P
+            PRP = Pfn(R)
+            # PUP = P.T @ _U @ P
+            PUP = Pfn(_U)
             return (PRP, PUP, None)
 
     # Case 2: σi and σi+1 both give death.
@@ -444,24 +465,30 @@ def perform_one_swap(
 
             # Case 2.1.1: low(i) < low(i + 1).
             if rk.low(i) < rk.low(i + 1):
-                PRP = P.T @ _R @ P
-                PUP = P.T @ _U @ P
+                # PRP = P.T @ _R @ P
+                PRP = Pfn(_R)
+                # PUP = P.T @ _U @ P
+                PUP = Pfn(_U)
                 return (PRP, PUP, None)
             # Case 2.1.2: low(i + 1) < low(i).
             else:
                 # Add column i of P RP to column i + 1;
-                PRP = P.T @ _R @ P
+                # PRP = P.T @ _R @ P
+                PRP = Pfn(_R)
                 PRP[:, i + 1] = (PRP[:, i] + PRP[:, i + 1]) % 2
                 # Add row i + 1 of P U P to row i.
-                PUP = P.T @ _U @ P
+                # PUP = P.T @ _U @ P
+                PUP = Pfn(_U)
                 PUP[i, :] = (PUP[i, :] + PUP[i + 1, :]) % 2
                 # We witness a NON-Faustian type change of the pairing.
                 return (PRP, PUP, False)
         # Case 2.2: U [i, i + 1] = 0.
         else:
             # Done.
-            PRP = P.T @ R @ P
-            PUP = P.T @ U @ P
+            # PRP = P.T @ R @ P
+            PRP = Pfn(R)
+            # PUP = P.T @ U @ P
+            PUP = Pfn(U)
             return (PRP, PUP, None)
 
     # Case 3: σi gives death and σi+1 gives birth.
@@ -477,11 +504,13 @@ def perform_one_swap(
             _R[:, i + 1] = (_R[:, i] + _R[:, i + 1]) % 2
 
             # Furthermore, add column i of P RP to column i + 1.
-            PRP = P.T @ _R @ P
+            # PRP = P.T @ _R @ P
+            PRP = Pfn(_R)
             PRP[:, i + 1] = (PRP[:, i] + PRP[:, i + 1]) % 2
 
             # Add row i + 1 of P U P to row i.
-            PUP = P.T @ _U @ P
+            # PUP = P.T @ _U @ P
+            PUP = Pfn(_U)
             PUP[i, :] = (PUP[i, :] + PUP[i + 1, :]) % 2
             # print(
             #     f"faustian: dim of simplexes {rk.ordering.get_simplex(index_map[i]).dim()}/{rk.ordering.get_simplex(index_map[i+1]).dim()}"
@@ -491,8 +520,10 @@ def perform_one_swap(
             return (PRP, PUP, True)
         # Case 3.2: U [i, i + 1] = 0.
         else:
-            PRP = P.T @ R @ P
-            PUP = P.T @ U @ P
+            # PRP = P.T @ R @ P
+            PRP = Pfn(R)
+            # PUP = P.T @ U @ P
+            PUP = Pfn(U)
             return (PRP, PUP, None)
 
     # Case 4: σi gives birth and σi+1 gives death.
@@ -500,8 +531,10 @@ def perform_one_swap(
         # Set U [i, i + 1] = 0, just in case.
         _U = U.copy()
         _U[i, i + 1] = 0
-        PRP = P.T @ R @ P
-        PUP = P.T @ _U @ P
+        # PRP = P.T @ R @ P
+        PRP = Pfn(R)
+        # PUP = P.T @ _U @ P
+        PUP = Pfn(_U)
         return (PRP, PUP, None)
 
 
