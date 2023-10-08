@@ -46,4 +46,5 @@ def read_obj(filename: str) -> cplx.complex:
         complex = cplx.complex()
         complex.vertlist = vertices
         complex.edgelist = edges
+        complex.setup_coboundaries()
         return complex

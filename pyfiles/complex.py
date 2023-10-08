@@ -1,3 +1,4 @@
+from collections import defaultdict
 from typing import Dict, List, Tuple
 import numpy as np
 
@@ -112,6 +113,12 @@ class complex:
     edgelist: List[simplex]
     key_point: List[float]
 
+    coboundary: Dict[int, List[int]]
+    """
+    A dictionary mapping the index of a simplex to a list of the indices of
+    the simplices that are its coboundary.  The indices here are indices into `compex.egelist`.
+    """
+
     def __init__(self):
         # seems like it's fine to have lists as long as they're not parameters of the class
         # otherwise, they're shared by the whole class and that is no
@@ -127,6 +134,25 @@ class complex:
 
     def nverts(self):
         return len(self.vertlist)
+
+    def check_simplex_indices_are_okay(self):
+        for i, v in enumerate(self.vertlist):
+            assert v.index == i
+        for i, e in enumerate(self.edgelist):
+            assert e.index == i
+
+    def setup_coboundaries(self):
+        self.coboundary = defaultdict(list)
+        for ei, e in enumerate(self.edgelist):
+            for i in e.boundary:
+                self.coboundary[i].append(ei)
+
+    def get_coboundary(self, splx: simplex) -> List[simplex]:
+        """
+        Get the coboundary of the given simplex.
+        """
+        assert splx.dim() == 0, "only works for vertices"
+        return [self.edgelist[i] for i in self.coboundary[splx.index]]
 
     def sort_by_dist(self, distlist: List[float]):
         """Sort the vertices with the given list of distances.  Other simplices

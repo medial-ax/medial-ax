@@ -580,10 +580,18 @@ def do_vineyards_for_two_points(
             # TODO: Mabye these are always the same?
             if debug_yes:
                 print(s1.dim(), s1, s2)
-            if s1.dim() == target_dim and s2.dim() == target_dim:
+
+            skip = False
+            if s1.dim() == 0 and s2.dim() == 0:
+                cob1 = set(complex.get_coboundary(s1))
+                cob2 = set(complex.get_coboundary(s2))
+                if cob1 & cob2:
+                    skip = True
+
+            if not skip and s1.dim() == target_dim and s2.dim() == target_dim:
                 found_faustian = True
 
-            if s1.dim() != s2.dim():
+            if not skip and s1.dim() != s2.dim():
                 print(f"This should not happen: {s1.dim()} != {s2.dim()}")
                 tricksy_different_dim = True
 
