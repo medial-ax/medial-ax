@@ -498,7 +498,9 @@ def perform_one_swap(
             U_t.swap_cols_and_rows(i, i + 1)
 
             # Case 2.1.1: low(i) < low(i + 1).
-            if rk.low(i) < rk.low(i + 1):
+            low_i = rk.death_birth_pairs[index_map[i]]
+            low_i_1 = rk.death_birth_pairs[index_map[i + 1]]
+            if low_i < low_i_1:
                 return (R, U_t, None)
             # Case 2.1.2: low(i + 1) < low(i).
             else:
@@ -557,10 +559,6 @@ def do_vineyards_for_two_points(
 ):
     """Run the vineyards algorithm for two points. Fully reduce the matrix for the first point."""
 
-    debug_yes = (
-        np.linalg.norm(a - np.array([0.6, 0.2])) < 0.0001
-        and np.linalg.norm(b - np.array([0.6, 0.4])) < 0.0001
-    )
     with utils.Timed("Reduction"):
         a_ordering = cplx.ordering.by_dist_to(complex, a)
         a_matrix = mat.bdmatrix.from_ordering(a_ordering)
@@ -646,17 +644,20 @@ def do_vineyards_for_two_points(
                     # Pruning
                     # If we get two vertices that share an edge, skip the swap.
                     skip = False
-                    if s1.dim() == 0 and s2.dim() == 0:
-                        cob1 = set(complex.get_coboundary(s1))
-                        cob2 = set(complex.get_coboundary(s2))
-                        if cob1 & cob2:
-                            skip = True
+                    # if s1.dim() == 0 and s2.dim() == 0:
+                    #     cob1 = set(complex.get_coboundary(s1))
+                    #     cob2 = set(complex.get_coboundary(s2))
+                    #     if cob1 & cob2:
+                    #         skip = True
 
                     if not skip and s1.dim() == target_dim and s2.dim() == target_dim:
                         found_faustian = True
 
                     if not skip and s1.dim() != s2.dim():
                         print(f"This should not happen: {s1.dim()} != {s2.dim()}")
+                        print(s1)
+                        print(s2)
+                        print()
                         tricksy_different_dim = True
 
             return found_faustian, tricksy_different_dim

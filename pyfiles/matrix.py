@@ -542,8 +542,6 @@ class reduction_knowledge:
     """If the homology class is infinite, the value is `-1`."""
     death_birth_pairs: Dict[int, int]
 
-    low: Dict[int, int]
-
     adds: List[Tuple[int, int]]
     """All of the column adds performed when reducing the matrix as tuples
     `(target, other)` for when `other` is added onto `target`."""
@@ -588,6 +586,3 @@ class reduction_knowledge:
     def gives_death(self, i: int) -> bool:
         """`True` if the simplex at column index `i` gave death."""
         return i in self.death_birth_pairs
-
-    def low(self, i: int) -> bool:
-        return self.gives_death(i)

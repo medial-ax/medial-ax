@@ -154,6 +154,12 @@ class SneakyMatrix:
         """
         self.entries[c1].symmetric_difference_update(self.entries[c2])
 
+    def colmax(self, c):
+        """
+        Return the maximum row index in column c.
+        """
+        return max(self.entries[c])
+
     @property
     def shape(self):
         return (self.rows, self.cols)
