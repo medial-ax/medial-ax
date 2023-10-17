@@ -13,7 +13,8 @@ from pyfiles.sneaky_matrix import SneakyMatrix
 from . import complex as cplx
 from . import matrix as mat
 from . import plot as ourplot
-from . import utils as utils
+from . import utils
+from . import grid
 
 GF2 = galois.GF(2)
 
@@ -629,11 +630,11 @@ def do_vineyards_for_two_points(
                     # Pruning
                     # If we get two vertices that share an edge, skip the swap.
                     skip = False
-                    # if s1.dim() == 0 and s2.dim() == 0:
-                    #     cob1 = set(complex.get_coboundary(s1))
-                    #     cob2 = set(complex.get_coboundary(s2))
-                    #     if cob1 & cob2:
-                    #         skip = True
+                    if s1.dim() == 0 and s2.dim() == 0:
+                        cob1 = set(complex.get_coboundary(s1))
+                        cob2 = set(complex.get_coboundary(s2))
+                        if cob1 & cob2:
+                            skip = True
 
                     if not skip and s1.dim() == target_dim and s2.dim() == target_dim:
                         found_faustian = True

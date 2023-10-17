@@ -1,3 +1,5 @@
+from collections import defaultdict
+from typing import Callable
 import numpy as np
 
 
@@ -28,7 +30,8 @@ class Grid:
         self.num_cols = len(x_range)
         self.num_rows = len(y_range)
 
-    def is_boundary_edge(self, i):
+    def is_boundary_edge(self, i: int) -> bool:
+        """Return true if the edge at index i is on the boundary of the grid"""
         if i >= len(self.edge_indices):
             return True
         [a, b] = self.edge_indices[i]
@@ -74,6 +77,33 @@ class Grid:
             np.arange(x_min - buffer, x_max + step + buffer, step),
             np.arange(y_min - buffer, y_max + step + buffer, step),
         )
+
+    def flood_fill_visit(self, start_index: int, visit: Callable[[int, int], None]):
+        """
+        Visit every edge in the grid once.  The visit function is called with
+        the index of the edge and the index of the previous edge, which is
+        guaranteed to have already been visited.
+        """
+        queue = [[start_index, None]]
+
+        visited = set()
+        add_count = defaultdict(int)
+        while queue:
+            [index, prev] = queue.pop(0)
+
+            was_visited = index in visited
+            visited.add(index)
+            visit(index, prev)
+
+            if not was_visited:
+                neighbors = [edge for edge in self.edge_indices if index in edge]
+                for edge in neighbors:
+                    other = edge[0] if edge[0] != index else edge[1]
+                    if other in visited:
+                        continue
+
+                    queue.append([other, index])
+                    add_count[index] += 1
 
 
 def make_grid(x_range: np.ndarray, y_range: np.ndarray):
