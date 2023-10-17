@@ -419,10 +419,8 @@ def sparse_add_col_to_col(A: sp.sparse.sparray, i: int, j: int):
 
 def perform_one_swap(
     i: int,
-    rk: mat.reduction_knowledge,
     R: SneakyMatrix,
     U_t: SneakyMatrix,
-    index_map: Dict[int, int],
 ):
     # print("performing one swap")
     # print(f"type(R)={type(R)} . type(U)={type(U)}")
@@ -445,15 +443,34 @@ def perform_one_swap(
     # P = permutation_matrix(R.shape[0], i, i + 1)
     # Pfn = make_permutation_fn(i, i + 1)
 
+    def gives_birth(r: int) -> bool:
+        if R.entries[r] == set():
+            return True
+        return any(
+            r == max(row_numbers, default=None) for row_numbers in R.entries.values()
+        )
+
+    def gives_death(c: int) -> bool:
+        return R.entries[c] != set()
+
+    def low(c: int) -> int:
+        return max(R.entries[c])
+
+    def low_inv(r: int) -> int:
+        for c, rows in R.entries.items():
+            if r == max(rows, default=None):
+                return c
+        return -1
+
     # Case 1: σi and σi+1 both give birth.
-    if rk.gives_birth(index_map[i]) and rk.gives_birth(index_map[i + 1]):
+    if gives_birth(i) and gives_birth(i + 1):
         # Let U [i, i + 1] = 0, just in case.
         U_t[i + 1, i] = 0
 
         # Case 1.1: there are columns k and ℓ with low(k) = i, low(ℓ) = i +
         # 1, and R[i, ℓ] = 1.
-        k = rk.birth_death_pairs[index_map[i]]
-        l = rk.birth_death_pairs[index_map[i + 1]]
+        k = low_inv(i)
+        l = low_inv(i + 1)
         if k != -1 and l != -1 and R[i, l] == 1:
             # Case 1.1.1: k < ℓ.
             if k < l:
@@ -487,7 +504,7 @@ def perform_one_swap(
             return (R, U_t, None)
 
     # Case 2: σi and σi+1 both give death.
-    if rk.gives_death(index_map[i]) and rk.gives_death(index_map[i + 1]):
+    if gives_death(i) and gives_death(i + 1):
         # Case 2.1: U [i, i + 1] = 1.
         if U_t[i + 1, i] == 1:
             # Add row i + 1 of U to row i; add column i of R to column i + 1.
@@ -498,9 +515,7 @@ def perform_one_swap(
             U_t.swap_cols_and_rows(i, i + 1)
 
             # Case 2.1.1: low(i) < low(i + 1).
-            low_i = rk.death_birth_pairs[index_map[i]]
-            low_i_1 = rk.death_birth_pairs[index_map[i + 1]]
-            if low_i < low_i_1:
+            if low(i) < low(i + 1):
                 return (R, U_t, None)
             # Case 2.1.2: low(i + 1) < low(i).
             else:
@@ -518,7 +533,7 @@ def perform_one_swap(
             return (R, U_t, None)
 
     # Case 3: σi gives death and σi+1 gives birth.
-    if rk.gives_death(index_map[i]) and rk.gives_birth(index_map[i + 1]):
+    if gives_death(i) and gives_birth(i + 1):
         # Case 3.1: U [i, i + 1] = 1.
         if U_t[i + 1, i] == 1:
             # Add row i + 1 of U to row i.
@@ -544,7 +559,7 @@ def perform_one_swap(
             return (R, U_t, None)
 
     # Case 4: σi gives birth and σi+1 gives death.
-    if rk.gives_birth(index_map[i]) and rk.gives_death(index_map[i + 1]):
+    if gives_birth(i) and gives_death(i + 1):
         # Set U [i, i + 1] = 0, just in case.
         U_t[i + 1, i] = 0
         R.swap_cols_and_rows(i, i + 1)
@@ -597,46 +612,16 @@ def do_vineyards_for_two_points(
             )
 
         with utils.Timed("Vineyards: repair"):
-            # Make a map that we can use to map "swapped indices" to the indices
-            # that we can use in `a_knowledge`. That is, inside
-            # `perform_one_swap` we want to map the "swapped" indices to their
-            # original indices. The map starts as identity. After these swaps
-            # [(3,4), (2,3)] the map should be
-            #
-            #   { 0: 0,  1: 1,  2: 2,  3: 3,  4: 4,  5: 5,  6: 6}   (id)
-            #   { 0: 0,  1: 1,  2: 2,  3: 4,  4: 3,  5: 5,  6: 6}   (after (3,4))
-            #   { 0: 0,  1: 1,  2: 4,  3: 2,  4: 3,  5: 5,  6: 6}   (after (2,3))
-            #
-            # The operation we want is to map indices from the updated matrix to
-            # the original matrix, so that we can ask `a_knowledge` about the
-            # simplices that we're looking at in the updated matrix. For
-            # instance, after a few swaps we might be interested in the
-            # dimension of the simplex that is at index 2.  This is how the
-            # permutations look, and how we want to map them:
-            #
-            # .  0 . 1 . 2 . 3 . 4 . 5 . 6      (index)
-            # -----------------------------------------
-            # .  a . b . c . d . e . f . g      (id)
-            # .  a . b . c . e . d . f . g      (after (3,4))
-            # .  a . b . e . c . d . f . g      (after (2,3))
-            # .          ^ . (want to map 2 ---> 4)
-            index_map = dict({i: i for i in range(a_matrix.initmatrix.shape[0])})
-
             found_faustian = False
             tricksy_different_dim = False
             # print(f"swapped_indices = #{len(swapped_indices)}")
             for swap_i, i in enumerate(swapped_indices):
                 # P = permutation_matrix(R.shape[0], i, i + 1)
                 # PDP = (P.T @ D @ P) % 2
-                D.swap_cols_and_rows(i, i + 1)
 
-                (_, _, faustian_swap) = perform_one_swap(
-                    i, a_knowledge, R, U_t, index_map
-                )
-                index_map[i], index_map[i + 1] = (
-                    index_map[i + 1],
-                    index_map[i],
-                )
+                (_, _, faustian_swap) = perform_one_swap(i, R, U_t)
+
+                D.swap_cols_and_rows(i, i + 1)
 
                 if faustian_swap:
                     s1, s2 = swapped_simplices[swap_i]
