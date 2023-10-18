@@ -3,6 +3,15 @@ from typing import Callable
 import numpy as np
 
 
+def make_dual_edge(p, q):
+    v = q - p
+    perp = np.array([-v[1], v[0]])
+    mid = p + v / 2
+    up = mid + perp / 2
+    down = mid - perp / 2
+    return up, down
+
+
 class Grid:
     points: np.ndarray
     edge_indices: np.ndarray
@@ -30,24 +39,24 @@ class Grid:
         self.num_cols = len(x_range)
         self.num_rows = len(y_range)
 
+    def is_boundary_vertex(self, k):
+        if k % self.num_cols == 0:  # left col
+            return True
+        if k % self.num_cols == self.num_cols - 1:  # right col
+            return True
+        if k // self.num_cols == self.num_rows - 1:  # top row
+            return True
+        if k // self.num_cols == 0:  # bottom row
+            return True
+        return False
+
     def is_boundary_edge(self, i: int) -> bool:
         """Return true if the edge at index i is on the boundary of the grid"""
         if i >= len(self.edge_indices):
             return True
         [a, b] = self.edge_indices[i]
 
-        def on_boundary(k):
-            if k % self.num_cols == 0:  # left col
-                return True
-            if k % self.num_cols == self.num_cols - 1:  # right col
-                return True
-            if k // self.num_cols == self.num_rows - 1:  # top row
-                return True
-            if k // self.num_cols == 0:  # bottom row
-                return True
-            return False
-
-        if on_boundary(a) and on_boundary(b):
+        if self.is_boundary_vertex(a) and self.is_boundary_vertex(b):
             return True
 
         return False
@@ -57,12 +66,7 @@ class Grid:
         [a, b] = self.edge_indices[i]
         p = self.points[a]
         q = self.points[b]
-        v = q - p
-        perp = np.array([-v[1], v[0]])
-        mid = p + v / 2
-        up = mid + perp / 2
-        down = mid - perp / 2
-        return up, down
+        return make_dual_edge(p, q)
 
     def from_complex(complex: complex, step: float, buffer=0.0):
         """

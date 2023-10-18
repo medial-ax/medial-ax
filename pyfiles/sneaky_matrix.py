@@ -100,7 +100,7 @@ class SneakyMatrix:
         """
         Deep copy this matrix.
         """
-        return deepcopy.copy(self)
+        return deepcopy(self)
 
     def to_dense(self) -> np.ndarray:
         """

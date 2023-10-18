@@ -647,3 +647,85 @@ def do_vineyards_for_two_points(
                         tricksy_different_dim = True
 
             return found_faustian, tricksy_different_dim
+
+
+def initialize_vineyards(
+    complex: cplx.complex, a: np.ndarray
+) -> Tuple[SneakyMatrix, SneakyMatrix, SneakyMatrix, cplx.ordering]:
+    """
+    Compute the reduced matrix of the complex from the point `a`.
+    Return matrices `D`, `R`, `V`, `U_t`, for later vineyard use.
+    """
+    a_ordering = cplx.ordering.by_dist_to(complex, a)
+    a_matrix = mat.bdmatrix.from_ordering(a_ordering)
+    a_knowledge = mat.reduction_knowledge(a_matrix, a_ordering)
+    a_knowledge.run()
+
+    D = SneakyMatrix.from_dense(a_matrix.initmatrix)
+    R = SneakyMatrix.from_dense(a_matrix.reduced)
+
+    V = SneakyMatrix.eye(D.shape[0])
+    for target, other in a_knowledge.adds:
+        V.add_cols(target, other)
+    assert (((D.to_dense() @ V.to_dense()) % 2) == R.to_dense()).all(), "DV should be R"
+
+    gf_v = GF2(V.to_dense())
+    gv_inv = np.linalg.inv(gf_v)
+    U_t = SneakyMatrix.from_dense(gv_inv.T)
+    # RU = D
+    assert (
+        ((R.to_dense() @ U_t.to_dense().T) % 2) == D.to_dense()
+    ).all(), "RU should be D"
+
+    # R = DV
+    # RU = D
+    return (D, R, U_t, a_ordering)
+
+
+def vine_to_vine(
+    D: SneakyMatrix,
+    R: SneakyMatrix,
+    U_t: SneakyMatrix,
+    complex: cplx.complex,
+    b: np.ndarray,
+    a_ordering: cplx.ordering,
+    target_dim: int,
+) -> Tuple[bool, SneakyMatrix, SneakyMatrix, SneakyMatrix, cplx.ordering]:
+    """
+    Returns (found_faustian, D, R, U_t)
+    """
+    b_ordering = cplx.ordering.by_dist_to(complex, b)
+
+    (swapped_simplices, _, swapped_indices) = a_ordering.compute_transpositions(
+        b_ordering
+    )
+
+    R = R.copy()
+    U_t = U_t.copy()
+    D = D.copy()
+
+    found_faustian = False
+    # print(f"swapped_indices = #{len(swapped_indices)}")
+    for swap_i, i in enumerate(swapped_indices):
+        (_, _, faustian_swap) = perform_one_swap(i, R, U_t)
+        D.swap_cols_and_rows(i, i + 1)
+
+        if faustian_swap:
+            s1, s2 = swapped_simplices[swap_i]
+
+            # Pruning
+            # If we get two vertices that share an edge, skip the swap.
+            skip = False
+            if s1.dim() == 0 and s2.dim() == 0:
+                cob1 = set(complex.get_coboundary(s1))
+                cob2 = set(complex.get_coboundary(s2))
+                if cob1 & cob2:
+                    skip = True
+
+            if not skip and s1.dim() == target_dim and s2.dim() == target_dim:
+                found_faustian = True
+
+            if not skip and s1.dim() != s2.dim():
+                assert False, "This should not happen: {s1.dim()} != {s2.dim()}"
+
+    return (found_faustian, D, R, U_t, b_ordering)
