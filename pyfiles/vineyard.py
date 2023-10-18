@@ -423,8 +423,6 @@ def perform_one_swap(
     R: SneakyMatrix,
     U_t: SneakyMatrix,
 ):
-    # print("performing one swap")
-    # print(f"type(R)={type(R)} . type(U)={type(U)}")
     # This function performs one swap of two simplices and computes the
     # reduced matrix for the "post-swap" ordering. Notation:
     # - D, or `matrix.initmatrix`, is the incidence matrix (+ empty set)
@@ -439,17 +437,12 @@ def perform_one_swap(
     # the inputs R U but with the swaps performed, and still R being reduced
     # and U upper triangular.
 
-    # P is the permutation matrix that swaps the things
-    # NOTE: this swaps COLUMN `swap_index` with `swap_index + 1`
-    # P = permutation_matrix(R.shape[0], i, i + 1)
-    # Pfn = make_permutation_fn(i, i + 1)
-
-    def gives_birth(r: int) -> bool:
-        if R.entries[r] == set():
-            return True
-        return any(
-            r == max(row_numbers, default=None) for row_numbers in R.entries.values()
-        )
+    # def gives_birth(r: int) -> bool:
+    #     if R.entries[r] == set():
+    #         return True
+    #     return any(
+    #         r == max(row_numbers, default=None) for row_numbers in R.entries.values()
+    #     )
 
     def gives_death(c: int) -> bool:
         return R.entries[c] != set()
@@ -463,15 +456,24 @@ def perform_one_swap(
                 return c
         return -1
 
+    # gives_birth_i = gives_birth(i)
+    # gives_birth_i_1 = gives_birth(i + 1)
+
+    gives_death_i = gives_death(i)
+    gives_birth_i = not gives_death_i
+    gives_death_i_1 = gives_death(i + 1)
+    gives_birth_i_1 = not gives_death_i_1
+
     # Case 1: σi and σi+1 both give birth.
-    if gives_birth(i) and gives_birth(i + 1):
+    if gives_birth_i and gives_birth_i_1:
         # Let U [i, i + 1] = 0, just in case.
         U_t[i + 1, i] = 0
 
         # Case 1.1: there are columns k and ℓ with low(k) = i, low(ℓ) = i +
         # 1, and R[i, ℓ] = 1.
-        k = low_inv(i)
-        l = low_inv(i + 1)
+        with utils.Timed("dumb loop here"):
+            k = low_inv(i)
+            l = low_inv(i + 1)
         if k != -1 and l != -1 and R[i, l] == 1:
             # Case 1.1.1: k < ℓ.
             if k < l:
@@ -505,7 +507,7 @@ def perform_one_swap(
             return (R, U_t, None)
 
     # Case 2: σi and σi+1 both give death.
-    if gives_death(i) and gives_death(i + 1):
+    if gives_death_i and gives_death_i_1:
         # Case 2.1: U [i, i + 1] = 1.
         if U_t[i + 1, i] == 1:
             # Add row i + 1 of U to row i; add column i of R to column i + 1.
@@ -534,7 +536,7 @@ def perform_one_swap(
             return (R, U_t, None)
 
     # Case 3: σi gives death and σi+1 gives birth.
-    if gives_death(i) and gives_birth(i + 1):
+    if gives_death_i and gives_birth_i_1:
         # Case 3.1: U [i, i + 1] = 1.
         if U_t[i + 1, i] == 1:
             # Add row i + 1 of U to row i.
@@ -560,7 +562,7 @@ def perform_one_swap(
             return (R, U_t, None)
 
     # Case 4: σi gives birth and σi+1 gives death.
-    if gives_birth(i) and gives_death(i + 1):
+    if gives_birth_i and gives_death_i_1:
         # Set U [i, i + 1] = 0, just in case.
         U_t[i + 1, i] = 0
         R.swap_cols_and_rows(i, i + 1)
@@ -656,30 +658,33 @@ def initialize_vineyards(
     Compute the reduced matrix of the complex from the point `a`.
     Return matrices `D`, `R`, `V`, `U_t`, for later vineyard use.
     """
-    a_ordering = cplx.ordering.by_dist_to(complex, a)
-    a_matrix = mat.bdmatrix.from_ordering(a_ordering)
-    a_knowledge = mat.reduction_knowledge(a_matrix, a_ordering)
-    a_knowledge.run()
+    with utils.Timed("initialize_vineyards"):
+        a_ordering = cplx.ordering.by_dist_to(complex, a)
+        a_matrix = mat.bdmatrix.from_ordering(a_ordering)
+        a_knowledge = mat.reduction_knowledge(a_matrix, a_ordering)
+        a_knowledge.run()
 
-    D = SneakyMatrix.from_dense(a_matrix.initmatrix)
-    R = SneakyMatrix.from_dense(a_matrix.reduced)
+        D = SneakyMatrix.from_dense(a_matrix.initmatrix)
+        R = SneakyMatrix.from_dense(a_matrix.reduced)
 
-    V = SneakyMatrix.eye(D.shape[0])
-    for target, other in a_knowledge.adds:
-        V.add_cols(target, other)
-    assert (((D.to_dense() @ V.to_dense()) % 2) == R.to_dense()).all(), "DV should be R"
+        V = SneakyMatrix.eye(D.shape[0])
+        for target, other in a_knowledge.adds:
+            V.add_cols(target, other)
+        assert (
+            ((D.to_dense() @ V.to_dense()) % 2) == R.to_dense()
+        ).all(), "DV should be R"
 
-    gf_v = GF2(V.to_dense())
-    gv_inv = np.linalg.inv(gf_v)
-    U_t = SneakyMatrix.from_dense(gv_inv.T)
-    # RU = D
-    assert (
-        ((R.to_dense() @ U_t.to_dense().T) % 2) == D.to_dense()
-    ).all(), "RU should be D"
+        gf_v = GF2(V.to_dense())
+        gv_inv = np.linalg.inv(gf_v)
+        U_t = SneakyMatrix.from_dense(gv_inv.T)
+        # RU = D
+        assert (
+            ((R.to_dense() @ U_t.to_dense().T) % 2) == D.to_dense()
+        ).all(), "RU should be D"
 
-    # R = DV
-    # RU = D
-    return (D, R, U_t, a_ordering)
+        # R = DV
+        # RU = D
+        return (D, R, U_t, a_ordering)
 
 
 def vine_to_vine(
@@ -694,38 +699,43 @@ def vine_to_vine(
     """
     Returns (found_faustian, D, R, U_t)
     """
-    b_ordering = cplx.ordering.by_dist_to(complex, b)
+    with utils.Timed("vine_to_vine.ordering"):
+        b_ordering = cplx.ordering.by_dist_to(complex, b)
 
-    (swapped_simplices, _, swapped_indices) = a_ordering.compute_transpositions(
-        b_ordering
-    )
+    with utils.Timed("vine_to_vine.transpositions"):
+        (swapped_simplices, _, swapped_indices) = a_ordering.compute_transpositions(
+            b_ordering
+        )
 
-    R = R.copy()
-    U_t = U_t.copy()
-    D = D.copy()
+    with utils.Timed("vine_to_vine.matrix copies"):
+        R = R.copy()
+        U_t = U_t.copy()
+        D = D.copy()
 
-    found_faustian = False
-    # print(f"swapped_indices = #{len(swapped_indices)}")
-    for swap_i, i in enumerate(swapped_indices):
-        (_, _, faustian_swap) = perform_one_swap(i, R, U_t)
-        D.swap_cols_and_rows(i, i + 1)
+    with utils.Timed("vine_to_vine.loop"):
+        found_faustian = False
+        # print(f"swapped_indices = #{len(swapped_indices)}")
+        for swap_i, i in enumerate(swapped_indices):
+            with utils.Timed("perform_one_swap"):
+                (_, _, faustian_swap) = perform_one_swap(i, R, U_t)
+            D.swap_cols_and_rows(i, i + 1)
 
-        if faustian_swap:
-            s1, s2 = swapped_simplices[swap_i]
+            if faustian_swap:
+                s1, s2 = swapped_simplices[swap_i]
 
-            # Pruning
-            # If we get two vertices that share an edge, skip the swap.
-            skip = False
-            if s1.dim() == 0 and s2.dim() == 0:
-                cob1 = set(complex.get_coboundary(s1))
-                cob2 = set(complex.get_coboundary(s2))
-                if cob1 & cob2:
-                    skip = True
+                # Pruning
+                # If we get two vertices that share an edge, skip the swap.
+                skip = False
+                if s1.dim() == 0 and s2.dim() == 0:
+                    cob1 = set(complex.get_coboundary(s1))
+                    cob2 = set(complex.get_coboundary(s2))
+                    if cob1 & cob2:
+                        skip = True
 
-            if not skip and s1.dim() == target_dim and s2.dim() == target_dim:
-                found_faustian = True
+                if not skip and s1.dim() == target_dim and s2.dim() == target_dim:
+                    found_faustian = True
 
-            if not skip and s1.dim() != s2.dim():
-                assert False, "This should not happen: {s1.dim()} != {s2.dim()}"
+                if not skip and s1.dim() != s2.dim():
+                    assert False, "This should not happen: {s1.dim()} != {s2.dim()}"
 
-    return (found_faustian, D, R, U_t, b_ordering)
+        return (found_faustian, D, R, U_t, b_ordering)

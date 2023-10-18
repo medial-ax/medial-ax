@@ -150,9 +150,11 @@ class SneakyMatrix:
 
     def add_cols(self, c1, c2):
         """
-        Add column j to column i.
+        Add column c2 to column c1.
         """
         self.entries[c1].symmetric_difference_update(self.entries[c2])
+        if self.entries[c1] == set():
+            del self.entries[c1]
 
     def colmax(self, c):
         """
