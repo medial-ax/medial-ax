@@ -5,6 +5,8 @@ import numpy as np
 from scipy.spatial import distance
 from pprint import pprint
 
+from . import utils
+
 from pyfiles.utils import Timed
 
 
@@ -237,6 +239,10 @@ class ordering:
         o.key_point = key_point
         o.i2o = dict(pairs)
         o.o2i = dict([(v, k) for k, v in pairs])
+
+        o.vert_map = {s.index: s for s in complex.vertlist}
+        o.edge_map = {s.index: s for s in complex.edgelist}
+
         return o
 
     def matrix_index(self, simplex: simplex):
@@ -260,9 +266,9 @@ class ordering:
         if dim == -1:
             return simplex.empty()
         elif dim == 0:
-            return [v for v in self.complex.vertlist if v.index == index][0]
+            return self.vert_map[index]
         elif dim == 1:
-            return [e for e in self.complex.edgelist if e.index == index][0]
+            return self.edge_map[index]
         else:
             raise Exception("Only works for simplices of dimension 0 or 1")
 
@@ -306,12 +312,13 @@ class ordering:
                 if other.i2o[our[i]] > other.i2o[our[i + 1]]:
                     our[i], our[i + 1] = our[i + 1], our[i]
                     index_swaps.append(i)
-                    swaps.append(
-                        (
-                            self.get_simplex(self.i2o[our[i]]),
-                            self.get_simplex(self.i2o[our[i + 1]]),
+                    with utils.Timed("Suspicious"):
+                        swaps.append(
+                            (
+                                self.get_simplex(self.i2o[our[i]]),
+                                self.get_simplex(self.i2o[our[i + 1]]),
+                            )
                         )
-                    )
                     full_order.append([self.i2o[o] for o in our])
                     did_swap = True
             if not did_swap:
@@ -326,3 +333,54 @@ class ordering:
                 for s in self.list_unique_index()
             ]
         )
+
+    def compute_transpositions_lean(
+        self, other
+    ) -> Tuple[List[Tuple[simplex, simplex]], List[List[int]], List[int]]:
+        """
+        `self` should be the ordering at we already have the reduced matrix.
+
+        Returns three things:
+
+         1. A list of `(Simplex, Simplex)` for each swap
+         2. A list of the full order after each swap, which is used for plotitng.
+         3. A list of indices into the list that we're sorting, corresponding to each swap. `i` in this list means that `i` and `i+1` were swapped.
+        """
+        our = self.list_unique_index()
+        n = len(our)
+        swaps = []
+        index_swaps = []
+
+        # Bubble sort the list of indices to find the swaps. The key is `i ->
+        # other.i2o[our[i]]`, so that we sort `our` by the order in `other`.
+
+        # Compute upper and lower bounds on the two orders so that we don't have
+        # to blindly check all pairs if the two orders are already mostly
+        # sorted. If the two orders are the same in a segment from the start,
+        # this will never be touched by the swaps, so we can start at the first
+        # index where they differ.  Same for the end.
+        i0 = 0
+        while i0 < n and other.i2o[our[i0]] == other.i2o[our[i0 + 1]]:
+            i0 += 1
+        i1 = n - 1
+        while i0 < i1 and other.i2o[our[i1 - 1]] == other.i2o[our[i1]]:
+            i1 -= 1
+        steps = i1 - i0 + 1
+
+        for _ in range(steps):
+            did_swap = False
+            for i in range(i0, i1):
+                if other.i2o[our[i]] > other.i2o[our[i + 1]]:
+                    our[i], our[i + 1] = our[i + 1], our[i]
+                    index_swaps.append(i)
+                    swaps.append(
+                        (
+                            self.get_simplex(self.i2o[our[i]]),
+                            self.get_simplex(self.i2o[our[i + 1]]),
+                        )
+                    )
+                    did_swap = True
+            if not did_swap:
+                break
+
+        return swaps, index_swaps

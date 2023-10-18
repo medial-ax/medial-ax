@@ -702,8 +702,8 @@ def vine_to_vine(
     with utils.Timed("vine_to_vine.ordering"):
         b_ordering = cplx.ordering.by_dist_to(complex, b)
 
-    with utils.Timed("vine_to_vine.transpositions"):
-        (swapped_simplices, _, swapped_indices) = a_ordering.compute_transpositions(
+    with utils.Timed("vine_to_vine.transpositions_lean"):
+        (swapped_simplices, swapped_indices) = a_ordering.compute_transpositions_lean(
             b_ordering
         )
 
