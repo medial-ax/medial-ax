@@ -3,6 +3,45 @@ from typing import Callable
 import numpy as np
 
 
+class Grid3:
+    a: np.ndarray
+    size: float
+
+    def __init__(self, size: float, corner: np.array, shape: np.ndarray):
+        a = np.zeros((*shape, 3))
+        a[:, :, :] = corner
+        for x in range(shape[0]):
+            for y in range(shape[1]):
+                for z in range(shape[2]):
+                    a[x, y, z] += np.array([x, y, z]) * size
+        self.a = a
+        self.size = size
+
+    def centers(self):
+        return self.a + self.size / 2
+
+    def from_complex(complex: complex, size: float, buffer=0.0):
+        points = np.array([v.coords for v in complex.vertlist])
+        x_min, y_min, z_min = np.min(points, axis=0)
+        x_max, y_max, z_max = np.max(points, axis=0)
+
+        xrange = x_max - x_min + 2 * buffer
+        yrange = y_max - y_min + 2 * buffer
+        zrange = z_max - z_min + 2 * buffer
+
+        x_shape = int(np.ceil(xrange / size))
+        y_shape = int(np.ceil(yrange / size))
+        z_shape = int(np.ceil(zrange / size))
+
+        corner = np.array([x_min - buffer, y_min - buffer, z_min - buffer])
+
+        return Grid3(
+            size,
+            corner,
+            np.array([x_shape, y_shape, z_shape]),
+        )
+
+
 def make_dual_edge(p, q):
     v = q - p
     perp = np.array([-v[1], v[0]])

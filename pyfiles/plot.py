@@ -1,7 +1,7 @@
 from typing import Tuple
 from .complex import complex, ordering
 from .matrix import bdmatrix, sparse2array
-from .grid import Grid
+from .grid import Grid, Grid3
 
 from matplotlib import pyplot as plt
 import numpy as np
@@ -158,6 +158,21 @@ def plot_complex_3d(ax: plt.Axes, complex: complex):
             ax.plot(
                 [p[0], q[0]], [p[1], q[1]], [p[2], q[2]], color="black", linewidth=2
             )
+
+
+def plot_grid_3d(ax: plt.Axes, grid: Grid3):
+    flat = grid.centers().reshape(-1, 3)
+    xs = flat[:, 0]
+    ys = flat[:, 1]
+    zs = flat[:, 2]
+    ax.scatter(
+        xs,
+        ys,
+        zs,
+        color=grid_color,
+        s=1,
+        alpha=0.6,
+    )
 
 
 grid_color = "#cf578e"
