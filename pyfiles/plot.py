@@ -131,6 +131,8 @@ def plot_complex_3d(ax: plt.Axes, complex: complex):
     xs = []
     ys = []
     zs = []
+    if len(complex.trilist) == 0:
+        return
 
     for triangle in complex.trilist:
         a = triangle.coords[0]
