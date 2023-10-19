@@ -24,7 +24,7 @@ def augment_with_radialdist(complex: complex) -> List[float]:
 
 
 class simplex:
-    coords: List[float]
+    coords: List[float] | List[List[float]]
     """If the simplex is a point, this is the coordinates of the point.
         If not, this is empty."""
     boundary: List[int]
@@ -72,6 +72,18 @@ class simplex:
         s.parents = []
         return s
 
+    def triangle(boundary: List[int], index: int, coords: List[List[float]]):
+        """Create a new triangle simplex with given boundary and index."""
+        s = simplex()
+        s.coords = coords
+        s.boundary = boundary
+        assert len(boundary) == 3
+        s.index = index
+        s.columnvalue = -1
+        s.radialdist = -1.0
+        s.parents = []
+        return s
+
     def __init__(self):
         self.coords = []
         self.boundary = []
@@ -95,6 +107,8 @@ class simplex:
             c = f"v{self.index}"
         elif dim == 1:
             c = f"e{self.index}"
+        elif dim == 2:
+            c = f"t{self.index}"
         else:
             raise Exception("Only works for simplices of dimension 0 or 1")
         return c
@@ -107,6 +121,8 @@ class simplex:
             c = f"v{self.index}"
         elif dim == 1:
             c = f"e{self.index}"
+        elif dim == 2:
+            c = f"t{self.index}"
         else:
             raise Exception("Only works for simplices of dimension 0 or 1")
         return f"simplex {c} bd {self.boundary}"
@@ -115,6 +131,7 @@ class simplex:
 class complex:
     vertlist: List[simplex]
     edgelist: List[simplex]
+    trilist: List[simplex]
     key_point: List[float]
 
     coboundary: Dict[int, List[int]]
@@ -128,6 +145,7 @@ class complex:
         # otherwise, they're shared by the whole class and that is no
         self.edgelist = []
         self.vertlist = []
+        self.trilist = []
         self.key_point = [0.0, 0.0]
 
     def __repr__(self):
@@ -150,6 +168,9 @@ class complex:
         for ei, e in enumerate(self.edgelist):
             for i in e.boundary:
                 self.coboundary[i].append(ei)
+        for ti, t in enumerate(self.trilist):
+            for i in t.boundary:
+                self.coboundary[i].append(ti)
 
     def get_coboundary(self, splx: simplex) -> List[simplex]:
         """
@@ -164,7 +185,7 @@ class complex:
 
         Sets the `columnvalue` for every simplex in the complex.
         """
-        all_simplices = self.vertlist + self.edgelist
+        all_simplices = self.vertlist + self.edgelist + self.trilist
 
         def key(s: simplex):
             dim = s.dim()
@@ -172,8 +193,15 @@ class complex:
                 return (distlist[s.index], 0, s.index)
             elif dim == 1:
                 return (max([distlist[i] for i in s.boundary]), 1, s.index)
+            elif dim == 2:
+                vertices = []
+                for ei in s.boundary:
+                    edge = self.edgelist[ei]
+                    for vi in edge.boundary:
+                        vertices.append(self.vertlist[vi])
+                return (max([distlist[v.index] for v in vertices]), 2, s.index)
             else:
-                raise Exception("Only works for simplices of dimension 0 or 1")
+                raise Exception("Only works for simplices of dimension 0, 1, or 2")
 
         all_simplices.sort(key=key)
         for i, s in enumerate(all_simplices):
@@ -185,6 +213,14 @@ class complex:
             b = self.vertlist[e.boundary[1]]
             assert a.columnvalue < e.columnvalue
             assert b.columnvalue < e.columnvalue
+
+        for t in self.trilist:
+            a = self.edgelist[t.boundary[0]]
+            b = self.edgelist[t.boundary[1]]
+            c = self.edgelist[t.boundary[2]]
+            assert a.columnvalue < t.columnvalue
+            assert b.columnvalue < t.columnvalue
+            assert c.columnvalue < t.columnvalue
 
         return all_simplices
 

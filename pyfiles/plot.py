@@ -127,6 +127,39 @@ def plot_complex(
     return ax
 
 
+def plot_complex_3d(ax: plt.Axes, complex: complex):
+    xs = []
+    ys = []
+    zs = []
+
+    for triangle in complex.trilist:
+        a = triangle.coords[0]
+        b = triangle.coords[1]
+        c = triangle.coords[2]
+        xs.extend([a[0], b[0], c[0]])
+        ys.extend([a[1], b[1], c[1]])
+        zs.extend([a[2], b[2], c[2]])
+
+    triangles = [[3 * i, 3 * i + 1, 3 * i + 2] for i in range(len(xs) // 3)]
+
+    ax.plot_trisurf(
+        xs,
+        ys,
+        zs,
+        triangles=triangles,
+        alpha=0.6,
+    )
+
+    for triangle in complex.trilist:
+        edges = [complex.edgelist[i] for i in triangle.boundary]
+        for edge in edges:
+            p = complex.vertlist[edge.boundary[0]].coords
+            q = complex.vertlist[edge.boundary[1]].coords
+            ax.plot(
+                [p[0], q[0]], [p[1], q[1]], [p[2], q[2]], color="black", linewidth=2
+            )
+
+
 grid_color = "#cf578e"
 
 

@@ -5,3 +5,4 @@ jupyter
 pandas == 2.0.3
 black
 galois == 0.3
+ipympl
