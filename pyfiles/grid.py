@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Callable
+from typing import Callable, List, Tuple
 import numpy as np
 
 
@@ -19,6 +19,22 @@ class Grid3:
 
     def centers(self):
         return self.a + self.size / 2
+
+    def coordinate(self, index: Tuple[int, int, int]):
+        return self.a[index] + self.size / 2
+
+    def center_index(self) -> Tuple[int, int, int]:
+        return (self.a.shape[0] // 2, self.a.shape[1] // 2, self.a.shape[2] // 2)
+
+    def on_boundary(self, index: Tuple[int, int, int]) -> bool:
+        return (
+            index[0] == 0
+            or index[0] == self.a.shape[0] - 1
+            or index[1] == 0
+            or index[1] == self.a.shape[1] - 1
+            or index[2] == 0
+            or index[2] == self.a.shape[2] - 1
+        )
 
     def from_complex(complex: complex, size: float, buffer=0.0):
         points = np.array([v.coords for v in complex.vertlist])
@@ -40,6 +56,84 @@ class Grid3:
             corner,
             np.array([x_shape, y_shape, z_shape]),
         )
+
+    def neighbors(self, indices: Tuple[int, int, int]) -> List[Tuple[int, int, int]]:
+        ret = []
+        if indices[0] > 0:
+            ret.append((indices[0] - 1, indices[1], indices[2]))
+        if indices[0] < self.a.shape[0] - 1:
+            ret.append((indices[0] + 1, indices[1], indices[2]))
+        if indices[1] > 0:
+            ret.append((indices[0], indices[1] - 1, indices[2]))
+        if indices[1] < self.a.shape[1] - 1:
+            ret.append((indices[0], indices[1] + 1, indices[2]))
+        if indices[2] > 0:
+            ret.append((indices[0], indices[1], indices[2] - 1))
+        if indices[2] < self.a.shape[2] - 1:
+            ret.append((indices[0], indices[1], indices[2] + 1))
+        return ret
+
+    def flood_fill_visit(
+        self,
+        start_index: Tuple[int, int, int],
+        visit: Callable[[Tuple[int, int, int], Tuple[int, int, int]], None],
+    ):
+        """
+        Visit every edge in the grid once.  The visit function is called with
+        the indices of the edge and the indices of the previous edge, which is
+        guaranteed to have already been visited.
+        """
+        queue = [[start_index, None]]
+
+        visited = set()
+        while queue:
+            [index, prev] = queue.pop(0)
+
+            was_visited = index in visited
+            visited.add(index)
+            visit(index, prev)
+
+            if not was_visited:
+                for inds in self.neighbors(index):
+                    if inds in visited:
+                        continue
+                    queue.append([inds, index])
+
+    def dual_face(self, a: Tuple[int, int, int], b: Tuple[int, int, int]) -> np.ndarray:
+        """
+        Return the coordinates of the dual face between the two grid cells.
+        """
+
+        middle = (self.coordinate(a) + self.coordinate(b)) / 2
+
+        if a[0] != b[0]:
+            return np.array(
+                [
+                    middle + np.array([0, -self.size, -self.size]) / 2,
+                    middle + np.array([0, -self.size, self.size]) / 2,
+                    middle + np.array([0, self.size, self.size]) / 2,
+                    middle + np.array([0, self.size, -self.size]) / 2,
+                ]
+            )
+        if a[1] != b[1]:
+            return np.array(
+                [
+                    middle + np.array([-self.size, 0, -self.size]) / 2,
+                    middle + np.array([-self.size, 0, self.size]) / 2,
+                    middle + np.array([self.size, 0, self.size]) / 2,
+                    middle + np.array([self.size, 0, -self.size]) / 2,
+                ]
+            )
+        if a[2] != b[2]:
+            return np.array(
+                [
+                    middle + np.array([-self.size, -self.size, 0]) / 2,
+                    middle + np.array([-self.size, self.size, 0]) / 2,
+                    middle + np.array([self.size, self.size, 0]) / 2,
+                    middle + np.array([self.size, -self.size, 0]) / 2,
+                ]
+            )
+        raise Exception("a and b are the same")
 
 
 def make_dual_edge(p, q):

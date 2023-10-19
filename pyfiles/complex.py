@@ -157,6 +157,9 @@ class complex:
     def nverts(self):
         return len(self.vertlist)
 
+    def ntris(self):
+        return len(self.trilist)
+
     def check_simplex_indices_are_okay(self):
         for i, v in enumerate(self.vertlist):
             assert v.index == i
@@ -249,7 +252,9 @@ class ordering:
         vert_distances = [
             distance.sqeuclidean(key_point, s.coords) for s in complex.vertlist
         ]
-        all_simplices = [simplex.empty()] + complex.vertlist + complex.edgelist
+        all_simplices = (
+            [simplex.empty()] + complex.vertlist + complex.edgelist + complex.trilist
+        )
 
         def key(s: simplex):
             dim = s.dim()
@@ -258,14 +263,15 @@ class ordering:
             elif dim == 0:
                 return (vert_distances[s.index], 0, s.index)
             elif dim == 1:
-                # TODO: think more about if the ordering here has to be constant so that we don't get a bunch of irrelevant swaps
-                # [first_vert, last_vert] = sorted(
-                #     [vert_distances[i] for i in s.boundary]
-                # )
-                # return (last_vert, 1, first_vert)
                 return (max([vert_distances[i] for i in s.boundary]), 1, s.index)
+            elif dim == 2:
+                vertex_indices = []
+                for ei in s.boundary:
+                    edge = complex.edgelist[ei]
+                    vertex_indices.extend(edge.boundary)
+                return (max([vert_distances[v] for v in vertex_indices]), 2, s.index)
             else:
-                raise Exception("Only works for simplices of dimension 0 or 1")
+                raise Exception("Only works for simplices of dimension 0, 1, or 2")
 
         all_simplices.sort(key=key)
         pairs = [((s.dim(), s.index), i) for i, s in enumerate(all_simplices)]
@@ -278,6 +284,7 @@ class ordering:
 
         o.vert_map = {s.index: s for s in complex.vertlist}
         o.edge_map = {s.index: s for s in complex.edgelist}
+        o.tri_map = {s.index: s for s in complex.trilist}
 
         return o
 
@@ -305,8 +312,10 @@ class ordering:
             return self.vert_map[index]
         elif dim == 1:
             return self.edge_map[index]
+        elif dim == 2:
+            return self.tri_map[index]
         else:
-            raise Exception("Only works for simplices of dimension 0 or 1")
+            raise Exception("Only works for simplices of dimension 0, 1, or 2")
 
     def compute_transpositions(
         self, other

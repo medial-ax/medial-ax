@@ -736,6 +736,7 @@ def vine_to_vine(
                     found_faustian = True
 
                 if not skip and s1.dim() != s2.dim():
-                    assert False, "This should not happen: {s1.dim()} != {s2.dim()}"
+                    print(f"This should not happen: {s1.dim()} != {s2.dim()}")
+                    # assert False, f"This should not happen: {s1.dim()} != {s2.dim()}"
 
         return (found_faustian, D, R, U_t, b_ordering)

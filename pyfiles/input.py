@@ -79,7 +79,6 @@ def read_obj(filename: str) -> cplx.complex:
             for i in tri.boundary:
                 edges[i].parents.append(tri.index)
 
-        print(f"#t = {len(triangles)}")
         complex = cplx.complex()
         complex.vertlist = vertices
         complex.edgelist = edges

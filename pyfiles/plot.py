@@ -160,17 +160,44 @@ def plot_complex_3d(ax: plt.Axes, complex: complex):
             )
 
 
+def plot_face_3d(
+    ax: plt.Axes, a: np.ndarray, b: np.ndarray, c: np.ndarray, d: np.ndarray
+):
+    xs = [a[0], b[0], c[0], d[0]]
+    ys = [a[1], b[1], c[1], d[1]]
+    zs = [a[2], b[2], c[2], d[2]]
+    ax.plot_trisurf(
+        xs,
+        ys,
+        zs,
+        triangles=[[0, 1, 2], [0, 2, 3]],
+        alpha=0.6,
+    )
+
+
 def plot_grid_3d(ax: plt.Axes, grid: Grid3):
     flat = grid.centers().reshape(-1, 3)
     xs = flat[:, 0]
     ys = flat[:, 1]
     zs = flat[:, 2]
+
+    # center = (grid.a.shape[0] // 2, grid.a.shape[1] // 2, grid.a.shape[2] // 2)
+    # depth = {}
+    # def visit(new, old):
+    #     if old is None:
+    #         depth[new] = 0
+    #         return
+    #     depth[new] = 1.0 + depth[old]
+    # grid.flood_fill_visit(center, visit)
+    # colors = np.array([depth[tuple(point)] for point in np.ndindex(grid.a.shape[:-1])])
+    # colors /= np.max(colors)
+
     ax.scatter(
         xs,
         ys,
         zs,
-        color=grid_color,
         s=1,
+        color=grid_color,
         alpha=0.6,
     )
 

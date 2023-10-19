@@ -170,7 +170,12 @@ class bdmatrix:
     def from_ordering(ordering: cplx.ordering):
         mat = bdmatrix()
 
-        n = ordering.complex.nedges() + ordering.complex.nverts() + 1
+        n = (
+            ordering.complex.nedges()
+            + ordering.complex.nverts()
+            + ordering.complex.ntris()
+            + 1
+        )
         mat.initmatrix = np.zeros((n, n), dtype=int)
 
         # give all verts columns a 1 at position 0 because of empty simplex
@@ -183,6 +188,13 @@ class bdmatrix:
             [i, j] = edge.boundary
             mat.initmatrix[ordering.matrix_index_for_dim(0, i)][edge_i] = 1
             mat.initmatrix[ordering.matrix_index_for_dim(0, j)][edge_i] = 1
+
+        for tri in ordering.complex.trilist:
+            tri_i = ordering.matrix_index(tri)
+            [i, j, k] = tri.boundary
+            mat.initmatrix[ordering.matrix_index_for_dim(1, i)][tri_i] = 1
+            mat.initmatrix[ordering.matrix_index_for_dim(1, j)][tri_i] = 1
+            mat.initmatrix[ordering.matrix_index_for_dim(1, k)][tri_i] = 1
 
         return mat
 
