@@ -148,17 +148,11 @@ class complex:
         self.trilist = []
         self.key_point = [0.0, 0.0]
 
-    def __repr__(self):
-        return f"number of verts is {self.nverts()}, and number of edges is {self.nedges()}."
+    def nsimplices(self):
+        return 1 + len(self.vertlist) + len(self.edgelist) + len(self.trilist)
 
-    def nedges(self):
-        return len(self.edgelist)
-
-    def nverts(self):
-        return len(self.vertlist)
-
-    def ntris(self):
-        return len(self.trilist)
+    def all_simplices(self):
+        return [simplex.empty()] + self.vertlist + self.edgelist + self.trilist
 
     def check_simplex_indices_are_okay(self):
         for i, v in enumerate(self.vertlist):
@@ -228,6 +222,9 @@ class complex:
         return all_simplices
 
 
+_COMPLEX = complex
+
+
 class ordering:
     complex: complex
     key_point: np.ndarray
@@ -241,10 +238,10 @@ class ordering:
         """
         Return a list of the unique indices in the ordering.
         """
-        n = 1 + self.complex.nverts() + self.complex.nedges()
+        n = self.complex.nsimplices()
         return [self.o2i[i] for i in range(n)]
 
-    def by_dist_to(complex: complex, key_point: np.ndarray):
+    def by_dist_to(complex: _COMPLEX, key_point: np.ndarray):
         """
         Create an ordering of the simplices in the complex by their distance to
         the given point.
@@ -252,9 +249,7 @@ class ordering:
         vert_distances = [
             distance.sqeuclidean(key_point, s.coords) for s in complex.vertlist
         ]
-        all_simplices = (
-            [simplex.empty()] + complex.vertlist + complex.edgelist + complex.trilist
-        )
+        all_simplices = complex.all_simplices()
 
         def key(s: simplex):
             dim = s.dim()
@@ -281,6 +276,13 @@ class ordering:
         o.key_point = key_point
         o.i2o = dict(pairs)
         o.o2i = dict([(v, k) for k, v in pairs])
+
+        # Check that the simplices are ordered correctly
+        for i, s in enumerate(all_simplices):
+            if s.dim() > 0:
+                for face in s.boundary:
+                    face_i = o.i2o[(s.dim() - 1, face)]
+                    assert face_i < i
 
         o.vert_map = {s.index: s for s in complex.vertlist}
         o.edge_map = {s.index: s for s in complex.edgelist}

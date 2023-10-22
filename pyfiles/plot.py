@@ -272,6 +272,10 @@ class PandasMatrix:
                 c = f"v{simplex.index}"
             elif simplex.dim() == 1:
                 c = f"e{simplex.index}"
+            elif simplex.dim() == 2:
+                c = f"t{simplex.index}"
+            else:
+                raise Exception("Dim > 2 not supported")
             ret[i] = f"{i}|{c}"
         return ret
 

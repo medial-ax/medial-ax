@@ -170,31 +170,30 @@ class bdmatrix:
     def from_ordering(ordering: cplx.ordering):
         mat = bdmatrix()
 
-        n = (
-            ordering.complex.nedges()
-            + ordering.complex.nverts()
-            + ordering.complex.ntris()
-            + 1
-        )
+        n = ordering.complex.nsimplices()
         mat.initmatrix = np.zeros((n, n), dtype=int)
 
-        # give all verts columns a 1 at position 0 because of empty simplex
-        for vertex in ordering.complex.vertlist:
-            matrix_index = ordering.matrix_index(vertex)
-            mat.initmatrix[0][matrix_index] = 1
-
-        for edge in ordering.complex.edgelist:
-            edge_i = ordering.matrix_index(edge)
-            [i, j] = edge.boundary
-            mat.initmatrix[ordering.matrix_index_for_dim(0, i)][edge_i] = 1
-            mat.initmatrix[ordering.matrix_index_for_dim(0, j)][edge_i] = 1
-
-        for tri in ordering.complex.trilist:
-            tri_i = ordering.matrix_index(tri)
-            [i, j, k] = tri.boundary
-            mat.initmatrix[ordering.matrix_index_for_dim(1, i)][tri_i] = 1
-            mat.initmatrix[ordering.matrix_index_for_dim(1, j)][tri_i] = 1
-            mat.initmatrix[ordering.matrix_index_for_dim(1, k)][tri_i] = 1
+        for simplex in ordering.complex.all_simplices():
+            dim = simplex.dim()
+            if dim == -1:
+                pass
+            elif dim == 0:
+                # give all verts columns a 1 at position 0 because of empty simplex
+                matrix_index = ordering.matrix_index(simplex)
+                mat.initmatrix[0][matrix_index] = 1
+            elif dim == 1:
+                edge_i = ordering.matrix_index(simplex)
+                [i, j] = simplex.boundary
+                mat.initmatrix[ordering.matrix_index_for_dim(0, i)][edge_i] = 1
+                mat.initmatrix[ordering.matrix_index_for_dim(0, j)][edge_i] = 1
+            elif dim == 2:
+                tri_i = ordering.matrix_index(simplex)
+                [i, j, k] = simplex.boundary
+                mat.initmatrix[ordering.matrix_index_for_dim(1, i)][tri_i] = 1
+                mat.initmatrix[ordering.matrix_index_for_dim(1, j)][tri_i] = 1
+                mat.initmatrix[ordering.matrix_index_for_dim(1, k)][tri_i] = 1
+            else:
+                raise Exception("Invalid simplex dimension")
 
         return mat
 
@@ -578,6 +577,9 @@ class reduction_knowledge:
 
     def after_column_reduced(self, sparsemat, col):
         c = sparsemat.get(col, set())
+        s = self.ordering.get_simplex(col)
+        if s.dim() not in self.bettis:
+            self.bettis[s.dim()] = 0
         if c:
             lowest = max(c)
             birth = self.ordering.get_simplex(lowest)
@@ -585,7 +587,6 @@ class reduction_knowledge:
             self.birth_death_pairs[lowest] = col
             self.death_birth_pairs[col] = lowest
         else:
-            s = self.ordering.get_simplex(col)
             self.bettis[s.dim()] += 1
             # NOTE: We record all births as living forever; if it gets killed,
             # this will be overwritten in the `if c:` branch.

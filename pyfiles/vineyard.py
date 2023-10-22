@@ -695,6 +695,7 @@ def vine_to_vine(
     b: np.ndarray,
     a_ordering: cplx.ordering,
     target_dim: int,
+    prune: bool = True,
 ) -> Tuple[bool, SneakyMatrix, SneakyMatrix, SneakyMatrix, cplx.ordering]:
     """
     Returns (found_faustian, D, R, U_t)
@@ -713,6 +714,7 @@ def vine_to_vine(
         D = D.copy()
 
     with utils.Timed("vine_to_vine.loop"):
+        bad_point = None
         found_faustian = False
         # print(f"swapped_indices = #{len(swapped_indices)}")
         for swap_i, i in enumerate(swapped_indices):
@@ -726,7 +728,7 @@ def vine_to_vine(
                 # Pruning
                 # If we get two vertices that share an edge, skip the swap.
                 skip = False
-                if s1.dim() == 0 and s2.dim() == 0:
+                if prune and s1.dim() == 0 and s2.dim() == 0:
                     cob1 = set(complex.get_coboundary(s1))
                     cob2 = set(complex.get_coboundary(s2))
                     if cob1 & cob2:
@@ -737,6 +739,10 @@ def vine_to_vine(
 
                 if not skip and s1.dim() != s2.dim():
                     print(f"This should not happen: {s1.dim()} != {s2.dim()}")
+                    bad_point = b
+                    print(s1)
+                    print(s2)
+                    print(b)
                     # assert False, f"This should not happen: {s1.dim()} != {s2.dim()}"
 
-        return (found_faustian, D, R, U_t, b_ordering)
+        return (found_faustian, D, R, U_t, b_ordering, bad_point)
