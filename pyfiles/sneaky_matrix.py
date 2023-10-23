@@ -2,9 +2,10 @@ from __future__ import annotations
 from collections import defaultdict
 from copy import deepcopy
 
-from typing import DefaultDict, Set
+from typing import DefaultDict, Dict, Set
 
 import numpy as np
+from . import plot as ourplot
 
 
 class permutation:
@@ -47,6 +48,9 @@ class SneakyMatrix:
     """Maps `r` to `rr`, "logical" rows to "stored" rows."""
     col_map: permutation
     """Maps `c` to `cc`, "logical" columns to "stored" columns."""
+
+    col_low_one_cache: Dict[int, int]
+    """Maps rr to cc."""
 
     cols: int
     rows: int
@@ -192,12 +196,32 @@ class SneakyMatrix:
         return max(map(lambda rr: self.row_map.inv(rr), self.entries[cc]), default=None)
 
     def col_with_low(self, r):
+        # try:
+        #     rr = self.row_map.map(r)
+        #     cc = self.col_low_one_cache[rr]
+        #     return self.col_map.inv(cc)
+        # except:
+        all_cs = []
         for cc in self.entries.keys():
             c = self.col_map.inv(cc)
             max = self.colmax(c)
             if max == r:
-                return c
-        return None
+                # self.col_low_one_cache[rr] = cc
+                all_cs.append(c)
+                # return c
+        if len(all_cs) > 1:
+            print(all_cs)
+            for c in all_cs:
+                cc = self.col_map.map(c)
+                print(self.entries[cc])
+            print(self.to_dense())
+
+            with ourplot.PandasMatrix2(self.to_dense()) as _R:
+                pass
+            raise Exception("heelloooo")
+        if all_cs == []:
+            return None
+        return all_cs[0]
 
     def col_is_not_empty(self, c):
         """

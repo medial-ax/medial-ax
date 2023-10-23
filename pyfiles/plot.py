@@ -225,6 +225,49 @@ def plot_grid(ax: plt.Axes, grid: Grid):
     )
 
 
+class PandasMatrix2:
+    """
+    Convenient class to print out a matrix reduction with the pandas html stuff.
+
+    ## Usage
+    ```python
+    with ourplot.PandasMatrix(matrix) as p:
+        matrix.reduce(every_step=p.every_step)
+    ```
+    """
+
+    cell_hover = {  # for row hover use <tr> instead of <td>
+        "selector": "td:hover",
+        "props": [("background-color", "#ffffb3")],
+    }
+
+    matrix: bdmatrix
+
+    def __init__(self, matrix: np.array):
+        self.matrix = matrix
+
+        df = pd.DataFrame(matrix)
+        s = df.style
+        s.applymap(PandasMatrix.highlight_cells)
+        s.set_table_styles([PandasMatrix.cell_hover], "columns")
+        s.set_table_attributes("style='display:inline'")
+        s.set_caption("Initial matrix")
+        html = s._repr_html_()
+        self.dfstyles = [html]
+
+    def highlight_cells(val):
+        color = "#FF0044" if val == 1 else ""
+        style = "display:inline"
+        return "background-color: {}".format(color)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, _, _1, _2):
+        stylestring = "".join(self.dfstyles)
+        display_html(stylestring, raw=True)
+
+
 class PandasMatrix:
     """
     Convenient class to print out a matrix reduction with the pandas html stuff.

@@ -468,9 +468,11 @@ def perform_one_swap(
 
         # Case 1.1: there are columns k and ℓ with low(k) = i, low(ℓ) = i +
         # 1, and R[i, ℓ] = 1.
+        print("============= TOP =============")
         with utils.Timed("dumb loop here"):
             k = low_inv(i)
             l = low_inv(i + 1)
+        print("||||||| AFTER |||||||||||")
         if k != None and l != None and R[i, l] == 1:
             # Case 1.1.1: k < ℓ.
             if k < l:
