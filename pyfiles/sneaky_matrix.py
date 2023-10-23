@@ -196,32 +196,35 @@ class SneakyMatrix:
         return max(map(lambda rr: self.row_map.inv(rr), self.entries[cc]), default=None)
 
     def col_with_low(self, r):
-        # try:
-        #     rr = self.row_map.map(r)
-        #     cc = self.col_low_one_cache[rr]
-        #     return self.col_map.inv(cc)
-        # except:
-        all_cs = []
         for cc in self.entries.keys():
             c = self.col_map.inv(cc)
             max = self.colmax(c)
             if max == r:
-                # self.col_low_one_cache[rr] = cc
-                all_cs.append(c)
-                # return c
-        if len(all_cs) > 1:
-            print(all_cs)
-            for c in all_cs:
-                cc = self.col_map.map(c)
-                print(self.entries[cc])
-            print(self.to_dense())
+                return c
+        return None
 
-            with ourplot.PandasMatrix2(self.to_dense()) as _R:
-                pass
-            raise Exception("heelloooo")
-        if all_cs == []:
-            return None
-        return all_cs[0]
+        # # try:
+        # #     rr = self.row_map.map(r)
+        # #     cc = self.col_low_one_cache[rr]
+        # #     return self.col_map.inv(cc)
+        # # except:
+        # all_cs = []
+        # for cc in self.entries.keys():
+        #     c = self.col_map.inv(cc)
+        #     max = self.colmax(c)
+        #     if max == r:
+        #         # self.col_low_one_cache[rr] = cc
+        #         all_cs.append(c)
+        #         # return c
+        # if len(all_cs) > 1:
+        #     print(all_cs)
+        #     for c in all_cs:
+        #         cc = self.col_map.map(c)
+        #         print(self.entries[cc])
+        #     print(self.to_dense())
+        # if all_cs == []:
+        #     return None
+        # return all_cs[0]
 
     def col_is_not_empty(self, c):
         """
@@ -229,6 +232,21 @@ class SneakyMatrix:
         """
         cc = self.col_map.map(c)
         return self.entries[cc] != set()
+
+    def check_matrix(self, msg):
+        print(msg)
+        return
+        d = {}
+        for c in range(self.cols):
+            low = self.colmax(c)
+            if low is None:
+                continue
+            if low in d:
+                print()
+                print(msg)
+                print()
+                print(f"Duplicate low: low({d[low]}) == low({c}) = {low}")
+            d[low] = c
 
     @property
     def shape(self):
