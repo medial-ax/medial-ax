@@ -445,16 +445,13 @@ def perform_one_swap(
     #     )
 
     def gives_death(c: int) -> bool:
-        return R.entries[c] != set()
+        return R.col_is_not_empty(c)
 
     def low(c: int) -> int:
-        return max(R.entries[c])
+        return R.colmax(c)
 
     def low_inv(r: int) -> int:
-        for c, rows in R.entries.items():
-            if r == max(rows, default=None):
-                return c
-        return -1
+        return R.col_with_low(r)
 
     # gives_birth_i = gives_birth(i)
     # gives_birth_i_1 = gives_birth(i + 1)
@@ -474,7 +471,7 @@ def perform_one_swap(
         with utils.Timed("dumb loop here"):
             k = low_inv(i)
             l = low_inv(i + 1)
-        if k != -1 and l != -1 and R[i, l] == 1:
+        if k != None and l != None and R[i, l] == 1:
             # Case 1.1.1: k < ℓ.
             if k < l:
                 # Add column k of PRP to column ℓ; add row ℓ of P U P to row k.

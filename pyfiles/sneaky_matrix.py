@@ -7,6 +7,25 @@ from typing import DefaultDict, Set
 import numpy as np
 
 
+class permutation:
+    _map: keydefaultdict
+    _inv: keydefaultdict
+
+    def __init__(self):
+        self._map = keydefaultdict()
+        self._inv = keydefaultdict()
+
+    def map(self, n):
+        return self._map[n]
+
+    def inv(self, n):
+        return self._inv[n]
+
+    def swap(self, i, j):
+        self._map[i], self._map[j] = self._map[j], self._map[i]
+        self._inv[self._map[i]], self._inv[self._map[j]] = i, j
+
+
 class keydefaultdict(defaultdict):
     """
     A defaultdict that inserts the key as the value if the key is missing.
@@ -24,7 +43,7 @@ class SneakyMatrix:
     """
 
     entries: DefaultDict[int, Set[int]]
-    row_map: DefaultDict[int, int]
+    row_map: permutation
     """Store the index of the row that the original row at each index was
     swapped to."""
 
@@ -66,7 +85,7 @@ class SneakyMatrix:
 
     def __init__(self):
         self.entries = defaultdict(set)
-        self.row_map = keydefaultdict()
+        self.row_map = permutation()
 
     def __setitem__(self, key, val):
         if not isinstance(key, tuple):
@@ -78,7 +97,7 @@ class SneakyMatrix:
             raise Exception("Row index out of bounds")
         elif c < 0 or c >= self.cols:
             raise Exception("Column index out of bounds")
-        rr = self.row_map[r]
+        rr = self.row_map.map(r)
         if val == 1:
             self.entries[c].add(rr)
         else:
@@ -94,7 +113,7 @@ class SneakyMatrix:
             raise Exception("Row index out of bounds")
         elif c < 0 or c >= self.cols:
             raise Exception("Column index out of bounds")
-        return 1 if self.row_map[r] in self.entries[c] else 0
+        return 1 if self.row_map.map(r) in self.entries[c] else 0
 
     def copy(self) -> SneakyMatrix:
         """
@@ -108,8 +127,8 @@ class SneakyMatrix:
         """
         mat = np.zeros((self.rows, self.cols), dtype=int)
         for c in range(self.cols):
-            for _r in self.entries[c]:
-                r = self.row_map[_r]
+            for rr in self.entries[c]:
+                r = self.row_map.inv(rr)
                 mat[r, c] = 1
         return mat
 
@@ -139,7 +158,7 @@ class SneakyMatrix:
             raise Exception(
                 f"Row index out of bounds: 0 <!= {r2} <!= {self.rows}",
             )
-        self.row_map[r1], self.row_map[r2] = self.row_map[r2], self.row_map[r1]
+        self.row_map.swap(r1, r2)
 
     def swap_cols_and_rows(self, a, b):
         """
@@ -160,7 +179,20 @@ class SneakyMatrix:
         """
         Return the maximum row index in column c.
         """
-        return max(self.entries[c])
+        return max(map(lambda rr: self.row_map.inv(rr), self.entries[c]), default=None)
+
+    def col_with_low(self, r):
+        for c in self.entries.keys():
+            max = self.colmax(c)
+            if max == r:
+                return c
+        return None
+
+    def col_is_not_empty(self, c):
+        """
+        Return True if column c is not empty.
+        """
+        return self.entries[c] != set()
 
     @property
     def shape(self):
