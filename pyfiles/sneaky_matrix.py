@@ -138,7 +138,7 @@ class SneakyMatrix:
         mat = np.zeros((self.rows, self.cols), dtype=int)
         for cc in range(self.cols):
             c = self.col_map.inv(cc)
-            for rr in self.entries[c]:
+            for rr in self.entries[cc]:
                 r = self.row_map.inv(rr)
                 mat[r, c] = 1
         return mat

@@ -620,7 +620,7 @@ def perform_one_swap_DENSE(
         # Case 3.1: U [i, i + 1] = 1.
         if U[i, i + 1] == 1:
             print("case 3.1")
-            W = np.eye(R.shape[0])
+            W = np.eye(R.shape[0], dtype=int)
             W[i, i + 1] = 1
 
             # Add row i + 1 of U to row i.
