@@ -453,6 +453,13 @@ def is_binary(A: np.array):
     return True
 
 
+def prnt(A, label=None):
+    if label:
+        print(label)
+    print(str(A).replace("0", " "))
+    print()
+
+
 def perform_one_swap_DENSE(
     i: int,
     R: np.ndarray,
@@ -898,30 +905,32 @@ def vine_to_vine(
         U_t = U_t.copy()
         D = D.copy()
 
-    print("INITIAL D")
-    print(D.to_dense())
+    # print("vine_to_vine")
+    # prnt(R.to_dense(), "R")
+    # prnt(U_t.to_dense().T, "U")
 
     with utils.Timed("vine_to_vine.loop"):
         bad_point = None
         found_faustian = False
         # print(f"swapped_indices = #{len(swapped_indices)}")
         for swap_i, i in enumerate(swapped_indices):
+            # print(f"{swap_i}: {i}")
             with utils.Timed("perform_one_swap"):
                 (_, _, faustian_swap) = perform_one_swap(i, R, U_t)
             D.swap_cols_and_rows(i, i + 1)
-            print("i=", i)
-            print(D.to_dense())
-            with utils.Timed("RU=D check"):
-                RU = (R.to_dense() @ U_t.to_dense().T) % 2
-                if not (RU == D.to_dense()).all():
-                    print("==================================================")
-                    assert False
-                    print("i=", i)
-                    print("R\n", R.to_dense())
-                    print("U\n", U_t.to_dense().T)
-                    print("RU\n", RU)
-                    print("D\n", D.to_dense())
-                    assert False
+
+            # prnt(R.to_dense(), "R")
+            # prnt(U_t.to_dense().T, "U")
+
+            # with utils.Timed("RU=D check"):
+            #     RU = (R.to_dense() @ U_t.to_dense().T) % 2
+            #     if not (RU == D.to_dense()).all():
+            #         print("i=", i)
+            #         print("R\n", R.to_dense())
+            #         print("U\n", U_t.to_dense().T)
+            #         print("RU\n", RU)
+            #         print("D\n", D.to_dense())
+            #         assert False
 
             if faustian_swap:
                 s1, s2 = swapped_simplices[swap_i]
@@ -1002,23 +1011,31 @@ def vine_to_vine_DENSE(
             b_ordering
         )
 
+    print("vine_to_vine_DENSE")
+    prnt(R, "R")
+    prnt(U, "U")
+    U = U.copy()
+    R = R.copy()
+
     with utils.Timed("vine_to_vine.loop"):
         bad_point = None
         found_faustian = False
         for swap_i, i in enumerate(swapped_indices):
+            print(f"{swap_i}: {i}")
             with utils.Timed("perform_one_swap"):
                 (newR, newU, faustian_swap) = perform_one_swap_DENSE(i, R, U)
 
             assert is_binary(newR)
             assert is_binary(newU)
 
+            prnt(newR, "R")
+            prnt(newU, "U")
+
             P = np.eye(R.shape[0], dtype=int)
             P[i, i] = P[i + 1, i + 1] = 0
             P[i, i + 1] = P[i + 1, i] = 1
 
             PDP = P @ D @ P
-            print(f"i={i} ({swap_i}")
-            print(PDP)
 
             with utils.Timed("RU=D check"):
                 newRnewU = (newR @ newU) % 2

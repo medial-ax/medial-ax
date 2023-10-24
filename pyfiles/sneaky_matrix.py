@@ -234,7 +234,7 @@ class SneakyMatrix:
         return self.entries[cc] != set()
 
     def check_matrix(self, msg):
-        print(msg)
+        # print(msg)
         return
         d = {}
         for c in range(self.cols):
