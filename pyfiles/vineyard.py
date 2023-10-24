@@ -445,16 +445,13 @@ def perform_one_swap(
     #     )
 
     def gives_death(c: int) -> bool:
-        return R.entries[c] != set()
+        return R.col_is_not_empty(c)
 
     def low(c: int) -> int:
-        return max(R.entries[c])
+        return R.colmax(c)
 
     def low_inv(r: int) -> int:
-        for c, rows in R.entries.items():
-            if r == max(rows, default=None):
-                return c
-        return -1
+        return R.col_with_low(r)
 
     # gives_birth_i = gives_birth(i)
     # gives_birth_i_1 = gives_birth(i + 1)
@@ -474,7 +471,7 @@ def perform_one_swap(
         with utils.Timed("dumb loop here"):
             k = low_inv(i)
             l = low_inv(i + 1)
-        if k != -1 and l != -1 and R[i, l] == 1:
+        if k != None and l != None and R[i, l] == 1:
             # Case 1.1.1: k < ℓ.
             if k < l:
                 # Add column k of PRP to column ℓ; add row ℓ of P U P to row k.
@@ -484,6 +481,7 @@ def perform_one_swap(
                 U_t.swap_cols_and_rows(i, i + 1)
                 U_t.add_cols(k, l)
 
+                R.check_matrix("case 1.1.1")
                 return (R, U_t, None)
             # Case 1.1.2: ℓ < k.
             if l < k:
@@ -495,6 +493,7 @@ def perform_one_swap(
                 U_t.swap_cols_and_rows(i, i + 1)
                 U_t.add_cols(l, k)
 
+                R.check_matrix("case 1.1.2")
                 # We witness a change in the pairing but NOT of Faustian type.
                 return (R, U_t, False)
             raise Exception("k = l; This should never happen.")
@@ -504,12 +503,15 @@ def perform_one_swap(
             # PRP = P.T @ R @ P
             R.swap_cols_and_rows(i, i + 1)
             U_t.swap_cols_and_rows(i, i + 1)
+            R.check_matrix("case 1.2")
             return (R, U_t, None)
 
     # Case 2: σi and σi+1 both give death.
     if gives_death_i and gives_death_i_1:
         # Case 2.1: U [i, i + 1] = 1.
         if U_t[i + 1, i] == 1:
+            low_i = low(i)
+            low_i_1 = low(i + 1)
             # Add row i + 1 of U to row i; add column i of R to column i + 1.
             U_t.add_cols(i, i + 1)
             R.add_cols(i + 1, i)
@@ -518,7 +520,8 @@ def perform_one_swap(
             U_t.swap_cols_and_rows(i, i + 1)
 
             # Case 2.1.1: low(i) < low(i + 1).
-            if low(i) < low(i + 1):
+            if low_i < low_i_1:
+                R.check_matrix("case 2.1.1")
                 return (R, U_t, None)
             # Case 2.1.2: low(i + 1) < low(i).
             else:
@@ -527,12 +530,14 @@ def perform_one_swap(
                 # Add row i + 1 of P U P to row i.
                 U_t.add_cols(i, i + 1)
                 # We witness a NON-Faustian type change of the pairing.
+                R.check_matrix("case 2.1.2")
                 return (R, U_t, False)
         # Case 2.2: U [i, i + 1] = 0.
         else:
             # Done.
             R.swap_cols_and_rows(i, i + 1)
             U_t.swap_cols_and_rows(i, i + 1)
+            R.check_matrix("case 2.2")
             return (R, U_t, None)
 
     # Case 3: σi gives death and σi+1 gives birth.
@@ -554,11 +559,13 @@ def perform_one_swap(
             U_t.add_cols(i, i + 1)
 
             # We witness a Faustian type change in the pairing.
+            R.check_matrix("case 3.1")
             return (R, U_t, True)
         # Case 3.2: U [i, i + 1] = 0.
         else:
             R.swap_cols_and_rows(i, i + 1)
             U_t.swap_cols_and_rows(i, i + 1)
+            R.check_matrix("case 3.2")
             return (R, U_t, None)
 
     # Case 4: σi gives birth and σi+1 gives death.
@@ -567,88 +574,10 @@ def perform_one_swap(
         U_t[i + 1, i] = 0
         R.swap_cols_and_rows(i, i + 1)
         U_t.swap_cols_and_rows(i, i + 1)
+        R.check_matrix("case 4")
         return (R, U_t, None)
 
     raise Exception("bottom of the function; This should never happen.")
-
-
-def do_vineyards_for_two_points(
-    complex: cplx.complex, a: np.ndarray, b: np.ndarray, target_dim: int
-):
-    """Run the vineyards algorithm for two points. Fully reduce the matrix for the first point."""
-
-    with utils.Timed("Reduction"):
-        a_ordering = cplx.ordering.by_dist_to(complex, a)
-        a_matrix = mat.bdmatrix.from_ordering(a_ordering)
-        a_knowledge = mat.reduction_knowledge(a_matrix, a_ordering)
-        a_knowledge.run()
-
-    # R = DV
-    with utils.Timed("Vineyards.setup: D, R"):
-        D = SneakyMatrix.from_dense(a_matrix.initmatrix)
-        R = SneakyMatrix.from_dense(a_matrix.reduced)
-
-    with utils.Timed("Vineyards.setup: create V"):
-        V = SneakyMatrix.eye(D.shape[0])
-        for target, other in a_knowledge.adds:
-            V.add_cols(target, other)
-        # assert (
-        #     ((D.to_dense() @ V.to_dense()) % 2) == R.to_dense()
-        # ).all(), "DV should be R"
-
-    with utils.Timed("Vineyards.setup: create U"):
-        gf_v = GF2(V.to_dense())
-        gv_inv = np.linalg.inv(gf_v)
-        U_t = SneakyMatrix.from_dense(gv_inv.T)
-        # RU = D
-        assert (
-            ((R.to_dense() @ U_t.to_dense().T) % 2) == D.to_dense()
-        ).all(), "RU should be D"
-
-    with utils.Timed("Vineyards"):
-        with utils.Timed("Vineyards: new ordering"):
-            b_ordering = cplx.ordering.by_dist_to(complex, b)
-
-        with utils.Timed("Vineyards: transpositions"):
-            (swapped_simplices, _, swapped_indices) = a_ordering.compute_transpositions(
-                b_ordering
-            )
-
-        with utils.Timed("Vineyards: repair"):
-            found_faustian = False
-            tricksy_different_dim = False
-            # print(f"swapped_indices = #{len(swapped_indices)}")
-            for swap_i, i in enumerate(swapped_indices):
-                # P = permutation_matrix(R.shape[0], i, i + 1)
-                # PDP = (P.T @ D @ P) % 2
-
-                (_, _, faustian_swap) = perform_one_swap(i, R, U_t)
-
-                D.swap_cols_and_rows(i, i + 1)
-
-                if faustian_swap:
-                    s1, s2 = swapped_simplices[swap_i]
-
-                    # Pruning
-                    # If we get two vertices that share an edge, skip the swap.
-                    skip = False
-                    if s1.dim() == 0 and s2.dim() == 0:
-                        cob1 = set(complex.get_coboundary(s1))
-                        cob2 = set(complex.get_coboundary(s2))
-                        if cob1 & cob2:
-                            skip = True
-
-                    if not skip and s1.dim() == target_dim and s2.dim() == target_dim:
-                        found_faustian = True
-
-                    if not skip and s1.dim() != s2.dim():
-                        print(f"This should not happen: {s1.dim()} != {s2.dim()}")
-                        print(s1)
-                        print(s2)
-                        print()
-                        tricksy_different_dim = True
-
-            return found_faustian, tricksy_different_dim
 
 
 def initialize_vineyards(
@@ -721,6 +650,15 @@ def vine_to_vine(
             with utils.Timed("perform_one_swap"):
                 (_, _, faustian_swap) = perform_one_swap(i, R, U_t)
             D.swap_cols_and_rows(i, i + 1)
+            with utils.Timed("RU=D check"):
+                RU = (R.to_dense() @ U_t.to_dense().T) % 2
+                if not (RU == D.to_dense()).all():
+                    print("i=", i)
+                    print("R\n", R.to_dense())
+                    print("U\n", U_t.to_dense().T)
+                    print("RU\n", RU)
+                    print("D\n", D.to_dense())
+                    assert False
 
             if faustian_swap:
                 s1, s2 = swapped_simplices[swap_i]
