@@ -418,6 +418,262 @@ def sparse_add_col_to_col(A: sp.sparse.sparray, i: int, j: int):
         return A
 
 
+def is_upper_triangular(A: np.ndarray):
+    rows = A.shape[0]
+    for r in range(1, rows):
+        for c in range(r):
+            if A[r, c] == 1:
+                return False
+    return True
+
+
+def is_probably_reduced(A: np.ndarray):
+    def low(c: int) -> int:
+        for i in range(A.shape[0]):
+            r = (A.shape[1] - 1) - i
+            if A[r, c] == 1:
+                return r
+        return None
+
+    seen_ones = set()
+    cols = A.shape[1]
+    for c in range(cols):
+        l = low(c)
+        if l is not None and l in seen_ones:
+            return False
+        seen_ones.add(l)
+    return True
+
+
+def is_binary(A: np.array):
+    for r in range(A.shape[0]):
+        for c in range(A.shape[1]):
+            if A[r, c] not in [0, 1]:
+                return False
+    return True
+
+
+def perform_one_swap_DENSE(
+    i: int,
+    R: np.ndarray,
+    U: np.ndarray,
+):
+    def gives_death(c: int) -> bool:
+        for i in range(R.shape[0]):
+            if R[i, c] == 1:
+                return True
+        return False
+
+    def low(c: int) -> int:
+        for i in range(R.shape[0]):
+            r = (R.shape[1] - 1) - i
+            if R[r, c] == 1:
+                return r
+        return None
+
+    def low_inv(r: int) -> int:
+        for c in range(R.shape[0]):
+            if low(c) == r:
+                return c
+        return None
+
+    gives_death_i = gives_death(i)
+    gives_birth_i = not gives_death_i
+    gives_death_i_1 = gives_death(i + 1)
+    gives_birth_i_1 = not gives_death_i_1
+
+    P = np.eye(R.shape[0], dtype=int)
+    P[i, i] = P[i + 1, i + 1] = 0
+    P[i, i + 1] = P[i + 1, i] = 1
+
+    # Case 1: σi and σi+1 both give birth.
+    if gives_birth_i and gives_birth_i_1:
+        # Let U [i, i + 1] = 0, just in case.
+        U[i, i + 1] = 0
+
+        # Case 1.1: there are columns k and ℓ with low(k) = i, low(ℓ) = i +
+        # 1, and R[i, ℓ] = 1.
+        with utils.Timed("dumb loop here"):
+            k = low_inv(i)
+            l = low_inv(i + 1)
+        if k != None and l != None and R[i, l] == 1:
+            # Case 1.1.1: k < ℓ.
+            if k < l:
+                print("Case 1.1.1")
+                # Add column k of PRP to column ℓ; add row ℓ of P U P to row k.
+
+                V = np.eye(R.shape[0], dtype=int)
+                V[k, l] = 1
+
+                PRP = P @ R @ P
+                PRPV = PRP @ V % 2
+                # R.swap_cols_and_rows(i, i + 1)  # PRP
+                # R.add_cols(l, k)  # PRPV
+                assert is_probably_reduced(PRPV)
+
+                PUP = P @ U @ P
+                assert is_upper_triangular(PUP)
+                VPUP = V @ PUP % 2
+                assert is_upper_triangular(VPUP)
+                # U_t.swap_cols_and_rows(i, i + 1)  # PUP
+                # U_t.add_cols(k, l)  # VPUP
+
+                # R.check_matrix("case 1.1.1")
+                return (PRPV, VPUP, None)
+            # Case 1.1.2: ℓ < k.
+            if l < k:
+                print("case 1.1.2")
+                # Add column ℓ of P RP to column k;
+                # R.swap_cols_and_rows(i, i + 1)  # PRP
+                # R.add_cols(k, l)  # PRPV
+
+                V = np.eye(R.shape[0], dtype=int)
+                V[l, k] = 1
+
+                PRP = P @ R @ P
+                PRPV = PRP @ V % 2
+                assert is_probably_reduced(PRPV)
+
+                # add row k of P U P to row ℓ.
+                # U_t.swap_cols_and_rows(i, i + 1)  # PUP
+                # U_t.add_cols(l, k)  # VPUP
+                PUP = P @ U @ P
+                VPUP = V @ PUP % 2
+                assert is_upper_triangular(VPUP)
+
+                # R.check_matrix("case 1.1.2")
+                # We witness a change in the pairing but NOT of Faustian type.
+                return (PRPV, VPUP, False)
+            raise Exception("k = l; This should never happen.")
+        # Case 1.2: such columns k and ℓ do not exist.
+        else:
+            print("case 1.2")
+            # Done.
+            # PRP = P.T @ R @ P
+            PRP = P @ R @ P
+            # R.swap_cols_and_rows(i, i + 1)  # PRP
+            # U_t.swap_cols_and_rows(i, i + 1)  # PUP
+            PUP = P @ U @ P
+            assert is_probably_reduced(PRP)
+            assert is_upper_triangular(PUP)
+            # R.check_matrix("case 1.2")
+            return (PRP, PUP, None)
+
+    # Case 2: σi and σi+1 both give death.
+    if gives_death_i and gives_death_i_1:
+        # Case 2.1: U [i, i + 1] = 1.
+        if U[i, i + 1] == 1:
+            low_i = low(i)
+            low_i_1 = low(i + 1)
+            # Add row i + 1 of U to row i; add column i of R to column i + 1.
+
+            W = np.eye(R.shape[0], dtype=int)
+            W[i, i + 1] = 1
+
+            WU = W @ U % 2
+            # U_t.add_cols(i, i + 1)  # W U
+            # R.add_cols(i + 1, i)  # R W
+            RW = R @ W % 2
+
+            PRWP = P @ RW @ P
+            # R.swap_cols_and_rows(i, i + 1)  # P R W P
+            PWUP = P @ WU @ P
+            # U_t.swap_cols_and_rows(i, i + 1)  # P W U P
+
+            # Case 2.1.1: low(i) < low(i + 1).
+            if low_i < low_i_1:
+                print("case 2.1.1")
+                assert is_probably_reduced(RW)
+                assert is_probably_reduced(PRWP)
+                assert is_upper_triangular(PWUP)
+                # R.check_matrix("case 2.1.1")
+                return (PRWP, PWUP, None)
+            # Case 2.1.2: low(i + 1) < low(i).
+            else:
+                print("case 2.1.2")
+                # Add column i of P RWP to column i + 1;
+                # R.add_cols(i + 1, i)  # (P R W P) W
+                PRWPW = PRWP @ W % 2
+                # Add row i + 1 of P U P to row i.
+                # U_t.add_cols(i, i + 1)  # W (P W U P)
+                WPWUP = W @ PWUP % 2
+                # We witness a NON-Faustian type change of the pairing.
+                # R.check_matrix("case 2.1.2")
+                assert is_probably_reduced(PRWPW)
+                assert is_upper_triangular(WPWUP)
+                return (PRWPW, WPWUP, False)
+        # Case 2.2: U [i, i + 1] = 0.
+        else:
+            print("case 2.2")
+            # Done.
+            # R.swap_cols_and_rows(i, i + 1)  # P R P
+            PRP = P @ R @ P
+            # U_t.swap_cols_and_rows(i, i + 1)  # P U P
+            PUP = P @ U @ P
+            # R.check_matrix("case 2.2")
+            assert is_probably_reduced(PRP)
+            assert is_upper_triangular(PUP)
+            return (PRP, PUP, None)
+
+    # Case 3: σi gives death and σi+1 gives birth.
+    if gives_death_i and gives_birth_i_1:
+        # Case 3.1: U [i, i + 1] = 1.
+        if U[i, i + 1] == 1:
+            print("case 3.1")
+            W = np.eye(R.shape[0])
+            W[i, i + 1] = 1
+
+            # Add row i + 1 of U to row i.
+            # U_t.add_cols(i, i + 1)  # W U
+            WU = W @ U % 2
+
+            # Add column i of R to column i + 1.
+            # R.add_cols(i + 1, i)  # R W
+            RW = R @ W % 2
+
+            # Furthermore, add column i of P RP to column i + 1.
+            # R.swap_cols_and_rows(i, i + 1)  # P R W P
+            PRWP = P @ RW @ P
+            # R.add_cols(i + 1, i)  # (P R W P) W
+            PRWPW = PRWP @ W % 2
+
+            # Add row i + 1 of P U P to row i.
+            # U_t.swap_cols_and_rows(i, i + 1)  # P W U P
+            PWUP = P @ WU @ P
+            assert is_upper_triangular(PWUP)
+            # U_t.add_cols(i, i + 1)  # W (P W U P)
+            WPWUP = W @ PWUP % 2
+
+            # We witness a Faustian type change in the pairing.
+            # R.check_matrix("case 3.1")
+            assert is_probably_reduced(PRWPW)
+            assert is_upper_triangular(WPWUP)
+            return (PRWPW, WPWUP, True)
+        # Case 3.2: U [i, i + 1] = 0.
+        else:
+            print("case 3.2")
+            PRP = P @ R @ P
+            # R.swap_cols_and_rows(i, i + 1)  # P R P
+            # U_t.swap_cols_and_rows(i, i + 1)  # P U P
+            PUP = P @ U @ P
+            assert is_probably_reduced(PRP)
+            assert is_upper_triangular(PUP)
+            return (PRP, PUP, None)
+
+    # Case 4: σi gives birth and σi+1 gives death.
+    if gives_birth_i and gives_death_i_1:
+        print("case 4")
+        # Set U [i, i + 1] = 0, just in case.
+        U[i, i + 1] = 0
+        PRP = P @ R @ P
+        PUP = P @ U @ P
+        assert is_probably_reduced(PRP)
+        assert is_upper_triangular(PUP)
+        return (PRP, PUP, None)
+
+    raise Exception("bottom of the function; This should never happen.")
+
+
 def perform_one_swap(
     i: int,
     R: SneakyMatrix,
@@ -475,23 +731,23 @@ def perform_one_swap(
             # Case 1.1.1: k < ℓ.
             if k < l:
                 # Add column k of PRP to column ℓ; add row ℓ of P U P to row k.
-                R.swap_cols_and_rows(i, i + 1)
-                R.add_cols(l, k)
+                R.swap_cols_and_rows(i, i + 1)  # PRP
+                R.add_cols(l, k)  # PRPV
 
-                U_t.swap_cols_and_rows(i, i + 1)
-                U_t.add_cols(k, l)
+                U_t.swap_cols_and_rows(i, i + 1)  # PUP
+                U_t.add_cols(k, l)  # VPUP
 
                 R.check_matrix("case 1.1.1")
                 return (R, U_t, None)
             # Case 1.1.2: ℓ < k.
             if l < k:
                 # Add column ℓ of P RP to column k;
-                R.swap_cols_and_rows(i, i + 1)
-                R.add_cols(k, l)
+                R.swap_cols_and_rows(i, i + 1)  # PRP
+                R.add_cols(k, l)  # PRPV
 
                 # add row k of P U P to row ℓ.
-                U_t.swap_cols_and_rows(i, i + 1)
-                U_t.add_cols(l, k)
+                U_t.swap_cols_and_rows(i, i + 1)  # PUP
+                U_t.add_cols(l, k)  # VPUP
 
                 R.check_matrix("case 1.1.2")
                 # We witness a change in the pairing but NOT of Faustian type.
@@ -501,8 +757,8 @@ def perform_one_swap(
         else:
             # Done.
             # PRP = P.T @ R @ P
-            R.swap_cols_and_rows(i, i + 1)
-            U_t.swap_cols_and_rows(i, i + 1)
+            R.swap_cols_and_rows(i, i + 1)  # PRP
+            U_t.swap_cols_and_rows(i, i + 1)  # PUP
             R.check_matrix("case 1.2")
             return (R, U_t, None)
 
@@ -513,11 +769,11 @@ def perform_one_swap(
             low_i = low(i)
             low_i_1 = low(i + 1)
             # Add row i + 1 of U to row i; add column i of R to column i + 1.
-            U_t.add_cols(i, i + 1)
-            R.add_cols(i + 1, i)
+            U_t.add_cols(i, i + 1)  # W U
+            R.add_cols(i + 1, i)  # R W
 
-            R.swap_cols_and_rows(i, i + 1)
-            U_t.swap_cols_and_rows(i, i + 1)
+            R.swap_cols_and_rows(i, i + 1)  # P R W P
+            U_t.swap_cols_and_rows(i, i + 1)  # P W U P
 
             # Case 2.1.1: low(i) < low(i + 1).
             if low_i < low_i_1:
@@ -525,18 +781,18 @@ def perform_one_swap(
                 return (R, U_t, None)
             # Case 2.1.2: low(i + 1) < low(i).
             else:
-                # Add column i of P RP to column i + 1;
-                R.add_cols(i + 1, i)
+                # Add column i of P RWP to column i + 1;
+                R.add_cols(i + 1, i)  # (P R W P) W
                 # Add row i + 1 of P U P to row i.
-                U_t.add_cols(i, i + 1)
+                U_t.add_cols(i, i + 1)  # W (P W U P)
                 # We witness a NON-Faustian type change of the pairing.
                 R.check_matrix("case 2.1.2")
                 return (R, U_t, False)
         # Case 2.2: U [i, i + 1] = 0.
         else:
             # Done.
-            R.swap_cols_and_rows(i, i + 1)
-            U_t.swap_cols_and_rows(i, i + 1)
+            R.swap_cols_and_rows(i, i + 1)  # P R P
+            U_t.swap_cols_and_rows(i, i + 1)  # P U P
             R.check_matrix("case 2.2")
             return (R, U_t, None)
 
@@ -545,26 +801,26 @@ def perform_one_swap(
         # Case 3.1: U [i, i + 1] = 1.
         if U_t[i + 1, i] == 1:
             # Add row i + 1 of U to row i.
-            U_t.add_cols(i, i + 1)
+            U_t.add_cols(i, i + 1)  # W U
 
             # Add column i of R to column i + 1.
-            R.add_cols(i + 1, i)
+            R.add_cols(i + 1, i)  # R W
 
             # Furthermore, add column i of P RP to column i + 1.
-            R.swap_cols_and_rows(i, i + 1)
-            R.add_cols(i + 1, i)
+            R.swap_cols_and_rows(i, i + 1)  # P R W P
+            R.add_cols(i + 1, i)  # (P R W P) W
 
             # Add row i + 1 of P U P to row i.
-            U_t.swap_cols_and_rows(i, i + 1)
-            U_t.add_cols(i, i + 1)
+            U_t.swap_cols_and_rows(i, i + 1)  # P W U P
+            U_t.add_cols(i, i + 1)  # W (P W U P)
 
             # We witness a Faustian type change in the pairing.
             R.check_matrix("case 3.1")
             return (R, U_t, True)
         # Case 3.2: U [i, i + 1] = 0.
         else:
-            R.swap_cols_and_rows(i, i + 1)
-            U_t.swap_cols_and_rows(i, i + 1)
+            R.swap_cols_and_rows(i, i + 1)  # P R P
+            U_t.swap_cols_and_rows(i, i + 1)  # P U P
             R.check_matrix("case 3.2")
             return (R, U_t, None)
 
@@ -572,8 +828,8 @@ def perform_one_swap(
     if gives_birth_i and gives_death_i_1:
         # Set U [i, i + 1] = 0, just in case.
         U_t[i + 1, i] = 0
-        R.swap_cols_and_rows(i, i + 1)
-        U_t.swap_cols_and_rows(i, i + 1)
+        R.swap_cols_and_rows(i, i + 1)  # P R P
+        U_t.swap_cols_and_rows(i, i + 1)  # P U P
         R.check_matrix("case 4")
         return (R, U_t, None)
 
@@ -684,3 +940,112 @@ def vine_to_vine(
                     # assert False, f"This should not happen: {s1.dim()} != {s2.dim()}"
 
         return (found_faustian, D, R, U_t, b_ordering, bad_point)
+
+
+def initialize_vineyards_DENSE(
+    complex: cplx.complex, a: np.ndarray
+) -> Tuple[SneakyMatrix, SneakyMatrix, SneakyMatrix, cplx.ordering]:
+    """
+    Compute the reduced matrix of the complex from the point `a`.
+    Return matrices `D`, `R`, `V`, `U_t`, for later vineyard use.
+    """
+    with utils.Timed("initialize_vineyards"):
+        a_ordering = cplx.ordering.by_dist_to(complex, a)
+        a_matrix = mat.bdmatrix.from_ordering(a_ordering)
+        a_knowledge = mat.reduction_knowledge(a_matrix, a_ordering)
+        a_knowledge.run()
+
+        D = a_matrix.initmatrix
+        R = a_matrix.reduced
+
+        V = np.eye(D.shape[0], dtype=int)
+        for target, other in a_knowledge.adds:
+            V[:, target] = (V[:, target] + V[:, other]) % 2
+        assert ((D @ V % 2) == R).all(), "DV should be R"
+
+        gf_v = GF2(V)
+        gv_inv = np.linalg.inv(gf_v)
+        U = np.array(gv_inv)
+        # RU = D
+        assert ((R @ U % 2) == D).all(), "RU should be D"
+
+        # R = DV
+        # RU = D
+        return (D, R, U, a_ordering)
+
+
+def vine_to_vine_DENSE(
+    D: np.ndarray,
+    R: np.ndarray,
+    U: np.ndarray,
+    complex: cplx.complex,
+    b: np.ndarray,
+    a_ordering: cplx.ordering,
+    target_dim: int,
+    prune: bool = True,
+) -> Tuple[bool, SneakyMatrix, SneakyMatrix, SneakyMatrix, cplx.ordering]:
+    """
+    Returns (found_faustian, D, R, U_t)
+    """
+    with utils.Timed("vine_to_vine.ordering"):
+        b_ordering = cplx.ordering.by_dist_to(complex, b)
+
+    with utils.Timed("vine_to_vine.transpositions_lean"):
+        (swapped_simplices, swapped_indices) = a_ordering.compute_transpositions_lean(
+            b_ordering
+        )
+
+    with utils.Timed("vine_to_vine.loop"):
+        bad_point = None
+        found_faustian = False
+        for swap_i, i in enumerate(swapped_indices):
+            with utils.Timed("perform_one_swap"):
+                (newR, newU, faustian_swap) = perform_one_swap_DENSE(i, R, U)
+
+            assert is_binary(newR)
+            assert is_binary(newU)
+
+            P = np.eye(R.shape[0])
+            P[i, i] = P[i + 1, i + 1] = 0
+            P[i, i + 1] = P[i + 1, i] = 1
+
+            PDP = P @ D @ P
+
+            with utils.Timed("RU=D check"):
+                newRnewU = (newR @ newU) % 2
+                if not (newRnewU == PDP).all():
+                    print("i=", i)
+                    print("R\n", newR)
+                    print("U\n", newU)
+                    print("RU\n", newRnewU)
+                    print("D\n", PDP)
+                    assert False
+
+            R = newR
+            U = newU
+            D = PDP
+
+            if faustian_swap:
+                s1, s2 = swapped_simplices[swap_i]
+
+                # Pruning
+                # If we get two vertices that share an edge, skip the swap.
+                skip = False
+                if prune and s1.dim() == 0 and s2.dim() == 0:
+                    cob1 = set(complex.get_coboundary(s1))
+                    cob2 = set(complex.get_coboundary(s2))
+                    if cob1 & cob2:
+                        skip = True
+
+                if not skip and s1.dim() == target_dim and s2.dim() == target_dim:
+                    found_faustian = True
+
+                if not skip and s1.dim() != s2.dim():
+                    print(f"This should not happen: {s1.dim()} != {s2.dim()}")
+                    bad_point = b
+                    print(s1)
+                    print(s2)
+                    print(b)
+                    # assert False, f"This should not happen: {s1.dim()} != {s2.dim()}"
+
+        return (found_faustian, D, R, U, b_ordering, bad_point)
