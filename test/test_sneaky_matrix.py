@@ -148,3 +148,56 @@ class TestSneakyMatrix(unittest.TestCase):
         self.assertEqual(sm.shape, (3, 4))
         A = np.zeros((3, 4))
         self.assertEqual(sm.shape, A.shape)
+
+    def test_swaps_bug(self):
+        A = np.array(
+            [
+                [0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0],
+                [0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            ],
+            dtype=int,
+        )
+
+        A_P = A.copy()
+        A_sneak = SneakyMatrix.from_dense(A)
+        A_swap = A.copy()
+
+        def prnt(A):
+            print(str(A).replace("0", " ").replace("1", "X"))
+
+        for i in [2, 3, 5]:
+            print(f"============ i = {i} ===========")
+            P = np.eye(A.shape[0], dtype=int)
+            P[i, i] = P[i + 1, i + 1] = 0
+            P[i, i + 1] = P[i + 1, i] = 1
+            A_P = P @ A_P @ P.T
+
+            A_swap[:, [i, i + 1]] = A_swap[:, [i + 1, i]]
+            A_swap[[i, i + 1]] = A_swap[[i + 1, i]]
+
+            A_sneak.swap_cols_and_rows(i, i + 1)
+            A_sneak_dense = A_sneak.to_dense()
+
+            print("A_swap")
+            prnt(A_swap)
+            print()
+            print("A_P")
+            prnt(A_P)
+            print()
+            print("A_sneak_dense")
+            prnt(A_sneak_dense)
+            print()
+
+            self.assertTrue((A_swap == A_P).all())
+            self.assertTrue((A_sneak_dense == A_swap).all())
+            self.assertTrue((A_sneak_dense == A_P).all())

@@ -898,6 +898,9 @@ def vine_to_vine(
         U_t = U_t.copy()
         D = D.copy()
 
+    print("INITIAL D")
+    print(D.to_dense())
+
     with utils.Timed("vine_to_vine.loop"):
         bad_point = None
         found_faustian = False
@@ -906,9 +909,13 @@ def vine_to_vine(
             with utils.Timed("perform_one_swap"):
                 (_, _, faustian_swap) = perform_one_swap(i, R, U_t)
             D.swap_cols_and_rows(i, i + 1)
+            print("i=", i)
+            print(D.to_dense())
             with utils.Timed("RU=D check"):
                 RU = (R.to_dense() @ U_t.to_dense().T) % 2
                 if not (RU == D.to_dense()).all():
+                    print("==================================================")
+                    assert False
                     print("i=", i)
                     print("R\n", R.to_dense())
                     print("U\n", U_t.to_dense().T)
@@ -1005,11 +1012,13 @@ def vine_to_vine_DENSE(
             assert is_binary(newR)
             assert is_binary(newU)
 
-            P = np.eye(R.shape[0])
+            P = np.eye(R.shape[0], dtype=int)
             P[i, i] = P[i + 1, i + 1] = 0
             P[i, i + 1] = P[i + 1, i] = 1
 
             PDP = P @ D @ P
+            print(f"i={i} ({swap_i}")
+            print(PDP)
 
             with utils.Timed("RU=D check"):
                 newRnewU = (newR @ newU) % 2
