@@ -92,6 +92,7 @@ class SneakyMatrix:
         self.entries = defaultdict(set)
         self.row_map = permutation()
         self.col_map = permutation()
+        self.col_low_one_cache = {}
 
     def __setitem__(self, key, val):
         if not isinstance(key, tuple):
@@ -156,6 +157,10 @@ class SneakyMatrix:
                 f"Column index out of bounds: 0 <!= {c2} <!= {self.cols}",
             )
         self.col_map.swap(c1, c2)
+        r1 = self.colmax(c1)
+        r2 = self.colmax(c2)
+        self.col_low_one_cache[r1] = c1
+        self.col_low_one_cache[r2] = c2
 
     def swap_rows(self, r1, r2):
         """
@@ -170,13 +175,15 @@ class SneakyMatrix:
                 f"Row index out of bounds: 0 <!= {r2} <!= {self.rows}",
             )
         self.row_map.swap(r1, r2)
+        self.col_low_one_cache.pop(r1, None)
+        self.col_low_one_cache.pop(r2, None)
 
     def swap_cols_and_rows(self, a, b):
         """
         Swap columns a and b, and rows a and b.
         """
-        self.swap_cols(a, b)
         self.swap_rows(a, b)
+        self.swap_cols(a, b)
 
     def add_cols(self, c1, c2):
         """
@@ -184,7 +191,12 @@ class SneakyMatrix:
         """
         cc1 = self.col_map.map(c1)
         cc2 = self.col_map.map(c2)
+        old_low = self.colmax(c1)
         self.entries[cc1].symmetric_difference_update(self.entries[cc2])
+        new_low = self.colmax(c1)
+        if old_low != new_low:
+            self.col_low_one_cache.pop(old_low, None)
+            self.col_low_one_cache[new_low] = c1
         if self.entries[cc1] == set():
             del self.entries[cc1]
 
@@ -193,13 +205,19 @@ class SneakyMatrix:
         Return the maximum row index in column c.
         """
         cc = self.col_map.map(c)
-        return max(map(lambda rr: self.row_map.inv(rr), self.entries[cc]), default=None)
+        r = max(map(lambda rr: self.row_map.inv(rr), self.entries[cc]), default=None)
+        self.col_low_one_cache[r] = c
+        return r
 
     def col_with_low(self, r):
+        if r in self.col_low_one_cache:
+            return self.col_low_one_cache[r]
+
         for cc in self.entries.keys():
             c = self.col_map.inv(cc)
             max = self.colmax(c)
             if max == r:
+                self.col_low_one_cache[r] = c
                 return c
         return None
 
