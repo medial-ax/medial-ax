@@ -162,6 +162,19 @@ def plot_complex_3d(ax: plt.Axes, complex: complex):
             )
 
 
+def plot_complex_2d(ax: plt.Axes, complex: complex):
+    if len(complex.edgelist) == 0:
+        return
+
+    for edge in complex.edgelist:
+        a = complex.vertlist[edge.boundary[0]].coords
+        b = complex.vertlist[edge.boundary[1]].coords
+        ax.plot([a[0], b[0]], [a[1], b[1]], color="black", linewidth=2)
+    for vert in complex.vertlist:
+        p = vert.coords
+        ax.plot([p[0]], [p[1]], "o", color="black", markersize=4)
+
+
 def plot_face_3d(
     ax: plt.Axes, a: np.ndarray, b: np.ndarray, c: np.ndarray, d: np.ndarray
 ):
@@ -198,6 +211,20 @@ def plot_grid_3d(ax: plt.Axes, grid: Grid3):
         xs,
         ys,
         zs,
+        s=1,
+        color=grid_color,
+        alpha=0.6,
+    )
+
+
+def plot_grid_2d(ax: plt.Axes, grid: Grid3):
+    flat = grid.centers().reshape(-1, 3)
+    xs = flat[:, 0]
+    ys = flat[:, 1]
+
+    ax.scatter(
+        xs,
+        ys,
         s=1,
         color=grid_color,
         alpha=0.6,
