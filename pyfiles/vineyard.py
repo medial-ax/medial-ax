@@ -726,119 +726,123 @@ def perform_one_swap(
 
     # Case 1: σi and σi+1 both give birth.
     if gives_birth_i and gives_birth_i_1:
-        # Let U [i, i + 1] = 0, just in case.
-        U_t[i + 1, i] = 0
+        with utils.Timed("perform_one_swap case 1"):
+            # Let U [i, i + 1] = 0, just in case.
+            U_t[i + 1, i] = 0
 
-        # Case 1.1: there are columns k and ℓ with low(k) = i, low(ℓ) = i +
-        # 1, and R[i, ℓ] = 1.
-        with utils.Timed("dumb loop here"):
-            k = low_inv(i)
-            l = low_inv(i + 1)
-        if k != None and l != None and R[i, l] == 1:
-            # Case 1.1.1: k < ℓ.
-            if k < l:
-                # Add column k of PRP to column ℓ; add row ℓ of P U P to row k.
+            # Case 1.1: there are columns k and ℓ with low(k) = i, low(ℓ) = i +
+            # 1, and R[i, ℓ] = 1.
+            with utils.Timed("low_inv"):
+                k = low_inv(i)
+                l = low_inv(i + 1)
+            if k != None and l != None and R[i, l] == 1:
+                # Case 1.1.1: k < ℓ.
+                if k < l:
+                    # Add column k of PRP to column ℓ; add row ℓ of P U P to row k.
+                    R.swap_cols_and_rows(i, i + 1)  # PRP
+                    R.add_cols(l, k)  # PRPV
+
+                    U_t.swap_cols_and_rows(i, i + 1)  # PUP
+                    U_t.add_cols(k, l)  # VPUP
+
+                    R.check_matrix("case 1.1.1")
+                    return (R, U_t, None)
+                # Case 1.1.2: ℓ < k.
+                if l < k:
+                    # Add column ℓ of P RP to column k;
+                    R.swap_cols_and_rows(i, i + 1)  # PRP
+                    R.add_cols(k, l)  # PRPV
+
+                    # add row k of P U P to row ℓ.
+                    U_t.swap_cols_and_rows(i, i + 1)  # PUP
+                    U_t.add_cols(l, k)  # VPUP
+
+                    R.check_matrix("case 1.1.2")
+                    # We witness a change in the pairing but NOT of Faustian type.
+                    return (R, U_t, False)
+                raise Exception("k = l; This should never happen.")
+            # Case 1.2: such columns k and ℓ do not exist.
+            else:
+                # Done.
+                # PRP = P.T @ R @ P
                 R.swap_cols_and_rows(i, i + 1)  # PRP
-                R.add_cols(l, k)  # PRPV
-
                 U_t.swap_cols_and_rows(i, i + 1)  # PUP
-                U_t.add_cols(k, l)  # VPUP
-
-                R.check_matrix("case 1.1.1")
+                R.check_matrix("case 1.2")
                 return (R, U_t, None)
-            # Case 1.1.2: ℓ < k.
-            if l < k:
-                # Add column ℓ of P RP to column k;
-                R.swap_cols_and_rows(i, i + 1)  # PRP
-                R.add_cols(k, l)  # PRPV
-
-                # add row k of P U P to row ℓ.
-                U_t.swap_cols_and_rows(i, i + 1)  # PUP
-                U_t.add_cols(l, k)  # VPUP
-
-                R.check_matrix("case 1.1.2")
-                # We witness a change in the pairing but NOT of Faustian type.
-                return (R, U_t, False)
-            raise Exception("k = l; This should never happen.")
-        # Case 1.2: such columns k and ℓ do not exist.
-        else:
-            # Done.
-            # PRP = P.T @ R @ P
-            R.swap_cols_and_rows(i, i + 1)  # PRP
-            U_t.swap_cols_and_rows(i, i + 1)  # PUP
-            R.check_matrix("case 1.2")
-            return (R, U_t, None)
 
     # Case 2: σi and σi+1 both give death.
     if gives_death_i and gives_death_i_1:
-        # Case 2.1: U [i, i + 1] = 1.
-        if U_t[i + 1, i] == 1:
-            low_i = low(i)
-            low_i_1 = low(i + 1)
-            # Add row i + 1 of U to row i; add column i of R to column i + 1.
-            U_t.add_cols(i, i + 1)  # W U
-            R.add_cols(i + 1, i)  # R W
+        with utils.Timed("perform_one_swap case 2"):
+            # Case 2.1: U [i, i + 1] = 1.
+            if U_t[i + 1, i] == 1:
+                low_i = low(i)
+                low_i_1 = low(i + 1)
+                # Add row i + 1 of U to row i; add column i of R to column i + 1.
+                U_t.add_cols(i, i + 1)  # W U
+                R.add_cols(i + 1, i)  # R W
 
-            R.swap_cols_and_rows(i, i + 1)  # P R W P
-            U_t.swap_cols_and_rows(i, i + 1)  # P W U P
+                R.swap_cols_and_rows(i, i + 1)  # P R W P
+                U_t.swap_cols_and_rows(i, i + 1)  # P W U P
 
-            # Case 2.1.1: low(i) < low(i + 1).
-            if low_i < low_i_1:
-                R.check_matrix("case 2.1.1")
-                return (R, U_t, None)
-            # Case 2.1.2: low(i + 1) < low(i).
+                # Case 2.1.1: low(i) < low(i + 1).
+                if low_i < low_i_1:
+                    R.check_matrix("case 2.1.1")
+                    return (R, U_t, None)
+                # Case 2.1.2: low(i + 1) < low(i).
+                else:
+                    # Add column i of P RWP to column i + 1;
+                    R.add_cols(i + 1, i)  # (P R W P) W
+                    # Add row i + 1 of P U P to row i.
+                    U_t.add_cols(i, i + 1)  # W (P W U P)
+                    # We witness a NON-Faustian type change of the pairing.
+                    R.check_matrix("case 2.1.2")
+                    return (R, U_t, False)
+            # Case 2.2: U [i, i + 1] = 0.
             else:
-                # Add column i of P RWP to column i + 1;
-                R.add_cols(i + 1, i)  # (P R W P) W
-                # Add row i + 1 of P U P to row i.
-                U_t.add_cols(i, i + 1)  # W (P W U P)
-                # We witness a NON-Faustian type change of the pairing.
-                R.check_matrix("case 2.1.2")
-                return (R, U_t, False)
-        # Case 2.2: U [i, i + 1] = 0.
-        else:
-            # Done.
-            R.swap_cols_and_rows(i, i + 1)  # P R P
-            U_t.swap_cols_and_rows(i, i + 1)  # P U P
-            R.check_matrix("case 2.2")
-            return (R, U_t, None)
+                # Done.
+                R.swap_cols_and_rows(i, i + 1)  # P R P
+                U_t.swap_cols_and_rows(i, i + 1)  # P U P
+                R.check_matrix("case 2.2")
+                return (R, U_t, None)
 
     # Case 3: σi gives death and σi+1 gives birth.
     if gives_death_i and gives_birth_i_1:
-        # Case 3.1: U [i, i + 1] = 1.
-        if U_t[i + 1, i] == 1:
-            # Add row i + 1 of U to row i.
-            U_t.add_cols(i, i + 1)  # W U
+        with utils.Timed("perform_one_swap case 3"):
+            # Case 3.1: U [i, i + 1] = 1.
+            if U_t[i + 1, i] == 1:
+                # Add row i + 1 of U to row i.
+                U_t.add_cols(i, i + 1)  # W U
 
-            # Add column i of R to column i + 1.
-            R.add_cols(i + 1, i)  # R W
+                # Add column i of R to column i + 1.
+                R.add_cols(i + 1, i)  # R W
 
-            # Furthermore, add column i of P RP to column i + 1.
-            R.swap_cols_and_rows(i, i + 1)  # P R W P
-            R.add_cols(i + 1, i)  # (P R W P) W
+                # Furthermore, add column i of P RP to column i + 1.
+                R.swap_cols_and_rows(i, i + 1)  # P R W P
+                R.add_cols(i + 1, i)  # (P R W P) W
 
-            # Add row i + 1 of P U P to row i.
-            U_t.swap_cols_and_rows(i, i + 1)  # P W U P
-            U_t.add_cols(i, i + 1)  # W (P W U P)
+                # Add row i + 1 of P U P to row i.
+                U_t.swap_cols_and_rows(i, i + 1)  # P W U P
+                U_t.add_cols(i, i + 1)  # W (P W U P)
 
-            # We witness a Faustian type change in the pairing.
-            R.check_matrix("case 3.1")
-            return (R, U_t, True)
-        # Case 3.2: U [i, i + 1] = 0.
-        else:
-            R.swap_cols_and_rows(i, i + 1)  # P R P
-            U_t.swap_cols_and_rows(i, i + 1)  # P U P
-            R.check_matrix("case 3.2")
-            return (R, U_t, None)
+                # We witness a Faustian type change in the pairing.
+                R.check_matrix("case 3.1")
+                return (R, U_t, True)
+            # Case 3.2: U [i, i + 1] = 0.
+            else:
+                R.swap_cols_and_rows(i, i + 1)  # P R P
+                U_t.swap_cols_and_rows(i, i + 1)  # P U P
+                R.check_matrix("case 3.2")
+                return (R, U_t, None)
 
     # Case 4: σi gives birth and σi+1 gives death.
     if gives_birth_i and gives_death_i_1:
-        # Set U [i, i + 1] = 0, just in case.
-        U_t[i + 1, i] = 0
-        R.swap_cols_and_rows(i, i + 1)  # P R P
-        U_t.swap_cols_and_rows(i, i + 1)  # P U P
-        R.check_matrix("case 4")
-        return (R, U_t, None)
+        with utils.Timed("perform_one_swap case 4"):
+            # Set U [i, i + 1] = 0, just in case.
+            U_t[i + 1, i] = 0
+            R.swap_cols_and_rows(i, i + 1)  # P R P
+            U_t.swap_cols_and_rows(i, i + 1)  # P U P
+            R.check_matrix("case 4")
+            return (R, U_t, None)
 
     raise Exception("bottom of the function; This should never happen.")
 
