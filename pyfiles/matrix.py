@@ -14,8 +14,7 @@ def array2sparse(matrix: np.ndarray) -> Dict[int, Set[int]]:
     #     where column:row indicates the location of a 1 in the matrix.
     #     this way we don't store zeros, and computation will be faster.
     sparseboii = {}
-    height = len(matrix[:][0])
-    width = len(matrix[0][:])
+    height, width = matrix.shape
     for col_j in range(width):
         for row_i in range(height):
             if matrix[row_i][col_j] == 1:
@@ -37,11 +36,11 @@ def findlowestone(sparsemat: Dict[int, Set[int]], col_num: int) -> Optional[int]
         return max(sparsemat[col_num])
 
 
-def sparse2array(sparse: Dict[int, Set[int]], n: int) -> np.ndarray:
+def sparse2array(sparse: Dict[int, Set[int]], shape: Tuple[int, int]) -> np.ndarray:
     # n can be either height or width
     # by construction we only have square matrices
-    matrix = np.zeros((n, n), dtype=int)
-    for col_j in range(n):
+    matrix = np.zeros(shape, dtype=int)
+    for col_j in range(shape[1]):
         if col_j in sparse.keys():
             for row_i in sparse[col_j]:
                 matrix[row_i][col_j] = 1
@@ -171,9 +170,9 @@ class bdmatrix:
         mat = bdmatrix()
 
         n = ordering.complex.nsimplices()
-        mat.initmatrix = np.zeros((n, n), dtype=int)
+        mat.initmatrix = np.zeros((2, 1 + len(ordering.complex.vertlist)), dtype=int)
 
-        for simplex in ordering.complex.all_simplices():
+        for simplex in ordering.complex.vertlist:
             dim = simplex.dim()
             if dim == -1:
                 pass
@@ -262,7 +261,7 @@ class bdmatrix:
         # print("\n", sparsemat)
 
         self.sparse_reduced = sparsemat
-        backtomat = sparse2array(sparsemat, len(self.initmatrix[:][0]))
+        backtomat = sparse2array(sparsemat, self.initmatrix.shape)
         self.reduced = backtomat
 
         # NEXT: ondra's sneaky trick to speed up by an order of n:

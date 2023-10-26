@@ -863,9 +863,10 @@ def initialize_vineyards(
         D = SneakyMatrix.from_dense(a_matrix.initmatrix)
         R = SneakyMatrix.from_dense(a_matrix.reduced)
 
-        V = SneakyMatrix.eye(D.shape[0])
+        V = SneakyMatrix.eye(D.shape[1])
         for target, other in a_knowledge.adds:
             V.add_cols(target, other)
+
         assert (
             ((D.to_dense() @ V.to_dense()) % 2) == R.to_dense()
         ).all(), "DV should be R"

@@ -182,7 +182,7 @@ class SneakyMatrix:
         """
         Swap columns a and b, and rows a and b.
         """
-        self.swap_rows(a, b)
+        # self.swap_rows(a, b)
         self.swap_cols(a, b)
 
     def add_cols(self, c1, c2):

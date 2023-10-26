@@ -182,7 +182,7 @@ class complex:
 
         Sets the `columnvalue` for every simplex in the complex.
         """
-        all_simplices = self.vertlist + self.edgelist + self.trilist
+        all_simplices = self.vertlist  # + self.edgelist + self.trilist
 
         def key(s: simplex):
             dim = s.dim()
@@ -238,7 +238,7 @@ class ordering:
         """
         Return a list of the unique indices in the ordering.
         """
-        n = self.complex.nsimplices()
+        n = len(self.complex.vertlist)
         return [self.o2i[i] for i in range(n)]
 
     def by_dist_to(complex: _COMPLEX, key_point: np.ndarray):
@@ -249,7 +249,7 @@ class ordering:
         vert_distances = [
             distance.sqeuclidean(key_point, s.coords) for s in complex.vertlist
         ]
-        all_simplices = complex.all_simplices()
+        all_simplices = [simplex.empty()] + complex.vertlist
 
         def key(s: simplex):
             dim = s.dim()

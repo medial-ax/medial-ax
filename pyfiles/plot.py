@@ -350,7 +350,7 @@ class PandasMatrix:
         return ret
 
     def every_step(self, sparse: bdmatrix, indices: Tuple[int, int], old_j: np.ndarray):
-        df = pd.DataFrame(sparse2array(sparse, self.matrix.initmatrix.shape[0]))
+        df = pd.DataFrame(sparse2array(sparse, self.matrix.initmatrix.shape))
         df.rename(columns=self.column_style(), index=self.column_style(), inplace=True)
         s = df.style
         s.applymap(PandasMatrix.highlight_cells)
