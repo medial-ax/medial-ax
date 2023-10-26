@@ -16,10 +16,6 @@ class CameraOpt:
     elev: float
 
 
-cube_subdiv_1 = Example(
-    filename="input/cube-subdiv-1.obj", grid_size=0.4, grid_buffer=0.2
-)
-
 hinge = Example(
     filename="input/hinge.obj",
     grid_size=0.2,
@@ -34,4 +30,35 @@ hinge2 = Example(
     grid_buffer=0.179,
     camera_opt=CameraOpt(azim=20, elev=30),
 )
-"""Try to make the hinge example a bit more interesting."""
+"""Try to make the hinge example a bit more interesting. It's not very interesting, but it looks right."""
+
+cube_1 = Example(
+    filename="input/cube-subdiv-1.obj",
+    grid_size=0.2,
+    grid_buffer=0.15,
+    camera_opt=CameraOpt(azim=20, elev=30),
+)
+"""
+Subdivided once; 8 triangles per cube face. Looks pretty good, but grid is coarse. 
+70 seconds.
+"""
+
+cube_2 = Example(
+    filename="input/cube-subdiv-1.obj",
+    grid_size=0.1,
+    grid_buffer=0.15,
+    camera_opt=CameraOpt(azim=20, elev=30),
+)
+"""
+Subdivided once; 8 triangles per cube face.
+"""
+
+cube_3 = Example(
+    filename="input/cube-subdiv-2.obj",
+    grid_size=0.2,
+    grid_buffer=0.01,
+    camera_opt=CameraOpt(azim=20, elev=30),
+)
+"""
+Subdivided twice; 32 triangles per cube face.
+"""

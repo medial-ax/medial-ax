@@ -1,9 +1,10 @@
+from collections import defaultdict
 from copy import deepcopy
 from dataclasses import dataclass
 import time
 import math
 
-from typing import Callable, Dict, List, Tuple, Type
+from typing import Callable, DefaultDict, Dict, List, Tuple, Type
 import numpy as np
 import galois
 
@@ -106,11 +107,13 @@ class dense_reduction_state:
 class vineyard:
     complex: cplx.complex
 
+    state_map: DefaultDict
     reduced_states: List[sparse_reduction_state | dense_reduction_state]
 
     def __init__(self, complex: cplx.complex):
         self.complex = complex
         self.reduced_states = []
+        self.state_map = defaultdict(list)
 
     def reduce(
         self, point: np.ndarray, sparse=True, asserts=False
@@ -119,7 +122,7 @@ class vineyard:
         Compute the reduced matrix of the complex from the point `point`.
         """
         if sparse:
-            with utils.Timed("bineyard.reduce sparse"):
+            with utils.Timed("reduce sparse"):
                 a_ordering = cplx.ordering.by_dist_to(self.complex, point)
                 a_matrix = mat.bdmatrix.from_ordering(a_ordering)
                 a_knowledge = mat.reduction_knowledge(a_matrix, a_ordering)
@@ -148,7 +151,6 @@ class vineyard:
                 state = sparse_reduction_state(
                     D, R, U_t, a_ordering, point, self.complex
                 )
-                self.reduced_states.append(state)
         else:
             with utils.Timed("initialize_vineyards"):
                 a_ordering = cplx.ordering.by_dist_to(self.complex, point)
@@ -174,7 +176,8 @@ class vineyard:
                 # R = DV
                 # RU = D
                 state = dense_reduction_state(D, R, U, a_ordering, point, self.complex)
-                self.reduced_states.append(state)
+        key = self.get_point_key(point)
+        self.state_map[key].append(state)
         return state
 
     def on_faustian(
@@ -187,6 +190,9 @@ class vineyard:
         """Call this when a faustian swap happens."""
         pass
 
+    def get_point_key(self, point: np.ndarray):
+        raise Exception("Not implemented")
+
     def get_state_at_point(
         self, a: np.ndarray, typ: Type = None
     ) -> sparse_reduction_state | dense_reduction_state | None:
@@ -194,15 +200,18 @@ class vineyard:
         If you pass in `typ`, you can either give it `sparse_reduction_state` or `dense_reduction_state`, and
         it will only return states of that type.
         """
-        states = (
-            self.reduced_states
-            if typ is None
-            else filter(lambda s: isinstance(s, typ), self.reduced_states)
-        )
-        for state in states:
-            if (state.point == a).all():
-                return state
-        return None
+        with utils.Timed("vineyard.get_state_at_point"):
+            k = self.get_point_key(a)
+            states = self.state_map[k]
+            if typ is not None:
+                for state in states:
+                    if isinstance(state, typ):
+                        return state
+                return None
+            try:
+                return states[0]
+            except IndexError:
+                return None
 
     def reduce_vine(
         self,
@@ -211,34 +220,35 @@ class vineyard:
         sparse=True,
         asserts=False,
         debug=False,
-    ):
+    ) -> sparse_reduction_state | dense_reduction_state:
         """Compute the reduction at the given point, from the given state."""
 
-        with utils.Timed("vineyard.reduce_from_state ordering"):
+        with utils.Timed("reduce_vine: ordering"):
             ordering = cplx.ordering.by_dist_to(self.complex, point)
 
-        with utils.Timed("vineyard.reduce_from_state transpositions_lean"):
+        with utils.Timed("reduce_vine: transpositions_lean"):
             (
                 swapped_simplices,
                 swapped_indices,
             ) = state.ordering.compute_transpositions_lean(ordering)
 
         if sparse:
-            with utils.Timed("vineyard.reduce_from_state sparse matrix copies"):
-                if isinstance(state, sparse_reduction_state):
+            if isinstance(state, sparse_reduction_state):
+                with utils.Timed("reduce_vine: sparse matrix copies"):
                     D = state.D.copy()
                     R = state.R.copy()
                     U_t = state.U_t.copy()
-                elif isinstance(state, dense_reduction_state):
+            elif isinstance(state, dense_reduction_state):
+                with utils.Timed("reduce_vine: from_dense matrix copies"):
                     D = SneakyMatrix.from_dense(state.D)
                     R = SneakyMatrix.from_dense(state.R)
                     U_t = SneakyMatrix.from_dense(state.U.T)
-                else:
-                    raise Exception("Illegal type of state: ", type(state))
+            else:
+                raise Exception("Illegal type of state: ", type(state))
 
-            with utils.Timed("vineyard.reduce_from_state sparse loop"):
+            with utils.Timed("reduce_vine: loop"):
                 for swap_i, i in enumerate(swapped_indices):
-                    with utils.Timed("perform_one_swap"):
+                    with utils.Timed("reduce_vine: perform_one_swap"):
                         (_, _, faustian_swap) = perform_one_swap(i, R, U_t)
                     D.swap_cols_and_rows(i, i + 1)
 
@@ -296,6 +306,9 @@ class vineyard:
                     D = PDP
                 state = dense_reduction_state(D, R, U, ordering, point, self.complex)
                 self.reduced_states.append(state)
+        key = self.get_point_key(point)
+        self.state_map[key].append(state)
+        return state
 
 
 def perform_one_swap_DENSE(i: int, R: np.ndarray, U: np.ndarray, debug: bool = False):

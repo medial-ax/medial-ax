@@ -29,6 +29,13 @@ class Grid3:
     def center_index(self) -> Tuple[int, int, int]:
         return (self.a.shape[0] // 2, self.a.shape[1] // 2, self.a.shape[2] // 2)
 
+    def number_of_grid_edges(self):
+        return (
+            self.a.shape[0] * self.a.shape[1] * (self.a.shape[2] - 1)
+            + self.a.shape[0] * (self.a.shape[1] - 1) * self.a.shape[2]
+            + (self.a.shape[0] - 1) * self.a.shape[1] * self.a.shape[2]
+        )
+
     def on_boundary(self, index: Tuple[int, int, int]) -> bool:
         return (
             index[0] == 0
