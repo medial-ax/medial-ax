@@ -210,6 +210,8 @@ class SneakyMatrix:
         return r
 
     def col_with_low(self, r):
+        if self.rows <= r:
+            return None
         if r in self.col_low_one_cache:
             return self.col_low_one_cache[r]
 
