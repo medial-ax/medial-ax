@@ -23,6 +23,9 @@ class Grid3:
     def coordinate(self, index: Tuple[int, int, int]):
         return self.a[index] + self.size / 2
 
+    def cell_of(self, point: np.ndarray) -> Tuple[int, int, int]:
+        return tuple(map(int, tuple((point - self.a[0, 0, 0]) // self.size)))
+
     def center_index(self) -> Tuple[int, int, int]:
         return (self.a.shape[0] // 2, self.a.shape[1] // 2, self.a.shape[2] // 2)
 

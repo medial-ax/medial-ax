@@ -1,4 +1,6 @@
-from typing import Tuple
+from typing import List, Tuple
+
+from pyfiles.examples import CameraOpt
 from .complex import complex, ordering
 from .matrix import bdmatrix, sparse2array
 from .grid import Grid, Grid3
@@ -407,3 +409,16 @@ def plot_orders_with_bubbles(o1: ordering, o2: ordering):
 
     print("Swaps:")
     print("\n".join([f"  {s.prettyrepr()} — {t.prettyrepr()}" for (s, t) in swaps]))
+
+
+def plot_vineyard_results(
+    complex: complex, grid: Grid3, faces: List[np.ndarray], camera_opt: CameraOpt = None
+):
+    fig, ax = plt.subplots(subplot_kw={"projection": "3d", "computed_zorder": False})
+    ax.view_init(**camera_opt.__dict__)
+    plot_complex_3d(ax, complex)
+    plot_grid_3d(ax, grid)
+    ax.set_aspect("equal")
+    for [a, b, c, d] in faces:
+        plot_face_3d(ax, a, b, c, d)
+    return fig, ax
