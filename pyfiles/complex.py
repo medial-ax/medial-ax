@@ -383,7 +383,7 @@ class ordering:
 
     def compute_transpositions_lean(
         self, other
-    ) -> Tuple[List[Tuple[simplex, simplex]], List[List[int]], List[int]]:
+    ) -> Tuple[List[Tuple[simplex, simplex]], List[int]]:
         """
         `self` should be the ordering at we already have the reduced matrix.
 

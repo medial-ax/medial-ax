@@ -269,3 +269,17 @@ class SneakyMatrix:
     @property
     def shape(self):
         return (self.rows, self.cols)
+
+    def columns(self):
+        """Return a list of the columns with the rows in each column. Both columns and rows are sorted."""
+        ccs = sorted(self.col_map.inv(cc) for cc in self.entries.keys())
+        items = [
+            (
+                cc,
+                sorted(
+                    self.row_map.inv(rr) for rr in self.entries[self.col_map.map(cc)]
+                ),
+            )
+            for cc in ccs
+        ]
+        return items

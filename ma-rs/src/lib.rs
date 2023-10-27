@@ -1,4 +1,7 @@
+use pyo3::prelude::*;
+
 #[derive(Debug, Clone)]
+#[pyclass]
 pub struct Permutation {
     forwards: Vec<usize>,
     backwards: Vec<usize>,
@@ -46,9 +49,12 @@ impl Permutation {
 }
 
 #[derive(PartialEq, Eq, Debug, Clone)]
+#[pyclass]
 struct Col(Vec<usize>);
 
+#[pymethods]
 impl Col {
+    #[staticmethod]
     fn new() -> Self {
         Col(Vec::new())
     }
@@ -114,6 +120,10 @@ impl Col {
     fn max_under(&self, perm: &Permutation) -> Option<usize> {
         self.0.iter().max_by_key(|&&rr| perm.inv(rr)).cloned()
     }
+
+    pub fn as_vec(&self) -> Vec<usize> {
+        self.0.clone()
+    }
 }
 
 impl From<Vec<usize>> for Col {
@@ -123,6 +133,7 @@ impl From<Vec<usize>> for Col {
 }
 
 #[derive(Debug, Clone)]
+#[pyclass(get_all)]
 pub struct SneakyMatrix {
     columns: Vec<Col>,
     pub rows: usize,
@@ -132,7 +143,9 @@ pub struct SneakyMatrix {
     row_perm: Permutation,
 }
 
+#[pymethods]
 impl SneakyMatrix {
+    #[staticmethod]
     pub fn zeros(rows: usize, cols: usize) -> Self {
         let mut columns = Vec::with_capacity(cols);
         for _ in 0..cols {
@@ -148,6 +161,7 @@ impl SneakyMatrix {
         }
     }
 
+    #[staticmethod]
     pub fn eye(n: usize) -> Self {
         let mut columns = Vec::with_capacity(n);
         for i in 0..n {
@@ -163,6 +177,26 @@ impl SneakyMatrix {
             col_perm: Permutation::new(n),
             row_perm: Permutation::new(n),
         }
+    }
+
+    /// Assume that we can call `.cols` and `.rows` and index into the matrix,
+    /// as well as a `.column(c)` method that returns a list of set rows.
+    #[staticmethod]
+    pub fn from_py_sneakymatrix(p: PyObject) -> Self {
+        Python::with_gil(|py| {
+            let cols: usize = p.getattr(py, "cols").unwrap().extract(py).unwrap();
+            let rows: usize = p.getattr(py, "rows").unwrap().extract(py).unwrap();
+            let columns_fn = p.getattr(py, "columns").unwrap();
+            let columns_ret = columns_fn.call0(py).unwrap();
+            let columns: Vec<(usize, Vec<usize>)> = columns_ret.extract(py).unwrap();
+            let mut z = Self::zeros(rows, cols);
+            for (c, col) in columns.iter() {
+                for &r in col.iter() {
+                    z.set(r, *c, true);
+                }
+            }
+            z
+        })
     }
 
     pub fn swap_rows(&mut self, a: usize, b: usize) {
@@ -246,6 +280,186 @@ impl std::ops::Index<(usize, usize)> for SneakyMatrix {
             &_FALSE
         }
     }
+}
+
+#[allow(non_snake_case)]
+fn perform_one_swap(i: usize, R: &mut SneakyMatrix, U_t: &mut SneakyMatrix) -> Option<bool> {
+    fn gives_death(R: &mut SneakyMatrix, c: usize) -> bool {
+        R.col_is_not_empty(c)
+    }
+
+    fn low(R: &mut SneakyMatrix, c: usize) -> Option<usize> {
+        R.colmax(c)
+    }
+
+    fn low_inv(R: &mut SneakyMatrix, r: usize) -> Option<usize> {
+        R.col_with_low(r)
+    }
+
+    let gives_death_i = gives_death(R, i);
+    let gives_birth_i = !gives_death_i;
+    let gives_death_i_1 = gives_death(R, i + 1);
+    let gives_birth_i_1 = !gives_death_i_1;
+
+    // if gives_birth_i and gives_birth_i_1:
+    if gives_birth_i && gives_birth_i_1 {
+        // U_t[i + 1, i] = 0
+        U_t.set(i + 1, i, false);
+        // k = low_inv(i)
+        let k = low_inv(R, i);
+        // l = low_inv(i + 1)
+        let l = low_inv(R, i + 1);
+        // if k != None and l != None and R[i, l] == 1:
+        if let (Some(k), Some(l)) = (k, l) {
+            if R.get(i, l) {
+                // if k < l:
+                if k < l {
+                    // R.swap_cols_and_rows(i, i + 1)  # PRP
+                    R.swap_cols_and_rows(i, i + 1);
+                    // R.add_cols(l, k)  # PRPV
+                    R.add_cols(l, k);
+                    // U_t.swap_cols_and_rows(i, i + 1)  # PUP
+                    U_t.swap_cols_and_rows(i, i + 1);
+                    // U_t.add_cols(k, l)  # VPUP
+                    U_t.add_cols(k, l);
+                    // return (R, U_t, None)
+                    return None;
+                }
+                // if l < k:
+                if l < k {
+                    // R.swap_cols_and_rows(i, i + 1)  # PRP
+                    R.swap_cols_and_rows(i, i + 1);
+                    // R.add_cols(k, l)  # PRPV
+                    R.add_cols(k, l);
+                    // U_t.swap_cols_and_rows(i, i + 1)  # PUP
+                    U_t.swap_cols_and_rows(i, i + 1);
+                    // U_t.add_cols(l, k)  # VPUP
+                    U_t.add_cols(l, k);
+                    // return (R, U_t, False)
+                    return Some(false);
+                }
+                panic!("This should never happen.");
+                // raise Exception("k = l; This should never happen.")
+                // else:
+            } else {
+                // R.swap_cols_and_rows(i, i + 1)  # PRP
+                R.swap_cols_and_rows(i, i + 1);
+                // U_t.swap_cols_and_rows(i, i + 1)  # PUP
+                U_t.swap_cols_and_rows(i, i + 1);
+                // return (R, U_t, None)
+                return None;
+            }
+        }
+    }
+    // if gives_death_i and gives_death_i_1:
+    if gives_death_i && gives_death_i_1 {
+        // if U_t[i + 1, i] == 1:
+        if U_t.get(i + 1, i) {
+            // low_i = low(i)
+            let low_i = low(R, i);
+            // low_i_1 = low(i + 1)
+            let low_i_1 = low(R, i + 1);
+            // U_t.add_cols(i, i + 1)  # W U
+            U_t.add_cols(i, i + 1);
+            // R.add_cols(i + 1, i)  # R W
+            R.add_cols(i + 1, i);
+            // R.swap_cols_and_rows(i, i + 1)  # P R W P
+            R.swap_cols_and_rows(i, i + 1);
+            // U_t.swap_cols_and_rows(i, i + 1)  # P W U P
+            U_t.swap_cols_and_rows(i, i + 1);
+            // if low_i < low_i_1:
+            if low_i < low_i_1 {
+                // return (R, U_t, None)
+                return None;
+            // else:
+            } else {
+                // R.add_cols(i + 1, i)  # (P R W P) W
+                R.add_cols(i + 1, i);
+                // U_t.add_cols(i, i + 1)  # W (P W U P)
+                U_t.add_cols(i, i + 1);
+                // return (R, U_t, False)
+                return Some(false);
+            }
+        // else:
+        } else {
+            // R.swap_cols_and_rows(i, i + 1)  # P R P
+            R.swap_cols_and_rows(i, i + 1);
+            // U_t.swap_cols_and_rows(i, i + 1)  # P U P
+            U_t.swap_cols_and_rows(i, i + 1);
+            // return (R, U_t, None)
+            return None;
+        }
+    }
+    // if gives_death_i and gives_birth_i_1:
+    if gives_death_i && gives_birth_i_1 {
+        // if U_t[i + 1, i] == 1:
+        if U_t.get(i + 1, i) {
+            // U_t.add_cols(i, i + 1)  # W U
+            U_t.add_cols(i, i + 1);
+            // R.add_cols(i + 1, i)  # R W
+            R.add_cols(i + 1, i);
+            // R.swap_cols_and_rows(i, i + 1)  # P R W P
+            R.swap_cols_and_rows(i, i + 1);
+            // R.add_cols(i + 1, i)  # (P R W P) W
+            R.add_cols(i + 1, i);
+            // U_t.swap_cols_and_rows(i, i + 1)  # P W U P
+            U_t.swap_cols_and_rows(i, i + 1);
+            // U_t.add_cols(i, i + 1)  # W (P W U P)
+            U_t.add_cols(i, i + 1);
+            // return (R, U_t, True)
+            return Some(true);
+        // else:
+        } else {
+            // R.swap_cols_and_rows(i, i + 1)  # P R P
+            R.swap_cols_and_rows(i, i + 1);
+            // U_t.swap_cols_and_rows(i, i + 1)  # P U P
+            U_t.swap_cols_and_rows(i, i + 1);
+            // return (R, U_t, None)
+            return None;
+        }
+    }
+    // if gives_birth_i and gives_death_i_1:
+    if gives_birth_i && gives_death_i_1 {
+        // U_t[i + 1, i] = 0
+        U_t.set(i + 1, i, false);
+        // R.swap_cols_and_rows(i, i + 1)  # P R P
+        R.swap_cols_and_rows(i, i + 1);
+        // U_t.swap_cols_and_rows(i, i + 1)  # P U P
+        U_t.swap_cols_and_rows(i, i + 1);
+        // return (R, U_t, None)
+        return None;
+    }
+
+    // raise Exception("bottom of the function; This should never happen.")
+    panic!("This should never happen.");
+}
+
+/// Perform all the swaps in `index_swaps`. Return a [Vec] of the indices that
+/// were Faustian swaps.
+#[allow(non_snake_case)]
+pub fn vine_to_vine(
+    R: &mut SneakyMatrix,
+    U_t: &mut SneakyMatrix,
+    D: &mut SneakyMatrix,
+    index_swaps: &[usize],
+) -> Vec<usize> {
+    let mut ret = Vec::new();
+    for (swap_i, &i) in index_swaps.iter().enumerate() {
+        let res = perform_one_swap(i, R, U_t);
+        D.swap_cols_and_rows(i, i + 1);
+        if let Some(true) = res {
+            ret.push(swap_i);
+        }
+    }
+    ret
+}
+
+#[pymodule]
+fn mars(_py: Python, m: &PyModule) -> PyResult<()> {
+    m.add_class::<SneakyMatrix>()?;
+    m.add_class::<Permutation>()?;
+    m.add_class::<Col>()?;
+    Ok(())
 }
 
 #[cfg(test)]
