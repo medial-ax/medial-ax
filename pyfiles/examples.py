@@ -55,8 +55,8 @@ Subdivided once; 8 triangles per cube face.
 
 cube_3 = Example(
     filename="input/cube-subdiv-2.obj",
-    grid_size=0.2,
-    grid_buffer=0.01,
+    grid_size=0.1,
+    grid_buffer=0.1,
     camera_opt=CameraOpt(azim=20, elev=30),
 )
 """
