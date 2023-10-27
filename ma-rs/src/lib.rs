@@ -232,7 +232,7 @@ impl SneakyMatrix {
     pub fn col_with_low(&self, r: usize) -> Option<usize> {
         let rr = self.row_perm.map(r);
         for (cc, col) in self.columns.iter().enumerate() {
-            if col.has(rr) {
+            if col.max_under(&self.row_perm) == Some(rr) {
                 let c = self.col_perm.inv(cc);
                 return Some(c);
             }
@@ -264,6 +264,10 @@ impl SneakyMatrix {
         let rr = self.row_perm.map(r);
         self.columns[cc].has(rr)
     }
+
+    pub fn clone2(&self) -> Self {
+        self.clone()
+    }
 }
 
 const _TRUE: bool = true;
@@ -284,14 +288,17 @@ impl std::ops::Index<(usize, usize)> for SneakyMatrix {
 
 #[allow(non_snake_case)]
 fn perform_one_swap(i: usize, R: &mut SneakyMatrix, U_t: &mut SneakyMatrix) -> Option<bool> {
+    #[allow(non_snake_case)]
     fn gives_death(R: &mut SneakyMatrix, c: usize) -> bool {
         R.col_is_not_empty(c)
     }
 
+    #[allow(non_snake_case)]
     fn low(R: &mut SneakyMatrix, c: usize) -> Option<usize> {
         R.colmax(c)
     }
 
+    #[allow(non_snake_case)]
     fn low_inv(R: &mut SneakyMatrix, r: usize) -> Option<usize> {
         R.col_with_low(r)
     }
@@ -300,6 +307,11 @@ fn perform_one_swap(i: usize, R: &mut SneakyMatrix, U_t: &mut SneakyMatrix) -> O
     let gives_birth_i = !gives_death_i;
     let gives_death_i_1 = gives_death(R, i + 1);
     let gives_birth_i_1 = !gives_death_i_1;
+
+    // println!(
+    //     "gives_death_i: {}, gives_birth_i: {}, gives_death_i_1: {}, gives_birth_i_1: {}",
+    //     gives_death_i, gives_birth_i, gives_death_i_1, gives_birth_i_1
+    // );
 
     // if gives_birth_i and gives_birth_i_1:
     if gives_birth_i && gives_birth_i_1 {
@@ -338,18 +350,19 @@ fn perform_one_swap(i: usize, R: &mut SneakyMatrix, U_t: &mut SneakyMatrix) -> O
                     // return (R, U_t, False)
                     return Some(false);
                 }
-                panic!("This should never happen.");
+                panic!("This should never happen: l == k ({})", l);
                 // raise Exception("k = l; This should never happen.")
                 // else:
-            } else {
-                // R.swap_cols_and_rows(i, i + 1)  # PRP
-                R.swap_cols_and_rows(i, i + 1);
-                // U_t.swap_cols_and_rows(i, i + 1)  # PUP
-                U_t.swap_cols_and_rows(i, i + 1);
-                // return (R, U_t, None)
-                return None;
             }
         }
+
+        // else case
+        // R.swap_cols_and_rows(i, i + 1)  # PRP
+        R.swap_cols_and_rows(i, i + 1);
+        // U_t.swap_cols_and_rows(i, i + 1)  # PUP
+        U_t.swap_cols_and_rows(i, i + 1);
+        // return (R, U_t, None)
+        return None;
     }
     // if gives_death_i and gives_death_i_1:
     if gives_death_i && gives_death_i_1 {
@@ -431,17 +444,18 @@ fn perform_one_swap(i: usize, R: &mut SneakyMatrix, U_t: &mut SneakyMatrix) -> O
     }
 
     // raise Exception("bottom of the function; This should never happen.")
-    panic!("This should never happen.");
+    panic!("This should never happen: no cases matched.");
 }
 
-/// Perform all the swaps in `index_swaps`. Return a [Vec] of the indices that
-/// were Faustian swaps.
+/// Perform all the swaps in `index_swaps`. Return a [Vec] of the indices into
+/// `index_swaps` that were Faustian swaps.
 #[allow(non_snake_case)]
+#[pyfunction]
 pub fn vine_to_vine(
+    D: &mut SneakyMatrix,
     R: &mut SneakyMatrix,
     U_t: &mut SneakyMatrix,
-    D: &mut SneakyMatrix,
-    index_swaps: &[usize],
+    index_swaps: Vec<usize>,
 ) -> Vec<usize> {
     let mut ret = Vec::new();
     for (swap_i, &i) in index_swaps.iter().enumerate() {
@@ -456,6 +470,7 @@ pub fn vine_to_vine(
 
 #[pymodule]
 fn mars(_py: Python, m: &PyModule) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(vine_to_vine, m)?)?;
     m.add_class::<SneakyMatrix>()?;
     m.add_class::<Permutation>()?;
     m.add_class::<Col>()?;

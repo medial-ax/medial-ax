@@ -1,6 +1,7 @@
 from collections import defaultdict
 from copy import deepcopy
 from dataclasses import dataclass
+from enum import Enum
 import time
 import math
 
@@ -17,6 +18,7 @@ from . import matrix as mat
 from . import plot as ourplot
 from . import utils
 from . import grid
+from mars import SneakyMatrix as SM, vine_to_vine as SM_vine_to_vine
 
 GF2 = galois.GF(2)
 
@@ -68,6 +70,12 @@ def prnt(A: np.array, label: None | str = None):
     print()
 
 
+class Version(Enum):
+    Sparse = "sparse"
+    Dense = "dense"
+    RS = "rs"
+
+
 @dataclass
 class sparse_reduction_state:
     """The full state of a sparse reduction, computed with sparse data structures."""
@@ -104,6 +112,24 @@ class dense_reduction_state:
     """The complex"""
 
 
+@dataclass
+class rs_reduction_state:
+    """The full state of a sparse reduction, computed with sparse data structures."""
+
+    D: SM
+    """The boundary matrix D"""
+    R: SM
+    """The reduced matrix R"""
+    U_t: SM
+    """The transpose of the inverse matrix U"""
+    ordering: cplx.ordering
+    """The ordering of the simplices from the point from which the reduction was computed."""
+    point: np.array
+    """The point from which the reduction was computed."""
+    complex: cplx.complex
+    """The complex"""
+
+
 class vineyard:
     complex: cplx.complex
 
@@ -116,12 +142,38 @@ class vineyard:
         self.state_map = defaultdict(list)
 
     def reduce(
-        self, point: np.ndarray, sparse=True, asserts=False
+        self, point: np.ndarray, version: Version = "RS", asserts=False
     ) -> sparse_reduction_state | dense_reduction_state:
         """
         Compute the reduced matrix of the complex from the point `point`.
         """
-        if sparse:
+        if version == "dense":
+            with utils.Timed("initialize_vineyards"):
+                a_ordering = cplx.ordering.by_dist_to(self.complex, point)
+                a_matrix = mat.bdmatrix.from_ordering(a_ordering)
+                a_knowledge = mat.reduction_knowledge(a_matrix, a_ordering)
+                a_knowledge.run()
+
+                D = a_matrix.initmatrix
+                R = a_matrix.reduced
+
+                V = np.eye(D.shape[0], dtype=int)
+                for target, other in a_knowledge.adds:
+                    V[:, target] = (V[:, target] + V[:, other]) % 2
+                if asserts:
+                    assert ((D @ V % 2) == R).all(), "DV should be R"
+
+                gf_v = GF2(V)
+                gv_inv = np.linalg.inv(gf_v)
+                U = np.array(gv_inv)
+                # RU = D
+                if asserts:
+                    assert ((R @ U % 2) == D).all(), "RU should be D"
+                # R = DV
+                # RU = D
+                state = dense_reduction_state(D, R, U, a_ordering, point, self.complex)
+        else:
+            # No matter if we're doing RS or sparse, let's just do sparse.
             with utils.Timed("reduce sparse"):
                 a_ordering = cplx.ordering.by_dist_to(self.complex, point)
                 a_matrix = mat.bdmatrix.from_ordering(a_ordering)
@@ -151,31 +203,6 @@ class vineyard:
                 state = sparse_reduction_state(
                     D, R, U_t, a_ordering, point, self.complex
                 )
-        else:
-            with utils.Timed("initialize_vineyards"):
-                a_ordering = cplx.ordering.by_dist_to(self.complex, point)
-                a_matrix = mat.bdmatrix.from_ordering(a_ordering)
-                a_knowledge = mat.reduction_knowledge(a_matrix, a_ordering)
-                a_knowledge.run()
-
-                D = a_matrix.initmatrix
-                R = a_matrix.reduced
-
-                V = np.eye(D.shape[0], dtype=int)
-                for target, other in a_knowledge.adds:
-                    V[:, target] = (V[:, target] + V[:, other]) % 2
-                if asserts:
-                    assert ((D @ V % 2) == R).all(), "DV should be R"
-
-                gf_v = GF2(V)
-                gv_inv = np.linalg.inv(gf_v)
-                U = np.array(gv_inv)
-                # RU = D
-                if asserts:
-                    assert ((R @ U % 2) == D).all(), "RU should be D"
-                # R = DV
-                # RU = D
-                state = dense_reduction_state(D, R, U, a_ordering, point, self.complex)
         key = self.get_point_key(point)
         self.state_map[key].append(state)
         return state
@@ -215,9 +242,9 @@ class vineyard:
 
     def reduce_vine(
         self,
-        state: sparse_reduction_state | dense_reduction_state,
+        state: sparse_reduction_state | dense_reduction_state | rs_reduction_state,
         point: np.ndarray,
-        sparse=True,
+        version: Version = "RS",
         asserts=False,
         debug=False,
     ) -> sparse_reduction_state | dense_reduction_state:
@@ -232,80 +259,117 @@ class vineyard:
                 swapped_indices,
             ) = state.ordering.compute_transpositions_lean(ordering)
 
-        if sparse:
-            if isinstance(state, sparse_reduction_state):
-                with utils.Timed("reduce_vine: sparse matrix copies"):
-                    D = state.D.copy()
-                    R = state.R.copy()
-                    U_t = state.U_t.copy()
-            elif isinstance(state, dense_reduction_state):
-                with utils.Timed("reduce_vine: from_dense matrix copies"):
-                    D = SneakyMatrix.from_dense(state.D)
-                    R = SneakyMatrix.from_dense(state.R)
-                    U_t = SneakyMatrix.from_dense(state.U.T)
-            else:
-                raise Exception("Illegal type of state: ", type(state))
-
-            with utils.Timed("reduce_vine: loop"):
-                for swap_i, i in enumerate(swapped_indices):
-                    with utils.Timed("reduce_vine: perform_one_swap"):
-                        (_, _, faustian_swap) = perform_one_swap(i, R, U_t)
-                    D.swap_cols_and_rows(i, i + 1)
-
-                    if asserts:
-                        with utils.Timed("RU=D check"):
-                            RU = (R.to_dense() @ U_t.to_dense().T) % 2
-                            assert (RU == D.to_dense()).all()
-
-                    if faustian_swap:
-                        s1, s2 = swapped_simplices[swap_i]
-                        assert (
-                            s1.dim() == s2.dim()
-                        ), f"This should not happen: {s1.dim()} != {s2.dim()}"
-                        self.on_faustian(s1, s2, state.point, point)
-
-                state = sparse_reduction_state(D, R, U_t, ordering, point, self.complex)
-                self.reduced_states.append(state)
-        else:
-            with utils.Timed("vineyard.reduce_from_state dense matrix copies"):
+        if version == Version.Sparse:
+            with utils.Timed("reduce_vine Sparse"):
                 if isinstance(state, sparse_reduction_state):
-                    D = state.D.to_dense()
-                    R = state.R.to_dense()
-                    U = state.U_t.to_dense().T
+                    with utils.Timed("reduce_vine: sparse matrix copies"):
+                        D = state.D.copy()
+                        R = state.R.copy()
+                        U_t = state.U_t.copy()
                 elif isinstance(state, dense_reduction_state):
-                    D = state.D.copy()
-                    R = state.R.copy()
-                    U = state.U.copy()
+                    with utils.Timed("reduce_vine: from_dense matrix copies"):
+                        D = SneakyMatrix.from_dense(state.D)
+                        R = SneakyMatrix.from_dense(state.R)
+                        U_t = SneakyMatrix.from_dense(state.U.T)
                 else:
                     raise Exception("Illegal type of state: ", type(state))
 
-            with utils.Timed("vine_to_vine dense loop"):
-                for swap_i, i in enumerate(swapped_indices):
-                    P = np.eye(R.shape[0], dtype=int)
-                    P[i, i] = P[i + 1, i + 1] = 0
-                    P[i, i + 1] = P[i + 1, i] = 1
-                    PDP = P @ D @ P
+                with utils.Timed("reduce_vine: loop"):
+                    for swap_i, i in enumerate(swapped_indices):
+                        with utils.Timed("reduce_vine: perform_one_swap"):
+                            (_, _, faustian_swap) = perform_one_swap(i, R, U_t)
+                        D.swap_cols_and_rows(i, i + 1)
 
-                    with utils.Timed("perform_one_swap"):
-                        (newR, newU, faustian_swap) = perform_one_swap_DENSE(
-                            i, R, U, debug=debug
+                        if asserts:
+                            with utils.Timed("RU=D check"):
+                                RU = (R.to_dense() @ U_t.to_dense().T) % 2
+                                assert (RU == D.to_dense()).all()
+
+                        if faustian_swap:
+                            s1, s2 = swapped_simplices[swap_i]
+                            assert (
+                                s1.dim() == s2.dim()
+                            ), f"This should not happen: {s1.dim()} != {s2.dim()}"
+                            self.on_faustian(s1, s2, state.point, point)
+
+                    state = sparse_reduction_state(
+                        D, R, U_t, ordering, point, self.complex
+                    )
+                    self.reduced_states.append(state)
+        elif version == Version.Dense:
+            with utils.Timed("reduce_vine Dense"):
+                with utils.Timed("vineyard.reduce_from_state dense matrix copies"):
+                    if isinstance(state, sparse_reduction_state):
+                        D = state.D.to_dense()
+                        R = state.R.to_dense()
+                        U = state.U_t.to_dense().T
+                    elif isinstance(state, dense_reduction_state):
+                        D = state.D.copy()
+                        R = state.R.copy()
+                        U = state.U.copy()
+                    else:
+                        raise Exception("Illegal type of state: ", type(state))
+
+                with utils.Timed("vine_to_vine dense loop"):
+                    for swap_i, i in enumerate(swapped_indices):
+                        P = np.eye(R.shape[0], dtype=int)
+                        P[i, i] = P[i + 1, i + 1] = 0
+                        P[i, i + 1] = P[i + 1, i] = 1
+                        PDP = P @ D @ P
+
+                        with utils.Timed("perform_one_swap"):
+                            (newR, newU, faustian_swap) = perform_one_swap_DENSE(
+                                i, R, U, debug=debug
+                            )
+
+                        if asserts:
+                            assert is_binary(newR)
+                            assert is_binary(newU)
+
+                        if faustian_swap:
+                            s1, s2 = swapped_simplices[swap_i]
+                            assert (
+                                s1.dim() == s2.dim()
+                            ), f"This should not happen: {s1.dim()} != {s2.dim()}"
+                            self.on_faustian(s1, s2, state.point, point)
+                        R = newR
+                        U = newU
+                        D = PDP
+                    state = dense_reduction_state(
+                        D, R, U, ordering, point, self.complex
+                    )
+                    self.reduced_states.append(state)
+        else:
+            with utils.Timed("reduce_vine RS"):
+                if isinstance(state, sparse_reduction_state):
+                    with utils.Timed("from sparse"):
+                        D = SM.from_py_sneakymatrix(state.D)
+                        R = SM.from_py_sneakymatrix(state.R)
+                        U_t = SM.from_py_sneakymatrix(state.U_t)
+                elif isinstance(state, dense_reduction_state):
+                    with utils.Timed("from dense"):
+                        D = SM.from_py_sneakymatrix(SneakyMatrix.from_dense(state.D))
+                        R = SM.from_py_sneakymatrix(SneakyMatrix.from_dense(state.R))
+                        U_t = SM.from_py_sneakymatrix(
+                            SneakyMatrix.from_dense(state.U.T)
                         )
+                elif isinstance(state, rs_reduction_state):
+                    D = state.D.clone2()
+                    R = state.R.clone2()
+                    U_t = state.U_t.clone2()
+                else:
+                    raise Exception("Illegal type of state: ", type(state))
 
-                    if asserts:
-                        assert is_binary(newR)
-                        assert is_binary(newU)
-
-                    if faustian_swap:
+                with utils.Timed("reduce_vine: loop"):
+                    faustians = SM_vine_to_vine(D, R, U_t, swapped_indices)
+                    for swap_i in faustians:
                         s1, s2 = swapped_simplices[swap_i]
                         assert (
                             s1.dim() == s2.dim()
                         ), f"This should not happen: {s1.dim()} != {s2.dim()}"
                         self.on_faustian(s1, s2, state.point, point)
-                    R = newR
-                    U = newU
-                    D = PDP
-                state = dense_reduction_state(D, R, U, ordering, point, self.complex)
-                self.reduced_states.append(state)
+                    state = rs_reduction_state(D, R, U_t, ordering, point, self.complex)
+                    self.reduced_states.append(state)
         key = self.get_point_key(point)
         self.state_map[key].append(state)
         return state
