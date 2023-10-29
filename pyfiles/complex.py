@@ -6,6 +6,7 @@ from scipy.spatial import distance
 from pprint import pprint
 
 from . import utils
+import mars
 
 from pyfiles.utils import Timed
 
@@ -393,41 +394,55 @@ class ordering:
          2. A list of the full order after each swap, which is used for plotitng.
          3. A list of indices into the list that we're sorting, corresponding to each swap. `i` in this list means that `i` and `i+1` were swapped.
         """
-        our = self.list_unique_index()
-        n = len(our)
-        swaps = []
-        index_swaps = []
+        with utils.Timed("compute_transpositions_lean"):
+            our = self.list_unique_index()
+            n = len(our)
+            swaps = []
+            index_swaps = []
 
-        # Bubble sort the list of indices to find the swaps. The key is `i ->
-        # other.i2o[our[i]]`, so that we sort `our` by the order in `other`.
+            # Bubble sort the list of indices to find the swaps. The key is `i ->
+            # other.i2o[our[i]]`, so that we sort `our` by the order in `other`.
 
-        # Compute upper and lower bounds on the two orders so that we don't have
-        # to blindly check all pairs if the two orders are already mostly
-        # sorted. If the two orders are the same in a segment from the start,
-        # this will never be touched by the swaps, so we can start at the first
-        # index where they differ.  Same for the end.
-        i0 = 0
-        while i0 < n and other.i2o[our[i0]] == other.i2o[our[i0 + 1]]:
-            i0 += 1
-        i1 = n - 1
-        while i0 < i1 and other.i2o[our[i1 - 1]] == other.i2o[our[i1]]:
-            i1 -= 1
-        steps = i1 - i0 + 1
+            # Compute upper and lower bounds on the two orders so that we don't have
+            # to blindly check all pairs if the two orders are already mostly
+            # sorted. If the two orders are the same in a segment from the start,
+            # this will never be touched by the swaps, so we can start at the first
+            # index where they differ.  Same for the end.
+            i0 = 0
+            while i0 < n and other.i2o[our[i0]] == other.i2o[our[i0 + 1]]:
+                i0 += 1
+            i1 = n - 1
+            while i0 < i1 and other.i2o[our[i1 - 1]] == other.i2o[our[i1]]:
+                i1 -= 1
+            steps = i1 - i0 + 1
 
-        for _ in range(steps):
-            did_swap = False
-            for i in range(i0, i1):
-                if other.i2o[our[i]] > other.i2o[our[i + 1]]:
-                    our[i], our[i + 1] = our[i + 1], our[i]
-                    index_swaps.append(i)
-                    swaps.append(
-                        (
-                            self.get_simplex(self.i2o[our[i]]),
-                            self.get_simplex(self.i2o[our[i + 1]]),
+            for _ in range(steps):
+                did_swap = False
+                for i in range(i0, i1):
+                    if other.i2o[our[i]] > other.i2o[our[i + 1]]:
+                        our[i], our[i + 1] = our[i + 1], our[i]
+                        index_swaps.append(i)
+                        swaps.append(
+                            (
+                                self.get_simplex(self.i2o[our[i]]),
+                                self.get_simplex(self.i2o[our[i + 1]]),
+                            )
                         )
-                    )
-                    did_swap = True
-            if not did_swap:
-                break
+                        did_swap = True
+                if not did_swap:
+                    break
 
-        return swaps, index_swaps
+            return swaps, index_swaps
+
+    def compute_transpositions_rs(
+        self, other: "ordering"
+    ) -> Tuple[List[Tuple[simplex, simplex]], List[int]]:
+        with utils.Timed("compute_transpositions_rs"):
+            our = self.list_unique_index()
+            other_order = [other.i2o[s] for s in our]
+            (index_swaps, simplex_pair_swaps) = mars.compute_transpositions(other_order)
+            swaps = [
+                (other.get_simplex(a), other.get_simplex(b))
+                for (a, b) in simplex_pair_swaps
+            ]
+            return swaps, index_swaps

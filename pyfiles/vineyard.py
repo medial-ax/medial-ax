@@ -19,6 +19,7 @@ from . import plot as ourplot
 from . import utils
 from . import grid
 from mars import SneakyMatrix as SM, vine_to_vine as SM_vine_to_vine
+import mars
 
 GF2 = galois.GF(2)
 
@@ -253,11 +254,51 @@ class vineyard:
         with utils.Timed("reduce_vine: ordering"):
             ordering = cplx.ordering.by_dist_to(self.complex, point)
 
-        with utils.Timed("reduce_vine: transpositions_lean"):
-            (
-                swapped_simplices,
-                swapped_indices,
-            ) = state.ordering.compute_transpositions_lean(ordering)
+        if True:
+            with utils.Timed("reduce_vine.almost-all"):
+                if isinstance(state, sparse_reduction_state):
+                    with utils.Timed("from sparse"):
+                        D = SM.from_py_sneakymatrix(state.D)
+                        R = SM.from_py_sneakymatrix(state.R)
+                        U_t = SM.from_py_sneakymatrix(state.U_t)
+                elif isinstance(state, dense_reduction_state):
+                    with utils.Timed("from dense"):
+                        D = SM.from_py_sneakymatrix(SneakyMatrix.from_dense(state.D))
+                        R = SM.from_py_sneakymatrix(SneakyMatrix.from_dense(state.R))
+                        U_t = SM.from_py_sneakymatrix(
+                            SneakyMatrix.from_dense(state.U.T)
+                        )
+                elif isinstance(state, rs_reduction_state):
+                    D = state.D.clone2()
+                    R = state.R.clone2()
+                    U_t = state.U_t.clone2()
+                else:
+                    raise Exception("Illegal type of state: ", type(state))
+
+                our = state.ordering.list_unique_index()
+                other_order = [ordering.i2o[s] for s in our]
+                with utils.Timed("mars.reduce_vine"):
+                    faus_swap_is = mars.reduce_vine(other_order, R, D, U_t)
+                swaps = [
+                    (ordering.get_simplex(a), ordering.get_simplex(b))
+                    for (a, b) in faus_swap_is
+                ]
+                for s1, s2 in swaps:
+                    assert (
+                        s1.dim() == s2.dim()
+                    ), f"This should not happen: {s1.dim()} != {s2.dim()}"
+                    self.on_faustian(s1, s2, state.point, point)
+
+                state = rs_reduction_state(D, R, U_t, ordering, point, self.complex)
+                self.reduced_states.append(state)
+                key = self.get_point_key(point)
+                self.state_map[key].append(state)
+                return state
+
+        (
+            swapped_simplices,
+            swapped_indices,
+        ) = state.ordering.compute_transpositions_rs(ordering)
 
         if version == Version.Sparse:
             with utils.Timed("reduce_vine Sparse"):

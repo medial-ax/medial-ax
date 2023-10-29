@@ -1,3 +1,5 @@
+use std::iter::zip;
+
 use pyo3::prelude::*;
 
 #[derive(Debug, Clone)]
@@ -469,11 +471,54 @@ pub fn vine_to_vine(
 }
 
 /// Compute the transpositions required to swap one sequence to the other.  
-fn compute_transpositions() {}
+/// Assume that the vectors `a` and `b` contains unique and identical elements.
+/// Compute the transpositions required to swap `a` to `b` as a list of numbers,
+/// where `i` correspond to the transposition of `a[i]` and `a[i+1]`.
+#[pyfunction]
+pub fn compute_transpositions(mut a: Vec<usize>) -> (Vec<usize>, Vec<(usize, usize)>) {
+    let n = a.len();
+    let n0 = zip(&a, 0..n).position(|(&aa, bb)| aa != bb).unwrap_or(n);
+    let n1 = zip(&a, 0..n).rposition(|(&aa, bb)| aa != bb).unwrap_or(n);
+    let mut ret = Vec::with_capacity(n);
+    let mut swapped_indices = Vec::with_capacity(n);
+    for _ in n0..=n1 {
+        let mut swap = false;
+        for i in 0..(n - 1) {
+            if a[i] > a[i + 1] {
+                ret.push(i);
+                a.swap(i, i + 1);
+                swapped_indices.push((a[i], a[i + 1]));
+                swap = true;
+            }
+        }
+        if !swap {
+            break;
+        }
+    }
+    (ret, swapped_indices)
+}
+
+#[allow(non_snake_case)]
+#[pyfunction]
+pub fn reduce_vine(
+    ordering: Vec<usize>,
+    R: &mut SneakyMatrix,
+    D: &mut SneakyMatrix,
+    U_t: &mut SneakyMatrix,
+) -> Vec<(usize, usize)> {
+    let (swapped_indices, swapped_simplices) = compute_transpositions(ordering);
+    let faustians = vine_to_vine(D, R, U_t, swapped_indices);
+    faustians
+        .into_iter()
+        .map(|i| swapped_simplices[i])
+        .collect::<Vec<_>>()
+}
 
 #[pymodule]
 fn mars(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(vine_to_vine, m)?)?;
+    m.add_function(wrap_pyfunction!(compute_transpositions, m)?)?;
+    m.add_function(wrap_pyfunction!(reduce_vine, m)?)?;
     m.add_class::<SneakyMatrix>()?;
     m.add_class::<Permutation>()?;
     m.add_class::<Col>()?;
@@ -598,5 +643,36 @@ mod tests {
         assert!(sm.get(0, 0));
         sm.swap_rows(0, 4);
         assert!(sm.get(4, 0));
+    }
+
+    #[test]
+    fn test_compute_transpositions() {
+        let a = vec![0, 1, 4, 3, 2, 5];
+        // [0, 1, 4, 3, 2, 5]  start
+        // [0, 1, 3, 4, 2, 5]  swapped 2 and 3
+        // [0, 1, 3, 2, 4, 5]  swapped 3 and 4
+        // [0, 1, 2, 3, 4, 5]  swapped 2 and 3
+        let res = compute_transpositions(a);
+        assert_eq!(res.0, vec![2, 3, 2]);
+
+        let a = vec![3, 4, 5, 2, 0, 1];
+        // [3, 4, 5, 2, 0, 1]  start
+        // [3, 4, 2, 5, 0, 1]  2
+        // [3, 4, 2, 0, 5, 1]  3
+        // [3, 4, 2, 0, 1, 5]  4
+        // [3, 2, 4, 0, 1, 5]  1
+        // [3, 2, 0, 4, 1, 5]  2
+        // [3, 2, 0, 1, 4, 5]  3
+        // [2, 3, 0, 1, 4, 5]  0
+        // [2, 0, 3, 1, 4, 5]  1
+        // [2, 0, 1, 3, 4, 5]  2
+        // [0, 2, 1, 3, 4, 5]  0
+        // [0, 1, 2, 3, 4, 5]  1
+        let res = compute_transpositions(a);
+        assert_eq!(res.0, vec![2, 3, 4, 1, 2, 3, 0, 1, 2, 0, 1]);
+
+        let a = vec![0, 1, 2, 4, 5, 6, 7, 3, 8, 9, 10, 11];
+        let res = compute_transpositions(a);
+        assert_eq!(res.0, vec![6, 5, 4, 3]);
     }
 }
