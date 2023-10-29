@@ -62,3 +62,9 @@ cube_3 = Example(
 """
 Subdivided twice; 32 triangles per cube face.
 """
+cube_3_densegrid = Example(
+    filename="input/cube-subdiv-2.obj",
+    grid_size=0.05,
+    grid_buffer=0.1,
+    camera_opt=CameraOpt(azim=20, elev=30),
+)
