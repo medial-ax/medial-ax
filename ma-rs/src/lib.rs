@@ -468,6 +468,9 @@ pub fn vine_to_vine(
     ret
 }
 
+/// Compute the transpositions required to swap one sequence to the other.  
+fn compute_transpositions() {}
+
 #[pymodule]
 fn mars(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(vine_to_vine, m)?)?;
