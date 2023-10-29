@@ -12,6 +12,10 @@ source venv/bin/activate
 deactivate
 # Install all of the requirements
 pip install -r requirements.txt
+# Install rust
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+# setup environment for Rust
+source "$HOME/.cargo/env"
 ```
 
 ## VS Code
