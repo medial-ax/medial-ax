@@ -1,7 +1,7 @@
 # Setup
 
 ```bash
-# Need python 3.9
+# Need python 3.10
 # if no venv, get venv
 pip3 install virtualenv
 # To create a new env
