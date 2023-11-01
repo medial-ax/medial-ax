@@ -234,10 +234,10 @@ class complex:
             b = self.vertlist[simplex.boundary[1]]
             return (a.coords + b.coords) / 2
         elif dim == 2:
-            a = self.edgelist[simplex.boundary[0]]
-            b = self.edgelist[simplex.boundary[1]]
-            c = self.edgelist[simplex.boundary[2]]
-            return (a.coords + b.coords + c.coords) / 3
+            a = simplex.coords[0]
+            b = simplex.coords[1]
+            c = simplex.coords[2]
+            return (a + b + c) / 3
         else:
             raise Exception(
                 f"Only works for simplices of dimension 0, 1, or 2; was {dim}"

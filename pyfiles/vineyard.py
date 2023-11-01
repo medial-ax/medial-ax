@@ -71,6 +71,23 @@ def prnt(A: np.array, label: None | str = None):
     print()
 
 
+def prune_euclidean(
+    complex: cplx.complex,
+    s1: cplx.simplex,
+    s2: cplx.simplex,
+    point_a: np.ndarray,
+    point_b: np.ndarray,
+    eps: float,
+):
+    grid_dist = np.linalg.norm(point_a - point_b)
+    simplex_a = complex.simplex_to_center(s1)
+    simplex_b = complex.simplex_to_center(s2)
+    simplex_dist = np.linalg.norm(simplex_a - simplex_b)
+    if simplex_dist < grid_dist * eps:
+        return True
+    return False
+
+
 class Version(Enum):
     Sparse = "sparse"
     Dense = "dense"

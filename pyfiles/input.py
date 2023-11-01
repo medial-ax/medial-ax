@@ -1,6 +1,7 @@
 from typing import List
 
 from . import complex as cplx
+import numpy as np
 
 
 def read_obj(filename: str) -> cplx.complex:
@@ -31,7 +32,7 @@ def read_obj(filename: str) -> cplx.complex:
             elif line.startswith("v"):
                 # vertex line looks like this:
                 # v -0.039375 1.021144 0.000000
-                coord = [float(c) for c in line.split(" ")[1:4]]
+                coord = np.array([float(c) for c in line.split(" ")[1:4]])
                 s = cplx.simplex.point(coord, point_index)
                 vertices.append(s)
                 point_index += 1

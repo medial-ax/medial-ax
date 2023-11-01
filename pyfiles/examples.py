@@ -1,4 +1,6 @@
+from math import sqrt
 from dataclasses import dataclass
+from typing import Optional
 
 
 @dataclass
@@ -8,6 +10,7 @@ class Example:
     grid_buffer: float
     camera_opt: "CameraOpt" = None
     medial_axis: int = 0
+    prune_eps: Optional[float] = None
 
 
 @dataclass
@@ -68,3 +71,59 @@ cube_3_densegrid = Example(
     grid_buffer=0.1,
     camera_opt=CameraOpt(azim=20, elev=30),
 )
+
+cube_2_gridsize = Example(
+    filename="input/cube-subdiv-1.obj",
+    grid_size=0.4,
+    grid_buffer=0.1,
+    camera_opt=CameraOpt(azim=20, elev=30),
+)
+"""
+Subdivided once, and the grid density is approx twice the complex density.
+"""
+
+cube_3_three_times_grid_not_pruned_enough = Example(
+    filename="input/cube-subdiv-2.obj",
+    grid_size=2 / 20,
+    grid_buffer=0.1,
+    camera_opt=CameraOpt(azim=20, elev=30),
+    prune_eps=(2 / 4) / (2 / 20) + 0.01,
+)
+"""
+Subdivided twice, and the grid density is approx twice the complex density.
+Not pruned enough.
+"""
+
+cube_3_three_times_grid = Example(
+    filename="input/cube-subdiv-2.obj",
+    grid_size=2 / 20,
+    grid_buffer=0.1,
+    camera_opt=CameraOpt(azim=20, elev=30),
+    prune_eps=5.5,
+)
+"""
+Used this for testing. Not very interesting.
+"""
+
+cube_4 = Example(
+    filename="input/cube-subdiv-3.obj",
+    grid_size=2 / 16,
+    grid_buffer=0.1,
+    camera_opt=CameraOpt(azim=20, elev=30),
+    prune_eps=(2 / 8) / (2 / 36) + 0.01,
+)
+"""
+Subdivided three times.
+"""
+
+cube_3_prune_limit_point = Example(
+    filename="input/cube-subdiv-2.obj",
+    grid_size=2 / 20,
+    grid_buffer=0.1,
+    camera_opt=CameraOpt(azim=20, elev=30),
+    prune_eps=10 * 1 / sqrt(2),
+)
+"""
+Subdivided cube with limit point for the pruning. 
+Changing `10` to `9.98` prunes a lot fewer pairs.
+"""

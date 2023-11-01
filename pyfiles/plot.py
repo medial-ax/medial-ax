@@ -412,12 +412,19 @@ def plot_orders_with_bubbles(o1: ordering, o2: ordering):
 
 
 def plot_vineyard_results(
-    complex: complex, grid: Grid3, faces: List[np.ndarray], camera_opt: CameraOpt = None
+    complex: complex,
+    grid: Grid3,
+    faces: List[np.ndarray],
+    camera_opt: CameraOpt = None,
+    skip_cube=False,
+    skip_grid=False,
 ):
     fig, ax = plt.subplots(subplot_kw={"projection": "3d", "computed_zorder": False})
     ax.view_init(**camera_opt.__dict__)
-    plot_complex_3d(ax, complex)
-    plot_grid_3d(ax, grid)
+    if not skip_cube:
+        plot_complex_3d(ax, complex)
+    if not skip_grid:
+        plot_grid_3d(ax, grid)
     ax.set_aspect("equal")
     for [a, b, c, d] in faces:
         plot_face_3d(ax, a, b, c, d)
