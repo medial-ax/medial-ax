@@ -88,6 +88,34 @@ def prune_euclidean(
     return False
 
 
+def find_killer(simplex: cplx.simplex, ordering: cplx.ordering, R: SM | SneakyMatrix):
+    """
+    Finds the killer simplex of the given simplex. If there's no killer, return
+    None.
+    """
+    r = ordering.matrix_index(simplex)
+    if isinstance(R, SneakyMatrix):
+        c = R.col_with_low(r)
+    else:
+        c = R.col_with_low(r)
+    if c is None:
+        return None
+    simplex = ordering.get_simplex(c)
+    return simplex
+
+
+def compute_persistence(
+    simplex: cplx.simplex, ordering: cplx.ordering, R: SM | SneakyMatrix
+):
+    time_birth = ordering.get_entrance_value(simplex)
+    killer = find_killer(simplex, ordering, R)
+    if killer is None:
+        return 234567890
+    time_death = ordering.get_entrance_value(killer)
+    time_alive = time_death - time_birth
+    return time_alive
+
+
 class Version(Enum):
     Sparse = "sparse"
     Dense = "dense"
@@ -229,8 +257,8 @@ class vineyard:
         self,
         s1: cplx.simplex,
         s2: cplx.simplex,
-        point_a: np.ndarray,
-        point_b: np.ndarray,
+        old_state: sparse_reduction_state | rs_reduction_state,
+        new_state: sparse_reduction_state | rs_reduction_state,
     ):
         """Call this when a faustian swap happens."""
         pass
@@ -239,8 +267,8 @@ class vineyard:
         self,
         s1: cplx.simplex,
         s2: cplx.simplex,
-        point_a: np.ndarray,
-        point_b: np.ndarray,
+        old_state: sparse_reduction_state | rs_reduction_state,
+        new_state: sparse_reduction_state | rs_reduction_state,
     ):
         """Return True if the interchange should be pruned."""
         return False
@@ -310,18 +338,20 @@ class vineyard:
                     (ordering.get_simplex(a), ordering.get_simplex(b))
                     for (a, b) in faus_swap_is
                 ]
+
+                new_state = rs_reduction_state(D, R, U_t, ordering, point, self.complex)
+                self.reduced_states.append(new_state)
+                key = self.get_point_key(point)
+                self.state_map[key].append(new_state)
+
                 for s1, s2 in swaps:
                     assert (
                         s1.dim() == s2.dim()
                     ), f"This should not happen: {s1.dim()} != {s2.dim()}"
-                    if not self.prune(s1, s2, state.point, point):
-                        self.on_faustian(s1, s2, state.point, point)
+                    if not self.prune(s1, s2, state, new_state):
+                        self.on_faustian(s1, s2, state, new_state)
 
-                state = rs_reduction_state(D, R, U_t, ordering, point, self.complex)
-                self.reduced_states.append(state)
-                key = self.get_point_key(point)
-                self.state_map[key].append(state)
-                return state
+                return new_state
 
         (
             swapped_simplices,

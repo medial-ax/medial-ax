@@ -40,6 +40,7 @@ cube_1 = Example(
     grid_size=0.2,
     grid_buffer=0.15,
     camera_opt=CameraOpt(azim=20, elev=30),
+    prune_eps=0,
 )
 """
 Subdivided once; 8 triangles per cube face. Looks pretty good, but grid is coarse. 
@@ -51,6 +52,8 @@ cube_2 = Example(
     grid_size=0.1,
     grid_buffer=0.15,
     camera_opt=CameraOpt(azim=20, elev=30),
+    prune_eps=0,
+    medial_axis=1,
 )
 """
 Subdivided once; 8 triangles per cube face.
@@ -61,10 +64,13 @@ cube_3 = Example(
     grid_size=0.1,
     grid_buffer=0.1,
     camera_opt=CameraOpt(azim=20, elev=30),
+    prune_eps=0,
+    medial_axis=0,
 )
 """
 Subdivided twice; 32 triangles per cube face.
 """
+
 cube_3_densegrid = Example(
     filename="input/cube-subdiv-2.obj",
     grid_size=0.05,
@@ -126,4 +132,16 @@ cube_3_prune_limit_point = Example(
 """
 Subdivided cube with limit point for the pruning. 
 Changing `10` to `9.98` prunes a lot fewer pairs.
+"""
+
+cube_subdiv2_pruned_ma1 = Example(
+    filename="input/cube-subdiv-2.obj",
+    grid_size=0.1,
+    grid_buffer=0.1,
+    camera_opt=CameraOpt(azim=20, elev=30),
+    prune_eps=0,
+    medial_axis=1,
+)
+"""
+Subdivided twice; 32 triangles per cube face.
 """

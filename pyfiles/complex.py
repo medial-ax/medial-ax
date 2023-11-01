@@ -256,6 +256,9 @@ class ordering:
     i2o: Dict[Tuple[int, int], int]
     """unique index to column value.  The unique index is (dim, index)."""
 
+    entrance_value: Dict[Tuple[int, int], float]
+    """The entrance value for each uniqe index. The unique index is (dim, index)."""
+
     def list_unique_index(self):
         """
         Return a list of the unique indices in the ordering.
@@ -299,6 +302,8 @@ class ordering:
         o.i2o = dict(pairs)
         o.o2i = dict([(v, k) for k, v in pairs])
 
+        o.entrance_value = {(s.dim(), s.index): key(s)[0] for s in all_simplices}
+
         # Check that the simplices are ordered correctly
         for i, s in enumerate(all_simplices):
             if s.dim() > 0:
@@ -311,6 +316,12 @@ class ordering:
         o.tri_map = {s.index: s for s in complex.trilist}
 
         return o
+
+    def get_entrance_value(self, simplex: simplex) -> float:
+        """
+        Get the entrance value of the given simplex.
+        """
+        return self.entrance_value[(simplex.dim(), simplex.index)]
 
     def matrix_index(self, simplex: simplex):
         """
