@@ -218,6 +218,16 @@ class vineyard:
         """Call this when a faustian swap happens."""
         pass
 
+    def prune(
+        self,
+        s1: cplx.simplex,
+        s2: cplx.simplex,
+        point_a: np.ndarray,
+        point_b: np.ndarray,
+    ):
+        """Return True if the interchange should be pruned."""
+        return False
+
     def get_point_key(self, point: np.ndarray):
         raise Exception("Not implemented")
 
@@ -287,7 +297,8 @@ class vineyard:
                     assert (
                         s1.dim() == s2.dim()
                     ), f"This should not happen: {s1.dim()} != {s2.dim()}"
-                    self.on_faustian(s1, s2, state.point, point)
+                    if not self.prune(s1, s2, state.point, point):
+                        self.on_faustian(s1, s2, state.point, point)
 
                 state = rs_reduction_state(D, R, U_t, ordering, point, self.complex)
                 self.reduced_states.append(state)

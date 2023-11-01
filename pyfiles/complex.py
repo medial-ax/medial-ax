@@ -222,6 +222,27 @@ class complex:
 
         return all_simplices
 
+    def simplex_to_center(self, simplex: simplex):
+        """
+        Get the coordinates of the center of the given simplex.
+        """
+        dim = simplex.dim()
+        if dim == 0:
+            return np.array(simplex.coords)
+        elif dim == 1:
+            a = self.vertlist[simplex.boundary[0]]
+            b = self.vertlist[simplex.boundary[1]]
+            return (a.coords + b.coords) / 2
+        elif dim == 2:
+            a = self.edgelist[simplex.boundary[0]]
+            b = self.edgelist[simplex.boundary[1]]
+            c = self.edgelist[simplex.boundary[2]]
+            return (a.coords + b.coords + c.coords) / 3
+        else:
+            raise Exception(
+                f"Only works for simplices of dimension 0, 1, or 2; was {dim}"
+            )
+
 
 _COMPLEX = complex
 
