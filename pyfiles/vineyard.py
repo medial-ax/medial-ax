@@ -71,23 +71,6 @@ def prnt(A: np.array, label: None | str = None):
     print()
 
 
-def prune_euclidean(
-    complex: cplx.complex,
-    s1: cplx.simplex,
-    s2: cplx.simplex,
-    point_a: np.ndarray,
-    point_b: np.ndarray,
-    eps: float,
-):
-    grid_dist = np.linalg.norm(point_a - point_b)
-    simplex_a = complex.simplex_to_center(s1)
-    simplex_b = complex.simplex_to_center(s2)
-    simplex_dist = np.linalg.norm(simplex_a - simplex_b)
-    if simplex_dist < grid_dist * eps:
-        return True
-    return False
-
-
 def find_killer(simplex: cplx.simplex, ordering: cplx.ordering, R: SM | SneakyMatrix):
     """
     Finds the killer simplex of the given simplex. If there's no killer, return
@@ -876,235 +859,44 @@ def perform_one_swap(
     raise Exception("bottom of the function; This should never happen.")
 
 
-# def initialize_vineyards(
-#     complex: cplx.complex, a: np.ndarray
-# ) -> Tuple[SneakyMatrix, SneakyMatrix, SneakyMatrix, cplx.ordering]:
-#     """
-#     Compute the reduced matrix of the complex from the point `a`.
-#     Return matrices `D`, `R`, `V`, `U_t`, for later vineyard use.
-#     """
-#     with utils.Timed("initialize_vineyards"):
-#         a_ordering = cplx.ordering.by_dist_to(complex, a)
-#         a_matrix = mat.bdmatrix.from_ordering(a_ordering)
-#         a_knowledge = mat.reduction_knowledge(a_matrix, a_ordering)
-#         a_knowledge.run()
-
-#         D = SneakyMatrix.from_dense(a_matrix.initmatrix)
-#         R = SneakyMatrix.from_dense(a_matrix.reduced)
-
-#         V = SneakyMatrix.eye(D.shape[0])
-#         for target, other in a_knowledge.adds:
-#             V.add_cols(target, other)
-#         assert (
-#             ((D.to_dense() @ V.to_dense()) % 2) == R.to_dense()
-#         ).all(), "DV should be R"
-
-#         gf_v = GF2(V.to_dense())
-#         gv_inv = np.linalg.inv(gf_v)
-#         U_t = SneakyMatrix.from_dense(gv_inv.T)
-#         # RU = D
-#         assert (
-#             ((R.to_dense() @ U_t.to_dense().T) % 2) == D.to_dense()
-#         ).all(), "RU should be D"
-
-#         # R = DV
-#         # RU = D
-#         return (D, R, U_t, a_ordering)
+def prune_coboundary(
+    complex: cplx.complex,
+    s1: cplx.simplex,
+    s2: cplx.simplex,
+    _state1: rs_reduction_state | sparse_reduction_state,
+    _state2: rs_reduction_state | sparse_reduction_state,
+):
+    """
+    Prune if the two simplices have a common simplex in their coboundaries.
+    If the simplices are vertices, this means that there is an edge connecting them.
+    If the simplices are edges, this means that there is a triangle in which both edges are.
+    """
+    cob1 = complex.get_coboundary(s1)
+    cob2 = complex.get_coboundary(s2)
+    if cob1 & cob2:
+        return True
+    return False
 
 
-# def vine_to_vine(
-#     D: SneakyMatrix,
-#     R: SneakyMatrix,
-#     U_t: SneakyMatrix,
-#     complex: cplx.complex,
-#     b: np.ndarray,
-#     a_ordering: cplx.ordering,
-#     target_dim: int,
-#     prune: bool = True,
-# ) -> Tuple[bool, SneakyMatrix, SneakyMatrix, SneakyMatrix, cplx.ordering]:
-#     """
-#     Returns (found_faustian, D, R, U_t)
-#     """
-#     with utils.Timed("vine_to_vine.ordering"):
-#         b_ordering = cplx.ordering.by_dist_to(complex, b)
+def prune_euclidean(
+    complex: cplx.complex,
+    s1: cplx.simplex,
+    s2: cplx.simplex,
+    point_a: np.ndarray,
+    point_b: np.ndarray,
+    eps: float,
+):
+    """
+    Prunes based on squared euclidean distance from the `simplex_to_center`
+    point of the simplices.
 
-#     with utils.Timed("vine_to_vine.transpositions_lean"):
-#         (swapped_simplices, swapped_indices) = a_ordering.compute_transpositions_lean(
-#             b_ordering
-#         )
-
-#     with utils.Timed("vine_to_vine.matrix copies"):
-#         R = R.copy()
-#         U_t = U_t.copy()
-#         D = D.copy()
-
-#     # print("vine_to_vine")
-#     # prnt(R.to_dense(), "R")
-#     # prnt(U_t.to_dense().T, "U")
-
-#     with utils.Timed("vine_to_vine.loop"):
-#         bad_point = None
-#         found_faustian = False
-#         # print(f"swapped_indices = #{len(swapped_indices)}")
-#         for swap_i, i in enumerate(swapped_indices):
-#             # print(f"{swap_i}: {i}")
-#             with utils.Timed("perform_one_swap"):
-#                 (_, _, faustian_swap) = perform_one_swap(i, R, U_t)
-#             D.swap_cols_and_rows(i, i + 1)
-
-#             # prnt(R.to_dense(), "R")
-#             # prnt(U_t.to_dense().T, "U")
-
-#             # with utils.Timed("RU=D check"):
-#             #     RU = (R.to_dense() @ U_t.to_dense().T) % 2
-#             #     if not (RU == D.to_dense()).all():
-#             #         print("i=", i)
-#             #         print("R\n", R.to_dense())
-#             #         print("U\n", U_t.to_dense().T)
-#             #         print("RU\n", RU)
-#             #         print("D\n", D.to_dense())
-#             #         assert False
-
-#             if faustian_swap:
-#                 s1, s2 = swapped_simplices[swap_i]
-
-#                 # Pruning
-#                 # If we get two vertices that share an edge, skip the swap.
-#                 skip = False
-#                 if prune and s1.dim() == 0 and s2.dim() == 0:
-#                     cob1 = set(complex.get_coboundary(s1))
-#                     cob2 = set(complex.get_coboundary(s2))
-#                     if cob1 & cob2:
-#                         skip = True
-
-#                 if not skip and s1.dim() == target_dim and s2.dim() == target_dim:
-#                     found_faustian = True
-
-#                 if not skip and s1.dim() != s2.dim():
-#                     print(f"This should not happen: {s1.dim()} != {s2.dim()}")
-#                     bad_point = b
-#                     print(s1)
-#                     print(s2)
-#                     print(b)
-#                     # assert False, f"This should not happen: {s1.dim()} != {s2.dim()}"
-
-#         return (found_faustian, D, R, U_t, b_ordering, bad_point)
-
-
-# def initialize_vineyards_DENSE(
-#     complex: cplx.complex, a: np.ndarray
-# ) -> Tuple[SneakyMatrix, SneakyMatrix, SneakyMatrix, cplx.ordering]:
-#     """
-#     Compute the reduced matrix of the complex from the point `a`.
-#     Return matrices `D`, `R`, `V`, `U_t`, for later vineyard use.
-#     """
-#     with utils.Timed("initialize_vineyards"):
-#         a_ordering = cplx.ordering.by_dist_to(complex, a)
-#         a_matrix = mat.bdmatrix.from_ordering(a_ordering)
-#         a_knowledge = mat.reduction_knowledge(a_matrix, a_ordering)
-#         a_knowledge.run()
-
-#         D = a_matrix.initmatrix
-#         R = a_matrix.reduced
-
-#         V = np.eye(D.shape[0], dtype=int)
-#         for target, other in a_knowledge.adds:
-#             V[:, target] = (V[:, target] + V[:, other]) % 2
-#         assert ((D @ V % 2) == R).all(), "DV should be R"
-
-#         gf_v = GF2(V)
-#         gv_inv = np.linalg.inv(gf_v)
-#         U = np.array(gv_inv)
-#         # RU = D
-#         assert ((R @ U % 2) == D).all(), "RU should be D"
-
-#         # R = DV
-#         # RU = D
-#         return (D, R, U, a_ordering)
-
-
-# def vine_to_vine_DENSE(
-#     D: np.ndarray,
-#     R: np.ndarray,
-#     U: np.ndarray,
-#     complex: cplx.complex,
-#     b: np.ndarray,
-#     a_ordering: cplx.ordering,
-#     target_dim: int,
-#     prune: bool = True,
-# ) -> Tuple[bool, SneakyMatrix, SneakyMatrix, SneakyMatrix, cplx.ordering]:
-#     """
-#     Returns (found_faustian, D, R, U_t)
-#     """
-#     with utils.Timed("vine_to_vine.ordering"):
-#         b_ordering = cplx.ordering.by_dist_to(complex, b)
-
-#     with utils.Timed("vine_to_vine.transpositions_lean"):
-#         (swapped_simplices, swapped_indices) = a_ordering.compute_transpositions_lean(
-#             b_ordering
-#         )
-
-#     print("vine_to_vine_DENSE")
-#     prnt(R, "R")
-#     prnt(U, "U")
-#     U = U.copy()
-#     R = R.copy()
-
-#     with utils.Timed("vine_to_vine.loop"):
-#         bad_point = None
-#         found_faustian = False
-#         for swap_i, i in enumerate(swapped_indices):
-#             print(f"{swap_i}: {i}")
-#             with utils.Timed("perform_one_swap"):
-#                 (newR, newU, faustian_swap) = perform_one_swap_DENSE(i, R, U)
-
-#             assert is_binary(newR)
-#             assert is_binary(newU)
-
-#             prnt(newR, "R")
-#             prnt(newU, "U")
-
-#             P = np.eye(R.shape[0], dtype=int)
-#             P[i, i] = P[i + 1, i + 1] = 0
-#             P[i, i + 1] = P[i + 1, i] = 1
-
-#             PDP = P @ D @ P
-
-#             with utils.Timed("RU=D check"):
-#                 newRnewU = (newR @ newU) % 2
-#                 if not (newRnewU == PDP).all():
-#                     print("i=", i)
-#                     print("R\n", newR)
-#                     print("U\n", newU)
-#                     print("RU\n", newRnewU)
-#                     print("D\n", PDP)
-#                     assert False
-
-#             R = newR
-#             U = newU
-#             D = PDP
-
-#             if faustian_swap:
-#                 s1, s2 = swapped_simplices[swap_i]
-
-#                 # Pruning
-#                 # If we get two vertices that share an edge, skip the swap.
-#                 skip = False
-#                 if prune and s1.dim() == 0 and s2.dim() == 0:
-#                     cob1 = set(complex.get_coboundary(s1))
-#                     cob2 = set(complex.get_coboundary(s2))
-#                     if cob1 & cob2:
-#                         skip = True
-
-#                 if not skip and s1.dim() == target_dim and s2.dim() == target_dim:
-#                     found_faustian = True
-
-#                 if not skip and s1.dim() != s2.dim():
-#                     print(f"This should not happen: {s1.dim()} != {s2.dim()}")
-#                     bad_point = b
-#                     print(s1)
-#                     print(s2)
-#                     print(b)
-#                     # assert False, f"This should not happen: {s1.dim()} != {s2.dim()}"
-
-#         return (found_faustian, D, R, U, b_ordering, bad_point)
+    `eps` is the multiplier of the grid distance which is the largest allowed
+    jump distance.
+    """
+    grid_dist = np.linalg.norm(point_a - point_b)
+    simplex_a = complex.simplex_to_center(s1)
+    simplex_b = complex.simplex_to_center(s2)
+    simplex_dist = np.linalg.norm(simplex_a - simplex_b)
+    if simplex_dist < grid_dist * eps:
+        return True
+    return False
