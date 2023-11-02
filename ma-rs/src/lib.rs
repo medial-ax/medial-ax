@@ -61,25 +61,29 @@ impl Col {
         Col(Vec::new())
     }
 
+    /// Checks if the column contains an entry at the given row.
     fn has(&self, a: usize) -> bool {
         self.0.binary_search(&a).is_ok()
     }
 
+    /// Checks if the column is empty.
     fn empty(&self) -> bool {
         self.0.is_empty()
     }
 
-    fn add(&mut self, a: usize) {
-        match self.0.binary_search(&a) {
+    /// Set the given row.
+    fn set(&mut self, r: usize) {
+        match self.0.binary_search(&r) {
             Ok(_) => {}
             Err(i) => {
-                self.0.insert(i, a);
+                self.0.insert(i, r);
             }
         }
     }
 
-    fn remove(&mut self, a: usize) {
-        match self.0.binary_search(&a) {
+    /// Clear a row entry.
+    fn unset(&mut self, r: usize) {
+        match self.0.binary_search(&r) {
             Ok(i) => {
                 self.0.remove(i);
             }
@@ -87,7 +91,8 @@ impl Col {
         }
     }
 
-    fn union(&self, other: &Self) -> Self {
+    /// Add in another column in Z/Z2 arithmetic.
+    fn add_mod2(&self, other: &Self) -> Self {
         let mut v = Vec::new();
         let mut i = 0;
         let mut j = 0;
@@ -123,6 +128,7 @@ impl Col {
         self.0.iter().max_by_key(|&&rr| perm.inv(rr)).cloned()
     }
 
+    /// Turn the column into a `Vec<usize>` of row indices.
     pub fn as_vec(&self) -> Vec<usize> {
         self.0.clone()
     }
@@ -219,7 +225,7 @@ impl SneakyMatrix {
         let cc2 = self.col_perm.map(c2);
         let col_1 = &self.columns[cc1];
         let col_2 = &self.columns[cc2];
-        let c3 = col_1.union(col_2);
+        let c3 = col_1.add_mod2(col_2);
         self.columns[cc1] = c3;
     }
 
@@ -231,6 +237,7 @@ impl SneakyMatrix {
         col.max_under(&self.row_perm)
     }
 
+    /// Search for the column which lowest one is the given `r`.
     pub fn col_with_low(&self, r: usize) -> Option<usize> {
         let rr = self.row_perm.map(r);
         for (cc, col) in self.columns.iter().enumerate() {
@@ -242,6 +249,7 @@ impl SneakyMatrix {
         None
     }
 
+    /// Return [true] if the column is not empty.
     pub fn col_is_not_empty(&self, c: usize) -> bool {
         let cc = self.col_perm.map(c);
         !self.columns[cc].empty()
@@ -255,9 +263,9 @@ impl SneakyMatrix {
         let cc = self.col_perm.map(c);
         let rr = self.row_perm.map(r);
         if val {
-            self.columns[cc].add(rr);
+            self.columns[cc].set(rr);
         } else {
-            self.columns[cc].remove(rr);
+            self.columns[cc].unset(rr);
         }
     }
 
@@ -269,22 +277,6 @@ impl SneakyMatrix {
 
     pub fn clone2(&self) -> Self {
         self.clone()
-    }
-}
-
-const _TRUE: bool = true;
-const _FALSE: bool = false;
-impl std::ops::Index<(usize, usize)> for SneakyMatrix {
-    type Output = bool;
-
-    fn index(&self, (r, c): (usize, usize)) -> &Self::Output {
-        let rr = self.row_perm.map(r);
-        let cc = self.col_perm.map(c);
-        if self.columns[cc].has(rr) {
-            &_TRUE
-        } else {
-            &_FALSE
-        }
     }
 }
 
@@ -309,11 +301,6 @@ fn perform_one_swap(i: usize, R: &mut SneakyMatrix, U_t: &mut SneakyMatrix) -> O
     let gives_birth_i = !gives_death_i;
     let gives_death_i_1 = gives_death(R, i + 1);
     let gives_birth_i_1 = !gives_death_i_1;
-
-    // println!(
-    //     "gives_death_i: {}, gives_birth_i: {}, gives_death_i_1: {}, gives_birth_i_1: {}",
-    //     gives_death_i, gives_birth_i, gives_death_i_1, gives_birth_i_1
-    // );
 
     // if gives_birth_i and gives_birth_i_1:
     if gives_birth_i && gives_birth_i_1 {
@@ -470,24 +457,27 @@ pub fn vine_to_vine(
     ret
 }
 
-/// Compute the transpositions required to swap one sequence to the other.  
-/// Assume that the vectors `a` and `b` contains unique and identical elements.
-/// Compute the transpositions required to swap `a` to `b` as a list of numbers,
-/// where `i` correspond to the transposition of `a[i]` and `a[i+1]`.
+/// Compute the transpositions required to swap a permutation to become `0..n`.
+///
+/// Returns a `Vec<usize>` where each element `i` correspond to the transposition
+/// `(i, i+1)` taking place.
+/// Also return the "column value" of the simplices that were swapped. This is
+/// used to figure out which simplices the swap consisted of.
 #[pyfunction]
-pub fn compute_transpositions(mut a: Vec<usize>) -> (Vec<usize>, Vec<(usize, usize)>) {
-    let n = a.len();
-    let n0 = zip(&a, 0..n).position(|(&aa, bb)| aa != bb).unwrap_or(n);
-    let n1 = zip(&a, 0..n).rposition(|(&aa, bb)| aa != bb).unwrap_or(n);
+pub fn compute_transpositions(mut b: Vec<usize>) -> (Vec<usize>, Vec<(usize, usize)>) {
+    // NOTE: The `this` ordering is implicitly `0..n`.
+    let n = b.len();
+    let n0 = zip(&b, 0..n).position(|(&aa, bb)| aa != bb).unwrap_or(n);
+    let n1 = zip(&b, 0..n).rposition(|(&aa, bb)| aa != bb).unwrap_or(n);
     let mut ret = Vec::with_capacity(n);
     let mut swapped_indices = Vec::with_capacity(n);
     for _ in n0..=n1 {
         let mut swap = false;
         for i in 0..(n - 1) {
-            if a[i] > a[i + 1] {
+            if b[i] > b[i + 1] {
                 ret.push(i);
-                a.swap(i, i + 1);
-                swapped_indices.push((a[i], a[i + 1]));
+                b.swap(i, i + 1);
+                swapped_indices.push((b[i], b[i + 1]));
                 swap = true;
             }
         }
@@ -500,6 +490,7 @@ pub fn compute_transpositions(mut a: Vec<usize>) -> (Vec<usize>, Vec<(usize, usi
 
 #[allow(non_snake_case)]
 #[pyfunction]
+/// Run both `compute_transpositions` and `vine_to_vine`.
 pub fn reduce_vine(
     ordering: Vec<usize>,
     R: &mut SneakyMatrix,
@@ -578,17 +569,17 @@ mod tests {
         let c2 = Col::from(vec![2, 4, 6, 8, 10]); // even below 10
         let c3 = Col::from(vec![1, 3, 5, 7, 9]); // odds below 10
 
-        assert_eq!(c1.union(&c2), Col::from(vec![1, 3, 5, 6, 8, 10]));
-        assert_eq!(c2.union(&c1), Col::from(vec![1, 3, 5, 6, 8, 10]));
-        assert_eq!(c1.union(&c3), Col::from(vec![2, 4, 7, 9]));
-        assert_eq!(c3.union(&c1), Col::from(vec![2, 4, 7, 9]));
+        assert_eq!(c1.add_mod2(&c2), Col::from(vec![1, 3, 5, 6, 8, 10]));
+        assert_eq!(c2.add_mod2(&c1), Col::from(vec![1, 3, 5, 6, 8, 10]));
+        assert_eq!(c1.add_mod2(&c3), Col::from(vec![2, 4, 7, 9]));
+        assert_eq!(c3.add_mod2(&c1), Col::from(vec![2, 4, 7, 9]));
 
         assert_eq!(
-            c2.union(&c3),
+            c2.add_mod2(&c3),
             Col::from(vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
         );
         assert_eq!(
-            c3.union(&c2),
+            c3.add_mod2(&c2),
             Col::from(vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
         );
     }

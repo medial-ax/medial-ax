@@ -309,6 +309,9 @@ class vineyard:
         with utils.Timed("reduce_vine: ordering"):
             ordering = cplx.ordering.by_dist_to(self.complex, point)
 
+        if version != "RS":
+            raise Exception("Lazy me disabled the others")
+
         if True:
             with utils.Timed("reduce_vine.almost-all"):
                 if isinstance(state, sparse_reduction_state):
@@ -330,15 +333,22 @@ class vineyard:
                 else:
                     raise Exception("Illegal type of state: ", type(state))
 
+                # Make a list `list[i] = j` such that `j` is the position in
+                # `ordering` for the simpliex at position `i` in
+                # `state.ordering`.
                 our = state.ordering.list_unique_index()
                 other_order = [ordering.i2o[s] for s in our]
                 with utils.Timed("mars.reduce_vine"):
                     faus_swap_is = mars.reduce_vine(other_order, R, D, U_t)
+                # NOTE: since the values in `list` are from `ordering`, we
+                # also need to use `ordering` here to get the actual simplex.
                 swaps = [
                     (ordering.get_simplex(a), ordering.get_simplex(b))
                     for (a, b) in faus_swap_is
                 ]
 
+                # Store state before pruning, so that the pruning can have
+                # access to the state.
                 new_state = rs_reduction_state(D, R, U_t, ordering, point, self.complex)
                 self.reduced_states.append(new_state)
                 key = self.get_point_key(point)

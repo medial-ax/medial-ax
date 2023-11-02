@@ -261,7 +261,7 @@ class ordering:
 
     def list_unique_index(self):
         """
-        Return a list of the unique indices in the ordering.
+        Return an ordered list of the unique indices in the ordering.
         """
         n = self.complex.nsimplices()
         return [self.o2i[i] for i in range(n)]
