@@ -565,23 +565,17 @@ mod tests {
 
     #[test]
     fn column() {
-        let c1 = Col::from(vec![1, 2, 3, 4, 5]); // 1 through 5
-        let c2 = Col::from(vec![2, 4, 6, 8, 10]); // even below 10
-        let c3 = Col::from(vec![1, 3, 5, 7, 9]); // odds below 10
+        let c1: Col = vec![1, 2, 3, 4, 5].into(); // 1 through 5
+        let c2: Col = vec![2, 4, 6, 8, 10].into(); // even below 10
+        let c3: Col = vec![1, 3, 5, 7, 9].into(); // odds below 10
 
-        assert_eq!(c1.add_mod2(&c2), Col::from(vec![1, 3, 5, 6, 8, 10]));
-        assert_eq!(c2.add_mod2(&c1), Col::from(vec![1, 3, 5, 6, 8, 10]));
-        assert_eq!(c1.add_mod2(&c3), Col::from(vec![2, 4, 7, 9]));
-        assert_eq!(c3.add_mod2(&c1), Col::from(vec![2, 4, 7, 9]));
+        assert_eq!(c1.add_mod2(&c2), vec![1, 3, 5, 6, 8, 10].into());
+        assert_eq!(c2.add_mod2(&c1), vec![1, 3, 5, 6, 8, 10].into());
+        assert_eq!(c1.add_mod2(&c3), vec![2, 4, 7, 9].into());
+        assert_eq!(c3.add_mod2(&c1), vec![2, 4, 7, 9].into());
 
-        assert_eq!(
-            c2.add_mod2(&c3),
-            Col::from(vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
-        );
-        assert_eq!(
-            c3.add_mod2(&c2),
-            Col::from(vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
-        );
+        assert_eq!(c2.add_mod2(&c3), vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10].into());
+        assert_eq!(c3.add_mod2(&c2), vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10].into());
     }
 
     #[test]
