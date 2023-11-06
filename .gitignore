@@ -3,3 +3,6 @@ output/
 .ipynb_checkpoints/
 .vscode/
 *.png
+.DS_Store
+.vscode
+pyfiles
