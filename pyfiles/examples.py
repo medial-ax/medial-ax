@@ -181,3 +181,12 @@ shoebox_3 = Example(
     prune_eps=0,
     medial_axis=0,
 )
+
+squish_cyl = Example(
+    filename="input/squish_cyl.obj",
+    grid_size=0.1,
+    grid_buffer=0.17,
+    camera_opt=CameraOpt(azim=20, elev=30),
+    prune_eps=0,
+    medial_axis=0,
+)
