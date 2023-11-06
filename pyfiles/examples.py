@@ -145,3 +145,39 @@ cube_subdiv2_pruned_ma1 = Example(
 """
 Subdivided twice; 32 triangles per cube face.
 """
+
+rect_test = Example(
+    filename="input/extruded_rect.obj",
+    grid_size=0.1,
+    grid_buffer=0.1,
+    camera_opt=CameraOpt(azim=20, elev=30),
+    prune_eps=0,
+    medial_axis=1,
+)
+
+rect_test2 = Example(
+    filename="input/extruded_rect_2.obj",
+    grid_size=0.1,
+    grid_buffer=0.1,
+    camera_opt=CameraOpt(azim=20, elev=30),
+    prune_eps=1,
+    medial_axis=0,
+)
+
+shoebox = Example(
+    filename="input/covered_shoebox.obj",
+    grid_size=0.1,
+    grid_buffer=0.1,
+    camera_opt=CameraOpt(azim=20, elev=30),
+    prune_eps=0,
+    medial_axis=0,
+)
+
+shoebox_3 = Example(
+    filename="input/covered_shoebox_5.obj",
+    grid_size=0.1,
+    grid_buffer=0.17,
+    camera_opt=CameraOpt(azim=20, elev=30),
+    prune_eps=0,
+    medial_axis=0,
+)
