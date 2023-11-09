@@ -496,13 +496,17 @@ pub fn reduce_vine(
     R: &mut SneakyMatrix,
     D: &mut SneakyMatrix,
     U_t: &mut SneakyMatrix,
-) -> Vec<(usize, usize)> {
+) -> (Vec<(usize, usize)>, usize) {
     let (swapped_indices, swapped_simplices) = compute_transpositions(ordering);
+    let num_swaps = swapped_indices.len();
     let faustians = vine_to_vine(D, R, U_t, swapped_indices);
-    faustians
-        .into_iter()
-        .map(|i| swapped_simplices[i])
-        .collect::<Vec<_>>()
+    (
+        faustians
+            .into_iter()
+            .map(|i| swapped_simplices[i])
+            .collect::<Vec<_>>(),
+        num_swaps,
+    )
 }
 
 #[pymodule]

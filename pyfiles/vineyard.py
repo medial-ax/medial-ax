@@ -165,10 +165,16 @@ class vineyard:
     state_map: DefaultDict
     reduced_states: List[sparse_reduction_state | dense_reduction_state]
 
+    num_swaps: int
+    """The number of swaps performed in the reduction."""
+    swap_counts: List[int]
+
     def __init__(self, complex: cplx.complex):
         self.complex = complex
         self.reduced_states = []
         self.state_map = defaultdict(list)
+        self.num_swaps = 0
+        self.swap_counts = []
 
     def reduce(
         self, point: np.ndarray, version: Version = "RS", asserts=False
@@ -322,7 +328,9 @@ class vineyard:
                 our = state.ordering.list_unique_index()
                 other_order = [ordering.i2o[s] for s in our]
                 with utils.Timed("mars.reduce_vine"):
-                    faus_swap_is = mars.reduce_vine(other_order, R, D, U_t)
+                    faus_swap_is, num_swaps = mars.reduce_vine(other_order, R, D, U_t)
+                self.num_swaps += num_swaps
+                self.swap_counts.append(num_swaps)
                 # NOTE: since the values in `list` are from `ordering`, we
                 # also need to use `ordering` here to get the actual simplex.
                 swaps = [
