@@ -69,6 +69,10 @@ impl Permutation {
             backwards,
         }
     }
+
+    pub fn into_forwards(self) -> Vec<usize> {
+        self.forwards
+    }
 }
 
 #[cfg(test)]

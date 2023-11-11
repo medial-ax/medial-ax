@@ -19,6 +19,27 @@ pub struct Reduction {
     pub orderings: [Permutation; 3],
 }
 
+#[allow(non_snake_case)]
+impl Reduction {
+    pub fn D(&self, dim: isize) -> &SneakyMatrix {
+        assert!(0 <= dim);
+        assert!(dim <= 2);
+        &self.matrices[dim as usize].0
+    }
+
+    pub fn R(&self, dim: isize) -> &SneakyMatrix {
+        assert!(0 <= dim);
+        assert!(dim <= 2);
+        &self.matrices[dim as usize].1
+    }
+
+    pub fn U_t(&self, dim: isize) -> &SneakyMatrix {
+        assert!(0 <= dim);
+        assert!(dim <= 2);
+        &self.matrices[dim as usize].2
+    }
+}
+
 pub fn inverse_zz2(mat: &SneakyMatrix) -> Result<SneakyMatrix, String> {
     let res: PyResult<SneakyMatrix> = Python::with_gil(|py| {
         println!("set up module");
@@ -68,9 +89,10 @@ def invert(rs_mat):
     res.map_err(|e| e.to_string())
 }
 
-#[allow(non_snake_case)]
-#[pyfunction]
-pub fn reduce_from_scratch(complex: &Complex, key_point: Pos) -> Reduction {
+fn compute_permutations(
+    complex: &Complex,
+    key_point: Pos,
+) -> (Permutation, Permutation, Permutation) {
     let vertex_distances = complex.simplices_per_dim[0]
         .iter()
         .map(|v| float_ord::FloatOrd(v.coords.unwrap().dist(&key_point)))
@@ -95,6 +117,33 @@ pub fn reduce_from_scratch(complex: &Complex, key_point: Pos) -> Reduction {
     let v_perm = Permutation::from_ord(&vertex_distances);
     let e_perm = Permutation::from_ord(&edge_distances);
     let t_perm = Permutation::from_ord(&triangle_distances);
+
+    (v_perm, e_perm, t_perm)
+}
+
+pub fn vineyards_123(complex: &Complex, reduction: &Reduction, key_point: Pos) {
+    let (v_perm, e_perm, t_perm) = compute_permutations(complex, key_point);
+
+    let R0 = reduction.R(0).clone();
+    let D0 = reduction.D(0).clone();
+    let U_t0 = reduction.U_t(0).clone();
+
+    let R1 = reduction.R(1).clone();
+    let D1 = reduction.D(1).clone();
+    let U_t1 = reduction.U_t(1).clone();
+
+    let mut R2 = reduction.R(2).clone();
+    let mut D2 = reduction.D(2).clone();
+    let mut U_t2 = reduction.U_t(2).clone();
+
+    let ordering2 = t_perm.into_forwards();
+    let vines = reduce_vine(ordering2, &mut R2, &mut D2, &mut U_t2);
+}
+
+#[allow(non_snake_case)]
+#[pyfunction]
+pub fn reduce_from_scratch(complex: &Complex, key_point: Pos) -> Reduction {
+    let (v_perm, e_perm, t_perm) = compute_permutations(complex, key_point);
 
     let mut boundary_0 = complex.boundary_matrix(0);
     boundary_0.col_perm = v_perm.clone();
