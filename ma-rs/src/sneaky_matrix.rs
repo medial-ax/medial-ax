@@ -234,7 +234,8 @@ impl SneakyMatrix {
     }
 
     /// Reduces the matrix.
-    pub fn reduce(&mut self) {
+    pub fn reduce(&mut self) -> Vec<(usize, usize)> {
+        let mut adds = Vec::new();
         for c in 0..self.cols {
             if !self.col_is_not_empty(c) {
                 continue;
@@ -245,6 +246,7 @@ impl SneakyMatrix {
                 for cc in 0..c {
                     let cc_low = self.colmax(cc);
                     if cc_low == low {
+                        adds.push((c, cc));
                         self.add_cols(c, cc);
                         continue 'outer;
                     }
@@ -252,6 +254,7 @@ impl SneakyMatrix {
                 break;
             }
         }
+        adds
     }
 }
 
