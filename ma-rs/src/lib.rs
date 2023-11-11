@@ -75,15 +75,17 @@ pub fn reduce_from_scratch(complex: &Complex, key_point: Pos) -> Reduction {
 
     let edge_distances = complex.simplices_per_dim[1]
         .iter()
-        .map(|e| vertex_distances[e.boundary[0]].max(vertex_distances[e.boundary[1]]))
+        .map(|e| {
+            vertex_distances[e.boundary[0] as usize].max(vertex_distances[e.boundary[1] as usize])
+        })
         .collect::<Vec<_>>();
 
     let triangle_distances = complex.simplices_per_dim[2]
         .iter()
         .map(|f| {
-            edge_distances[f.boundary[0]]
-                .max(edge_distances[f.boundary[1]])
-                .max(edge_distances[f.boundary[2]])
+            edge_distances[f.boundary[0] as usize]
+                .max(edge_distances[f.boundary[1] as usize])
+                .max(edge_distances[f.boundary[2] as usize])
         })
         .collect::<Vec<_>>();
 
@@ -382,7 +384,6 @@ fn mars(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<SneakyMatrix>()?;
     m.add_class::<Permutation>()?;
     m.add_class::<Col>()?;
-    m.add_class::<Pos>()?;
     m.add_class::<Simplex>()?;
     m.add_class::<Complex>()?;
     Ok(())
