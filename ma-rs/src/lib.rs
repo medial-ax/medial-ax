@@ -10,13 +10,25 @@ pub mod permutation;
 pub mod sneaky_matrix;
 
 #[pyo3::pyclass(get_all)]
+#[derive(Clone, Debug)]
+#[allow(non_snake_case)]
+pub struct Vine {
+    /// Boundary matrix
+    pub D: SneakyMatrix,
+    /// Reduced boundary matrix
+    pub R: SneakyMatrix,
+    /// Inverse of the "column adds" matrix.
+    pub U_t: SneakyMatrix,
+    /// Ordering of the simplices, from the cannonical ordering in the complex.
+    pub ordering: Permutation,
+}
+
+#[pyo3::pyclass(get_all)]
+#[derive(Clone, Debug)]
 pub struct Reduction {
     /// Key point around which the reduction is done.
     pub key_point: Pos,
-    /// D, R, U_t, for each dimension.
-    pub matrices: [(SneakyMatrix, SneakyMatrix, SneakyMatrix); 3],
-    /// Permutations of the simplices for each dimension.
-    pub orderings: [Permutation; 3],
+    pub vines: [Vine; 3],
 }
 
 #[allow(non_snake_case)]
@@ -24,19 +36,25 @@ impl Reduction {
     pub fn D(&self, dim: isize) -> &SneakyMatrix {
         assert!(0 <= dim);
         assert!(dim <= 2);
-        &self.matrices[dim as usize].0
+        &self.vines[dim as usize].D
     }
 
     pub fn R(&self, dim: isize) -> &SneakyMatrix {
         assert!(0 <= dim);
         assert!(dim <= 2);
-        &self.matrices[dim as usize].1
+        &self.vines[dim as usize].R
     }
 
     pub fn U_t(&self, dim: isize) -> &SneakyMatrix {
         assert!(0 <= dim);
         assert!(dim <= 2);
-        &self.matrices[dim as usize].2
+        &self.vines[dim as usize].U_t
+    }
+
+    pub fn ordering(&self, dim: isize) -> &Permutation {
+        assert!(0 <= dim);
+        assert!(dim <= 2);
+        &self.vines[dim as usize].ordering
     }
 }
 
@@ -188,8 +206,26 @@ pub fn reduce_from_scratch(complex: &Complex, key_point: Pos) -> Reduction {
 
     Reduction {
         key_point,
-        matrices: [(D0, R0, U_t0), (D1, R1, U_t1), (D2, R2, U_t2)],
-        orderings: [v_perm, e_perm, t_perm],
+        vines: [
+            Vine {
+                D: D0,
+                R: R0,
+                U_t: U_t0,
+                ordering: v_perm,
+            },
+            Vine {
+                D: D1,
+                R: R1,
+                U_t: U_t1,
+                ordering: e_perm,
+            },
+            Vine {
+                D: D2,
+                R: R2,
+                U_t: U_t2,
+                ordering: t_perm,
+            },
+        ],
     }
 }
 
