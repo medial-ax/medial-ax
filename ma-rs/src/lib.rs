@@ -9,6 +9,7 @@ pub mod complex;
 pub mod permutation;
 pub mod sneaky_matrix;
 
+#[pyo3::pyclass(get_all)]
 pub struct Reduction {
     /// Key point around which the reduction is done.
     pub key_point: Pos,
@@ -39,10 +40,11 @@ def invert(rs_mat):
     inv = np.linalg.inv(gf)
     U_t = np.array(inv).T
 
-    ret = mars.SneakyMatrix.zeros(U_t.rows, U_t.cols)
-    for r in range(U.shape[0]):
-        for c in range(U.shape[1])):
-            if U[r, c] == 1:
+    (rr, cc) = U_t.shape
+    ret = mars.SneakyMatrix.zeros(rr, cc)
+    for r in range(rr):
+        for c in range(cc):
+            if U_t[r, c] == 1:
                 ret.set(r, c, True)
     return ret
 "#,
@@ -67,6 +69,7 @@ def invert(rs_mat):
 }
 
 #[allow(non_snake_case)]
+#[pyfunction]
 pub fn reduce_from_scratch(complex: &Complex, key_point: Pos) -> Reduction {
     let vertex_distances = complex.simplices_per_dim[0]
         .iter()
@@ -381,6 +384,7 @@ fn mars(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(compute_transpositions, m)?)?;
     m.add_function(wrap_pyfunction!(reduce_vine, m)?)?;
     m.add_function(wrap_pyfunction!(read_from_obj, m)?)?;
+    m.add_function(wrap_pyfunction!(reduce_from_scratch, m)?)?;
     m.add_class::<SneakyMatrix>()?;
     m.add_class::<Permutation>()?;
     m.add_class::<Col>()?;

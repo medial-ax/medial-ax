@@ -160,6 +160,24 @@ impl SneakyMatrix {
         })
     }
 
+    pub fn __str__(&self) -> String {
+        let mut s = String::new();
+        for r in 0..self.rows {
+            let rr = self.row_perm.map(r);
+            s.push('|');
+            for c in 0..self.cols {
+                let cc = self.col_perm.map(c);
+                if self.columns[cc].has(rr) {
+                    s.push('×');
+                } else {
+                    s.push(' ');
+                }
+            }
+            s.push_str("|\n");
+        }
+        s
+    }
+
     pub fn swap_rows(&mut self, a: usize, b: usize) {
         self.row_perm.swap(a, b);
     }
@@ -243,6 +261,9 @@ impl SneakyMatrix {
 
             'outer: loop {
                 let low = self.colmax(c);
+                if low.is_none() {
+                    break;
+                }
                 for cc in 0..c {
                     let cc_low = self.colmax(cc);
                     if cc_low == low {
