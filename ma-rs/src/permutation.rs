@@ -13,6 +13,17 @@ impl Permutation {
         }
     }
 
+    pub fn from_forwards(forwards: Vec<usize>) -> Self {
+        let mut backwards = vec![0; forwards.len()];
+        for (i, &f) in forwards.iter().enumerate() {
+            backwards[f] = i;
+        }
+        Permutation {
+            forwards,
+            backwards,
+        }
+    }
+
     pub fn map(&self, a: usize) -> usize {
         self.forwards[a]
     }
@@ -72,6 +83,20 @@ impl Permutation {
 
     pub fn into_forwards(self) -> Vec<usize> {
         self.forwards
+    }
+
+    pub fn into_backwards(self) -> Vec<usize> {
+        self.backwards
+    }
+
+    /// Given two orderings `a` and `b`, return the permutation `p` such that
+    /// `p[a[i]] == b[i]`.
+    pub fn from_to(a: &Self, b: &Self) -> Self {
+        let mut v = vec![0; a.len()];
+        for i in 0..a.len() {
+            v[a.map(i)] = b.map(i);
+        }
+        Self::from_forwards(v)
     }
 }
 
@@ -136,5 +161,37 @@ mod tests {
         assert_eq!(p.map(4), 3);
 
         test_inverse(&p);
+    }
+
+    #[test]
+    fn from_to_already_id() {
+        let a = Permutation::from_forwards(vec![0, 1, 2, 3, 4]);
+        let b = Permutation::from_forwards(vec![3, 2, 0, 1, 4]);
+        let p = Permutation::from_to(&a, &b);
+        // We want `p[a[i]] == b[i]`
+        assert_eq!(p.into_forwards(), vec![3, 2, 0, 1, 4]);
+    }
+
+    #[test]
+    fn from_to_equal_inputs() {
+        let a = Permutation::from_forwards(vec![2, 4, 1, 0, 3]);
+        let b = Permutation::from_forwards(vec![2, 4, 1, 0, 3]);
+        let p = Permutation::from_to(&a, &b);
+        // We want `p[a[i]] == b[i]`
+        assert_eq!(p.into_forwards(), vec![0, 1, 2, 3, 4]);
+    }
+
+    #[test]
+    fn from_to_test1() {
+        let a = Permutation::from_forwards(vec![2, 1, 4, 0, 3]);
+        let b = Permutation::from_forwards(vec![3, 2, 0, 4, 1]);
+        let p = Permutation::from_to(&a, &b);
+        // We want `p[a[i]] == b[i]`
+        // i = 0: a[0] = 2, b[0] = 3, p[2] = 3
+        // i = 1: a[1] = 1, b[1] = 2, p[1] = 2
+        // i = 2: a[2] = 4, b[2] = 0, p[4] = 0
+        // i = 3: a[3] = 0, b[3] = 4, p[0] = 4
+        // i = 4: a[4] = 3, b[4] = 1, p[3] = 1
+        assert_eq!(p.into_forwards(), vec![4, 2, 3, 1, 0]);
     }
 }

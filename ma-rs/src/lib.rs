@@ -20,7 +20,7 @@ pub struct Stack {
     pub R: SneakyMatrix,
     /// Inverse of the "column adds" matrix.
     pub U_t: SneakyMatrix,
-    /// Ordering of the simplices, from the cannonical ordering in the complex.
+    /// Ordering of the simplices. Cannonical to sorted order.
     pub ordering: Permutation,
 }
 
@@ -108,6 +108,14 @@ def invert(rs_mat):
     res.map_err(|e| e.to_string())
 }
 
+/// The permutations returned are such that when you go forwards through the
+/// permutation, you get the simplices in sorted order based on their distance
+/// to the key point.
+///
+/// I.e, `v_perm[0]` is the canonical index of the closest vertex, and
+/// `v_perm[0]` is the canonical index of the second closest index.
+///
+/// In other words, `v_perm.map` takes a "sorted" index and returns a "canonical" index.
 fn compute_permutations(
     complex: &Complex,
     key_point: Pos,
@@ -140,29 +148,83 @@ fn compute_permutations(
     (v_perm, e_perm, t_perm)
 }
 
-pub fn vineyards_123(complex: &Complex, reduction: &Reduction, key_point: Pos) {
-    let (v_perm, e_perm, t_perm) = compute_permutations(complex, key_point);
+/// Returns a [Vec] with one element per faustian swap. The elements are `(dim,
+/// (i, j))` where `dim` is the dimension of the simplices that were swapped,
+/// and `i` and `j` are the canonical indices of the swapped simplices.
+pub fn vineyards_123(
+    complex: &Complex,
+    reduction: &Reduction,
+    key_point: Pos,
+) -> Vec<(i32, (usize, usize))> {
+    let (mut v_perm, mut e_perm, mut t_perm) = compute_permutations(complex, key_point);
 
-    let R0 = reduction.R(0).clone();
-    let D0 = reduction.D(0).clone();
-    let U_t0 = reduction.U_t(0).clone();
+    let mut stack0 = reduction.stacks[0].clone();
+    let mut stack1 = reduction.stacks[1].clone();
+    let mut stack2 = reduction.stacks[2].clone();
 
-    let R1 = reduction.R(1).clone();
-    let D1 = reduction.D(1).clone();
-    let U_t1 = reduction.U_t(1).clone();
+    let mut faustian_swap_simplices = Vec::new();
 
-    let mut R2 = reduction.R(2).clone();
-    let mut D2 = reduction.D(2).clone();
-    let mut U_t2 = reduction.U_t(2).clone();
+    // NOTE: we need the permutation from cannonical to sorted, so that we can
+    // get the permutation that takes us from the `b` point to the `a` point, so
+    // that, in turn, we can bubble sort from `a` to `b`.
+    v_perm.reverse();
+    let vine_ordering0 = Permutation::from_to(&v_perm, &stack0.ordering);
+    let (swap_is0, simplices_that_got_swapped0) =
+        compute_transpositions(vine_ordering0.into_forwards());
+    for &i in &swap_is0 {
+        let res = perform_one_swap2(i, &mut stack0, &mut stack1);
+        stack0.D.swap_cols_and_rows(i, i + 1);
+        if let Some(true) = res {
+            // These are indices of simplices that we said were the 0,1,2... order
+            // in the bubble sort (compute_transpositions).  This is the order
+            // of the simplices at `b`.
+            let (i, j) = simplices_that_got_swapped0[i];
+            let cann_i = v_perm.inv(i);
+            let cann_j = v_perm.inv(j);
 
-    let ordering2 = t_perm.into_forwards();
-    let vines = reduce_vine(ordering2, &mut R2, &mut D2, &mut U_t2);
+            faustian_swap_simplices.push((0, (cann_i, cann_j)));
+        }
+    }
+
+    e_perm.reverse();
+    let vine_ordering1 = Permutation::from_to(&e_perm, &stack1.ordering);
+    let (swap_is1, simplices_that_got_swapped1) =
+        compute_transpositions(vine_ordering1.into_forwards());
+    for &i in &swap_is1 {
+        let res = perform_one_swap2(i, &mut stack1, &mut stack2);
+        stack1.D.swap_cols_and_rows(i, i + 1);
+        if let Some(true) = res {
+            let (i, j) = simplices_that_got_swapped1[i];
+            let cann_i = e_perm.inv(i);
+            let cann_j = e_perm.inv(j);
+
+            faustian_swap_simplices.push((1, (cann_i, cann_j)));
+        }
+    }
+
+    t_perm.reverse();
+    let vine_ordering2 = Permutation::from_to(&t_perm, &stack2.ordering);
+    let (swap_is2, simplices_that_got_swapped2) =
+        compute_transpositions(vine_ordering2.into_forwards());
+    for &i in &swap_is2 {
+        let res = perform_one_swap_top_dim(i, &mut stack2);
+        stack2.D.swap_cols_and_rows(i, i + 1);
+        if let Some(true) = res {
+            let (i, j) = simplices_that_got_swapped2[i];
+            let cann_i = t_perm.inv(i);
+            let cann_j = t_perm.inv(j);
+
+            faustian_swap_simplices.push((2, (cann_i, cann_j)));
+        }
+    }
+
+    faustian_swap_simplices
 }
 
 #[allow(non_snake_case)]
 #[pyfunction]
 pub fn reduce_from_scratch(complex: &Complex, key_point: Pos) -> Reduction {
-    let (v_perm, e_perm, t_perm) = compute_permutations(complex, key_point);
+    let (mut v_perm, mut e_perm, mut t_perm) = compute_permutations(complex, key_point);
 
     let mut boundary_0 = complex.boundary_matrix(0);
     boundary_0.col_perm = v_perm.clone();
@@ -205,6 +267,10 @@ pub fn reduce_from_scratch(complex: &Complex, key_point: Pos) -> Reduction {
     let R1 = boundary_1;
     let R2 = boundary_2;
 
+    v_perm.reverse();
+    e_perm.reverse();
+    t_perm.reverse();
+
     Reduction {
         key_point,
         stacks: [
@@ -228,6 +294,284 @@ pub fn reduce_from_scratch(complex: &Complex, key_point: Pos) -> Reduction {
             },
         ],
     }
+}
+
+#[allow(non_snake_case)]
+fn perform_one_swap2(i: usize, stack: &mut Stack, up_stack: &mut Stack) -> Option<bool> {
+    #[allow(non_snake_case)]
+    fn gives_death(R: &SneakyMatrix, c: usize) -> bool {
+        R.col_is_not_empty(c)
+    }
+
+    #[allow(non_snake_case)]
+    fn low(R: &SneakyMatrix, c: usize) -> Option<usize> {
+        R.colmax(c)
+    }
+
+    #[allow(non_snake_case)]
+    fn low_inv(R: &SneakyMatrix, r: usize) -> Option<usize> {
+        R.col_with_low(r)
+    }
+
+    let gives_death_i = gives_death(&stack.R, i);
+    let gives_birth_i = !gives_death_i;
+    let gives_death_i_1 = gives_death(&stack.R, i + 1);
+    let gives_birth_i_1 = !gives_death_i_1;
+
+    // if gives_birth_i and gives_birth_i_1:
+    if gives_birth_i && gives_birth_i_1 {
+        // U_t[i + 1, i] = 0
+        stack.U_t.set(i + 1, i, false);
+        // k = low_inv(i)
+        let k = low_inv(&up_stack.R, i);
+        // l = low_inv(i + 1)
+        let l = low_inv(&up_stack.R, i + 1);
+        // if k != None and l != None and R[i, l] == 1:
+        if let (Some(k), Some(l)) = (k, l) {
+            if up_stack.R.get(i, l) {
+                // if k < l:
+                if k < l {
+                    // R.swap_cols_and_rows(i, i + 1)  # PRP
+                    stack.R.swap_cols(i, i + 1);
+                    up_stack.R.swap_rows(i, i + 1);
+                    // R.add_cols(l, k)  # PRPV
+                    up_stack.R.add_cols(l, k);
+                    // U_t.swap_cols_and_rows(i, i + 1)  # PUP
+                    stack.U_t.swap_cols_and_rows(i, i + 1);
+                    // U_t.add_cols(k, l)  # VPUP
+                    up_stack.U_t.add_cols(k, l);
+                    // return (R, U_t, None)
+                    return None;
+                }
+                // if l < k:
+                if l < k {
+                    // R.swap_cols_and_rows(i, i + 1)  # PRP
+                    stack.R.swap_cols(i, i + 1);
+                    up_stack.R.swap_rows(i, i + 1);
+                    // R.add_cols(k, l)  # PRPV
+                    up_stack.R.add_cols(k, l);
+                    // U_t.swap_cols_and_rows(i, i + 1)  # PUP
+                    stack.U_t.swap_cols_and_rows(i, i + 1);
+                    // U_t.add_cols(l, k)  # VPUP
+                    up_stack.U_t.add_cols(l, k);
+                    // return (R, U_t, False)
+                    return Some(false);
+                }
+                panic!("This should never happen: l == k ({})", l);
+                // raise Exception("k = l; This should never happen.")
+                // else:
+            }
+        }
+
+        // else case
+        // R.swap_cols_and_rows(i, i + 1)  # PRP
+        stack.R.swap_cols(i, i + 1);
+        up_stack.R.swap_rows(i, i + 1);
+        // U_t.swap_cols_and_rows(i, i + 1)  # PUP
+        stack.U_t.swap_cols_and_rows(i, i + 1);
+        // return (R, U_t, None)
+        return None;
+    }
+    // if gives_death_i and gives_death_i_1:
+    if gives_death_i && gives_death_i_1 {
+        // if U_t[i + 1, i] == 1:
+        if stack.U_t.get(i + 1, i) {
+            // low_i = low(i)
+            let low_i = low(&stack.R, i);
+            // low_i_1 = low(i + 1)
+            let low_i_1 = low(&stack.R, i + 1);
+            // U_t.add_cols(i, i + 1)  # W U
+            stack.U_t.add_cols(i, i + 1);
+            // R.add_cols(i + 1, i)  # R W
+            stack.R.add_cols(i + 1, i);
+            // R.swap_cols_and_rows(i, i + 1)  # P R W P
+            stack.R.swap_cols(i, i + 1);
+            up_stack.R.swap_rows(i, i + 1);
+            // U_t.swap_cols_and_rows(i, i + 1)  # P W U P
+            stack.U_t.swap_cols_and_rows(i, i + 1);
+            // if low_i < low_i_1:
+            if low_i < low_i_1 {
+                // return (R, U_t, None)
+                return None;
+            // else:
+            } else {
+                // R.add_cols(i + 1, i)  # (P R W P) W
+                stack.R.add_cols(i + 1, i);
+                // U_t.add_cols(i, i + 1)  # W (P W U P)
+                stack.U_t.add_cols(i, i + 1);
+                // return (R, U_t, False)
+                return Some(false);
+            }
+        // else:
+        } else {
+            // R.swap_cols_and_rows(i, i + 1)  # P R P
+            stack.R.swap_cols(i, i + 1);
+            up_stack.R.swap_rows(i, i + 1);
+            // U_t.swap_cols_and_rows(i, i + 1)  # P U P
+            stack.U_t.swap_cols_and_rows(i, i + 1);
+            // return (R, U_t, None)
+            return None;
+        }
+    }
+    // if gives_death_i and gives_birth_i_1:
+    if gives_death_i && gives_birth_i_1 {
+        // if U_t[i + 1, i] == 1:
+        if stack.U_t.get(i + 1, i) {
+            // U_t.add_cols(i, i + 1)  # W U
+            stack.U_t.add_cols(i, i + 1);
+            // R.add_cols(i + 1, i)  # R W
+            stack.R.add_cols(i + 1, i);
+            // R.swap_cols_and_rows(i, i + 1)  # P R W P
+            stack.R.swap_cols(i, i + 1);
+            up_stack.R.swap_rows(i, i + 1);
+            // R.add_cols(i + 1, i)  # (P R W P) W
+            stack.R.add_cols(i + 1, i);
+            // U_t.swap_cols_and_rows(i, i + 1)  # P W U P
+            stack.U_t.swap_cols_and_rows(i, i + 1);
+            // U_t.add_cols(i, i + 1)  # W (P W U P)
+            stack.U_t.add_cols(i, i + 1);
+            // return (R, U_t, True)
+            return Some(true);
+        // else:
+        } else {
+            // R.swap_cols_and_rows(i, i + 1)  # P R P
+            stack.R.swap_cols(i, i + 1);
+            up_stack.R.swap_rows(i, i + 1);
+            // U_t.swap_cols_and_rows(i, i + 1)  # P U P
+            stack.U_t.swap_cols_and_rows(i, i + 1);
+            // return (R, U_t, None)
+            return None;
+        }
+    }
+    // if gives_birth_i and gives_death_i_1:
+    if gives_birth_i && gives_death_i_1 {
+        // U_t[i + 1, i] = 0
+        stack.U_t.set(i + 1, i, false);
+        // R.swap_cols_and_rows(i, i + 1)  # P R P
+        stack.R.swap_cols(i, i + 1);
+        up_stack.R.swap_rows(i, i + 1);
+        // U_t.swap_cols_and_rows(i, i + 1)  # P U P
+        stack.U_t.swap_cols_and_rows(i, i + 1);
+        // return (R, U_t, None)
+        return None;
+    }
+
+    // raise Exception("bottom of the function; This should never happen.")
+    panic!("This should never happen: no cases matched.");
+}
+
+#[allow(non_snake_case)]
+fn perform_one_swap_top_dim(i: usize, stack: &mut Stack) -> Option<bool> {
+    #[allow(non_snake_case)]
+    fn gives_death(R: &SneakyMatrix, c: usize) -> bool {
+        R.col_is_not_empty(c)
+    }
+
+    #[allow(non_snake_case)]
+    fn low(R: &SneakyMatrix, c: usize) -> Option<usize> {
+        R.colmax(c)
+    }
+
+    let gives_death_i = gives_death(&stack.R, i);
+    let gives_birth_i = !gives_death_i;
+    let gives_death_i_1 = gives_death(&stack.R, i + 1);
+    let gives_birth_i_1 = !gives_death_i_1;
+
+    // if gives_birth_i and gives_birth_i_1:
+    if gives_birth_i && gives_birth_i_1 {
+        // U_t[i + 1, i] = 0
+        stack.U_t.set(i + 1, i, false);
+        // k = low_inv(i)
+
+        // else case
+        // R.swap_cols_and_rows(i, i + 1)  # PRP
+        stack.R.swap_cols(i, i + 1);
+        // U_t.swap_cols_and_rows(i, i + 1)  # PUP
+        stack.U_t.swap_cols_and_rows(i, i + 1);
+        // return (R, U_t, None)
+        return None;
+    }
+    // if gives_death_i and gives_death_i_1:
+    if gives_death_i && gives_death_i_1 {
+        // if U_t[i + 1, i] == 1:
+        if stack.U_t.get(i + 1, i) {
+            // low_i = low(i)
+            let low_i = low(&stack.R, i);
+            // low_i_1 = low(i + 1)
+            let low_i_1 = low(&stack.R, i + 1);
+            // U_t.add_cols(i, i + 1)  # W U
+            stack.U_t.add_cols(i, i + 1);
+            // R.add_cols(i + 1, i)  # R W
+            stack.R.add_cols(i + 1, i);
+            // R.swap_cols_and_rows(i, i + 1)  # P R W P
+            stack.R.swap_cols(i, i + 1);
+            // U_t.swap_cols_and_rows(i, i + 1)  # P W U P
+            stack.U_t.swap_cols_and_rows(i, i + 1);
+            // if low_i < low_i_1:
+            if low_i < low_i_1 {
+                // return (R, U_t, None)
+                return None;
+            // else:
+            } else {
+                // R.add_cols(i + 1, i)  # (P R W P) W
+                stack.R.add_cols(i + 1, i);
+                // U_t.add_cols(i, i + 1)  # W (P W U P)
+                stack.U_t.add_cols(i, i + 1);
+                // return (R, U_t, False)
+                return Some(false);
+            }
+        // else:
+        } else {
+            // R.swap_cols_and_rows(i, i + 1)  # P R P
+            stack.R.swap_cols(i, i + 1);
+            // U_t.swap_cols_and_rows(i, i + 1)  # P U P
+            stack.U_t.swap_cols_and_rows(i, i + 1);
+            // return (R, U_t, None)
+            return None;
+        }
+    }
+    // if gives_death_i and gives_birth_i_1:
+    if gives_death_i && gives_birth_i_1 {
+        // if U_t[i + 1, i] == 1:
+        if stack.U_t.get(i + 1, i) {
+            // U_t.add_cols(i, i + 1)  # W U
+            stack.U_t.add_cols(i, i + 1);
+            // R.add_cols(i + 1, i)  # R W
+            stack.R.add_cols(i + 1, i);
+            // R.swap_cols_and_rows(i, i + 1)  # P R W P
+            stack.R.swap_cols(i, i + 1);
+            // R.add_cols(i + 1, i)  # (P R W P) W
+            stack.R.add_cols(i + 1, i);
+            // U_t.swap_cols_and_rows(i, i + 1)  # P W U P
+            stack.U_t.swap_cols_and_rows(i, i + 1);
+            // U_t.add_cols(i, i + 1)  # W (P W U P)
+            stack.U_t.add_cols(i, i + 1);
+            // return (R, U_t, True)
+            return Some(true);
+        // else:
+        } else {
+            // R.swap_cols_and_rows(i, i + 1)  # P R P
+            stack.R.swap_cols(i, i + 1);
+            // U_t.swap_cols_and_rows(i, i + 1)  # P U P
+            stack.U_t.swap_cols_and_rows(i, i + 1);
+            // return (R, U_t, None)
+            return None;
+        }
+    }
+    // if gives_birth_i and gives_death_i_1:
+    if gives_birth_i && gives_death_i_1 {
+        // U_t[i + 1, i] = 0
+        stack.U_t.set(i + 1, i, false);
+        // R.swap_cols_and_rows(i, i + 1)  # P R P
+        stack.R.swap_cols(i, i + 1);
+        // U_t.swap_cols_and_rows(i, i + 1)  # P U P
+        stack.U_t.swap_cols_and_rows(i, i + 1);
+        // return (R, U_t, None)
+        return None;
+    }
+
+    // raise Exception("bottom of the function; This should never happen.")
+    panic!("This should never happen: no cases matched.");
 }
 
 #[allow(non_snake_case)]

@@ -253,6 +253,8 @@ impl SneakyMatrix {
 
     /// Reduces the matrix.
     pub fn reduce(&mut self) -> Vec<(usize, usize)> {
+        // NOTE: it might be faster to reduce a matrix if we have the reduced
+        // matrix of the dimension above.
         let mut adds = Vec::new();
         for c in 0..self.cols {
             if !self.col_is_not_empty(c) {
