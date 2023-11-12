@@ -6,6 +6,7 @@ use pyo3::{exceptions::PyValueError, prelude::*};
 use sneaky_matrix::{Col, SneakyMatrix};
 
 pub mod complex;
+pub mod grid;
 pub mod permutation;
 pub mod sneaky_matrix;
 

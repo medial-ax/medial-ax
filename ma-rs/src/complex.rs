@@ -5,7 +5,7 @@ use pyo3::FromPyObject;
 use crate::SneakyMatrix;
 
 #[derive(Clone, Copy)]
-pub struct Pos([f64; 3]);
+pub struct Pos(pub [f64; 3]);
 
 impl pyo3::IntoPy<pyo3::PyObject> for Pos {
     fn into_py(self, py: pyo3::Python<'_>) -> pyo3::PyObject {
