@@ -190,3 +190,12 @@ squish_cyl = Example(
     prune_eps=0,
     medial_axis=0,
 )
+
+confused_pretzel = Example(
+    filename="input/confused_pretzel_finer_squished_moved.obj",
+    grid_size=0.05,
+    grid_buffer=0.1,
+    camera_opt=CameraOpt(azim=20, elev=30),
+    prune_eps=0,
+    medial_axis=0,
+)

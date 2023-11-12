@@ -5,4 +5,3 @@ output/
 *.png
 .DS_Store
 .vscode
-pyfiles
