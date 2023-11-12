@@ -13,7 +13,7 @@ pub mod sneaky_matrix;
 #[pyo3::pyclass(get_all)]
 #[derive(Clone, Debug)]
 #[allow(non_snake_case)]
-pub struct Vine {
+pub struct Stack {
     /// Boundary matrix
     pub D: SneakyMatrix,
     /// Reduced boundary matrix
@@ -29,7 +29,7 @@ pub struct Vine {
 pub struct Reduction {
     /// Key point around which the reduction is done.
     pub key_point: Pos,
-    pub vines: [Vine; 3],
+    pub stacks: [Stack; 3],
 }
 
 #[allow(non_snake_case)]
@@ -37,25 +37,25 @@ impl Reduction {
     pub fn D(&self, dim: isize) -> &SneakyMatrix {
         assert!(0 <= dim);
         assert!(dim <= 2);
-        &self.vines[dim as usize].D
+        &self.stacks[dim as usize].D
     }
 
     pub fn R(&self, dim: isize) -> &SneakyMatrix {
         assert!(0 <= dim);
         assert!(dim <= 2);
-        &self.vines[dim as usize].R
+        &self.stacks[dim as usize].R
     }
 
     pub fn U_t(&self, dim: isize) -> &SneakyMatrix {
         assert!(0 <= dim);
         assert!(dim <= 2);
-        &self.vines[dim as usize].U_t
+        &self.stacks[dim as usize].U_t
     }
 
     pub fn ordering(&self, dim: isize) -> &Permutation {
         assert!(0 <= dim);
         assert!(dim <= 2);
-        &self.vines[dim as usize].ordering
+        &self.stacks[dim as usize].ordering
     }
 }
 
@@ -207,20 +207,20 @@ pub fn reduce_from_scratch(complex: &Complex, key_point: Pos) -> Reduction {
 
     Reduction {
         key_point,
-        vines: [
-            Vine {
+        stacks: [
+            Stack {
                 D: D0,
                 R: R0,
                 U_t: U_t0,
                 ordering: v_perm,
             },
-            Vine {
+            Stack {
                 D: D1,
                 R: R1,
                 U_t: U_t1,
                 ordering: e_perm,
             },
-            Vine {
+            Stack {
                 D: D2,
                 R: R2,
                 U_t: U_t2,
