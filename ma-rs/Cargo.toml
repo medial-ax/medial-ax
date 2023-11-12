@@ -13,3 +13,6 @@ crate-type = ['cdylib']
 float-ord = "0.3.2"
 pyo3 = "0.20.0"
 serde = "1.0.190"
+
+[profile.release]
+debug = 2

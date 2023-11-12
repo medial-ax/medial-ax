@@ -61,7 +61,7 @@ impl Reduction {
 
 pub fn inverse_zz2(mat: &SneakyMatrix) -> Result<SneakyMatrix, String> {
     let res: PyResult<SneakyMatrix> = Python::with_gil(|py| {
-        println!("set up module");
+        // println!("set up module");
         let module = PyModule::from_code(
             py,
             r#"
@@ -92,15 +92,15 @@ def invert(rs_mat):
             "pretend",
         )?;
 
-        println!("set up module done");
+        // println!("set up module done");
 
         let invert = module.getattr("invert")?;
 
-        println!("call invert");
+        // println!("call invert");
         let res = invert
             .call((mat.clone(),), None)?
             .extract::<SneakyMatrix>()?;
-        println!("call invert done");
+        // println!("call invert done");
 
         Ok(res)
     });
@@ -148,6 +148,7 @@ fn compute_permutations(
     (v_perm, e_perm, t_perm)
 }
 
+#[pyfunction]
 /// Returns a [Vec] with one element per faustian swap. The elements are `(dim,
 /// (i, j))` where `dim` is the dimension of the simplices that were swapped,
 /// and `i` and `j` are the canonical indices of the swapped simplices.
@@ -173,7 +174,8 @@ pub fn vineyards_123(
         compute_transpositions(vine_ordering0.into_forwards());
     for &i in &swap_is0 {
         let res = perform_one_swap2(i, &mut stack0, &mut stack1);
-        stack0.D.swap_cols_and_rows(i, i + 1);
+        stack0.D.swap_cols(i, i + 1);
+        stack1.D.swap_rows(i, i + 1);
         if let Some(true) = res {
             // These are indices of simplices that we said were the 0,1,2... order
             // in the bubble sort (compute_transpositions).  This is the order
@@ -192,7 +194,8 @@ pub fn vineyards_123(
         compute_transpositions(vine_ordering1.into_forwards());
     for &i in &swap_is1 {
         let res = perform_one_swap2(i, &mut stack1, &mut stack2);
-        stack1.D.swap_cols_and_rows(i, i + 1);
+        stack1.D.swap_cols(i, i + 1);
+        stack2.D.swap_rows(i, i + 1);
         if let Some(true) = res {
             let (i, j) = simplices_that_got_swapped1[i];
             let cann_i = e_perm.inv(i);
@@ -208,7 +211,7 @@ pub fn vineyards_123(
         compute_transpositions(vine_ordering2.into_forwards());
     for &i in &swap_is2 {
         let res = perform_one_swap_top_dim(i, &mut stack2);
-        stack2.D.swap_cols_and_rows(i, i + 1);
+        stack2.D.swap_cols(i, i + 1);
         if let Some(true) = res {
             let (i, j) = simplices_that_got_swapped2[i];
             let cann_i = t_perm.inv(i);
@@ -815,6 +818,7 @@ fn mars(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(reduce_vine, m)?)?;
     m.add_function(wrap_pyfunction!(read_from_obj, m)?)?;
     m.add_function(wrap_pyfunction!(reduce_from_scratch, m)?)?;
+    m.add_function(wrap_pyfunction!(vineyards_123, m)?)?;
     m.add_class::<SneakyMatrix>()?;
     m.add_class::<Permutation>()?;
     m.add_class::<Col>()?;
