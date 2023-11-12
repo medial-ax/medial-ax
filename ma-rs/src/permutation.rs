@@ -61,11 +61,12 @@ impl Permutation {
         self.forwards.len()
     }
 
-    /// Construct a permutation from a list of tuples of `(O, usize)`, where `O` is
-    /// an ordering type. The ordering type is used to sort the list of tuples.
+    /// Construct a permutation from a list of [Ord] elements. The returned
+    /// permutation will permute the elements (0..n) to the order such that the
+    /// `O` elements are sorted.
     ///
-    /// The returned permutation will permute the elements (0..n) to the order
-    /// such that the `O` elements are sorted.
+    /// In order words, the permutation takes "ordered" indices to "original"
+    /// indices, namely the index at which the element were in the input slice.
     pub fn from_ord<O: Ord + Copy>(es: &[O]) -> Self {
         let mut v = es.into_iter().enumerate().collect::<Vec<_>>();
         v.sort_by_key(|&(_, e)| e);

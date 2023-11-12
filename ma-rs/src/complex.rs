@@ -33,12 +33,16 @@ impl<'source> FromPyObject<'source> for Pos {
 }
 
 impl Pos {
-    pub fn dist(&self, other: &Pos) -> f64 {
+    pub fn dist2(&self, other: &Pos) -> f64 {
         let mut sum = 0.0;
         for i in 0..3 {
             sum += (self.0[i] - other.0[i]).powi(2);
         }
-        sum.sqrt()
+        sum
+    }
+
+    pub fn dist(&self, other: &Pos) -> f64 {
+        self.dist2(other).sqrt()
     }
 }
 

@@ -1,4 +1,4 @@
-use std::iter::zip;
+use std::{collections::HashMap, iter::zip};
 
 use complex::{Complex, Pos, Simplex};
 use permutation::Permutation;
@@ -56,6 +56,81 @@ impl Reduction {
         assert!(0 <= dim);
         assert!(dim <= 2);
         &self.stacks[dim as usize].ordering
+    }
+
+    /// Checks that the ordering is consistent.
+    pub fn assert_ordering(&self, complex: &Complex) {
+        let mut vertex_distance = HashMap::new();
+
+        let mut vertex_order = (0..complex.simplices_per_dim[0].len())
+            .map(|i| {
+                let s = &complex.simplices_per_dim[0][i];
+                let coords = s.coords.unwrap();
+                let dist = coords.dist2(&self.key_point);
+                vertex_distance.insert(i, dist);
+                let sorted_order = self.stacks[0].ordering.map(i);
+                (float_ord::FloatOrd(dist), sorted_order)
+            })
+            .collect::<Vec<_>>();
+        vertex_order.sort();
+
+        for t in vertex_order.windows(2) {
+            let a = t[0];
+            let b = t[1];
+            assert!(a.1 <= b.1, "a[1] = {:?}, b[1] = {:?}", a.1, b.1);
+        }
+
+        let mut edge_dist = HashMap::new();
+        let mut edge_order = (0..complex.simplices_per_dim[1].len())
+            .map(|i| {
+                let s = &complex.simplices_per_dim[1][i];
+                let ai = s.boundary[0] as usize;
+                let bi = s.boundary[1] as usize;
+
+                let adist = *vertex_distance.get(&ai).unwrap();
+                let bdist = *vertex_distance.get(&bi).unwrap();
+
+                let dist = adist.max(bdist);
+                edge_dist.insert(i, dist);
+
+                let sorted_order = self.stacks[1].ordering.map(i);
+                (float_ord::FloatOrd(dist), sorted_order)
+            })
+            .collect::<Vec<_>>();
+        edge_order.sort();
+
+        for t in edge_order.windows(2) {
+            let a = t[0];
+            let b = t[1];
+            assert!(a.1 <= b.1, "a.1 = {:?}, b.1 = {:?}", a, b);
+        }
+
+        let mut tri_order = (0..complex.simplices_per_dim[2].len())
+            .map(|i| {
+                let s = &complex.simplices_per_dim[2][i];
+
+                let ai = s.boundary[0] as usize;
+                let bi = s.boundary[1] as usize;
+                let ci = s.boundary[1] as usize;
+
+                let adist = *edge_dist.get(&ai).unwrap();
+                let bdist = *edge_dist.get(&bi).unwrap();
+                let cdist = *edge_dist.get(&ci).unwrap();
+
+                let dist = adist.max(bdist).max(cdist);
+
+                let sorted_order = self.stacks[2].ordering.map(i);
+                (float_ord::FloatOrd(dist), sorted_order)
+            })
+            .collect::<Vec<_>>();
+        tri_order.sort();
+
+        for t in tri_order.windows(2) {
+            let a = t[0];
+            let b = t[1];
+            assert!(a.0 <= b.0, "a[0] = {:?}, b[0] = {:?}", a.0, b.0); // This will always pass
+            assert!(a.1 <= b.1, "a[1] = {:?}, b[1] = {:?}", a.1, b.1);
+        }
     }
 }
 
@@ -122,7 +197,7 @@ fn compute_permutations(
 ) -> (Permutation, Permutation, Permutation) {
     let vertex_distances = complex.simplices_per_dim[0]
         .iter()
-        .map(|v| float_ord::FloatOrd(v.coords.unwrap().dist(&key_point)))
+        .map(|v| float_ord::FloatOrd(v.coords.unwrap().dist2(&key_point)))
         .collect::<Vec<_>>();
 
     let edge_distances = complex.simplices_per_dim[1]
@@ -140,6 +215,14 @@ fn compute_permutations(
                 .max(edge_distances[f.boundary[2] as usize])
         })
         .collect::<Vec<_>>();
+
+    println!(
+        "Distances in compute_permutations: (key_point={:?})",
+        key_point
+    );
+    println!("{:?}", vertex_distances);
+    println!("{:?}", edge_distances);
+    println!("{:?}", triangle_distances);
 
     let v_perm = Permutation::from_ord(&vertex_distances);
     let e_perm = Permutation::from_ord(&edge_distances);
@@ -171,7 +254,7 @@ pub fn vineyards_123(
     v_perm.reverse();
     let vine_ordering0 = Permutation::from_to(&v_perm, &stack0.ordering);
     let (swap_is0, simplices_that_got_swapped0) =
-        compute_transpositions(vine_ordering0.into_forwards());
+        compute_transpositions(vine_ordering0.clone().into_forwards());
     for &i in &swap_is0 {
         let res = perform_one_swap2(i, &mut stack0, &mut stack1);
         stack0.D.swap_cols(i, i + 1);
@@ -191,7 +274,7 @@ pub fn vineyards_123(
     e_perm.reverse();
     let vine_ordering1 = Permutation::from_to(&e_perm, &stack1.ordering);
     let (swap_is1, simplices_that_got_swapped1) =
-        compute_transpositions(vine_ordering1.into_forwards());
+        compute_transpositions(vine_ordering1.clone().into_forwards());
     for &i in &swap_is1 {
         let res = perform_one_swap2(i, &mut stack1, &mut stack2);
         stack1.D.swap_cols(i, i + 1);
@@ -208,7 +291,7 @@ pub fn vineyards_123(
     t_perm.reverse();
     let vine_ordering2 = Permutation::from_to(&t_perm, &stack2.ordering);
     let (swap_is2, simplices_that_got_swapped2) =
-        compute_transpositions(vine_ordering2.into_forwards());
+        compute_transpositions(vine_ordering2.clone().into_forwards());
     for &i in &swap_is2 {
         let res = perform_one_swap_top_dim(i, &mut stack2);
         stack2.D.swap_cols(i, i + 1);
@@ -220,6 +303,11 @@ pub fn vineyards_123(
             faustian_swap_simplices.push((2, (cann_i, cann_j)));
         }
     }
+
+    println!("vineyards_123");
+    dbg!(&vine_ordering0);
+    dbg!(&vine_ordering1);
+    dbg!(&vine_ordering2);
 
     faustian_swap_simplices
 }
@@ -274,7 +362,7 @@ pub fn reduce_from_scratch(complex: &Complex, key_point: Pos) -> Reduction {
     e_perm.reverse();
     t_perm.reverse();
 
-    Reduction {
+    let ret = Reduction {
         key_point,
         stacks: [
             Stack {
@@ -296,7 +384,11 @@ pub fn reduce_from_scratch(complex: &Complex, key_point: Pos) -> Reduction {
                 ordering: t_perm,
             },
         ],
-    }
+    };
+
+    ret.assert_ordering(&complex);
+
+    ret
 }
 
 #[allow(non_snake_case)]
