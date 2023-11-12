@@ -24,6 +24,7 @@ hinge = Example(
     grid_size=0.2,
     grid_buffer=0.15,
     camera_opt=CameraOpt(azim=20, elev=30),
+    prune_eps=0,
 )
 """Pretty coarse example, but good for very quick testing."""
 
@@ -190,3 +191,12 @@ squish_cyl = Example(
     prune_eps=0,
     medial_axis=0,
 )
+
+three_points = Example(
+    filename="input/three-points.obj",
+    grid_size=0.1,
+    grid_buffer=0.25,
+    camera_opt=CameraOpt(azim=20, elev=30),
+    prune_eps=0,
+)
+"""Three points in the plane. No edges. No faces."""

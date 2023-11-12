@@ -216,14 +216,6 @@ fn compute_permutations(
         })
         .collect::<Vec<_>>();
 
-    println!(
-        "Distances in compute_permutations: (key_point={:?})",
-        key_point
-    );
-    println!("{:?}", vertex_distances);
-    println!("{:?}", edge_distances);
-    println!("{:?}", triangle_distances);
-
     let v_perm = Permutation::from_ord(&vertex_distances);
     let e_perm = Permutation::from_ord(&edge_distances);
     let t_perm = Permutation::from_ord(&triangle_distances);
@@ -239,7 +231,7 @@ pub fn vineyards_123(
     complex: &Complex,
     reduction: &Reduction,
     key_point: Pos,
-) -> Vec<(i32, (usize, usize))> {
+) -> (Reduction, Vec<(i32, (usize, usize))>) {
     let (mut v_perm, mut e_perm, mut t_perm) = compute_permutations(complex, key_point);
 
     let mut stack0 = reduction.stacks[0].clone();
@@ -253,9 +245,20 @@ pub fn vineyards_123(
     // that, in turn, we can bubble sort from `a` to `b`.
     v_perm.reverse();
     let vine_ordering0 = Permutation::from_to(&v_perm, &stack0.ordering);
+
+    // println!(
+    //     "vineyards: stack0.ordering: {:?}",
+    //     stack0.ordering.clone().into_forwards()
+    // );
+    // println!("vineyards: v_perm: {:?}", v_perm.clone().into_forwards());
+    // println!(
+    //     "vineyards: vine_ordering0: {:?}",
+    //     vine_ordering0.clone().into_forwards()
+    // );
+
     let (swap_is0, simplices_that_got_swapped0) =
         compute_transpositions(vine_ordering0.clone().into_forwards());
-    for &i in &swap_is0 {
+    for (swap_i, &i) in swap_is0.iter().enumerate() {
         let res = perform_one_swap2(i, &mut stack0, &mut stack1);
         stack0.D.swap_cols(i, i + 1);
         stack1.D.swap_rows(i, i + 1);
@@ -263,7 +266,7 @@ pub fn vineyards_123(
             // These are indices of simplices that we said were the 0,1,2... order
             // in the bubble sort (compute_transpositions).  This is the order
             // of the simplices at `b`.
-            let (i, j) = simplices_that_got_swapped0[i];
+            let (i, j) = simplices_that_got_swapped0[swap_i];
             let cann_i = v_perm.inv(i);
             let cann_j = v_perm.inv(j);
 
@@ -271,45 +274,58 @@ pub fn vineyards_123(
         }
     }
 
-    e_perm.reverse();
-    let vine_ordering1 = Permutation::from_to(&e_perm, &stack1.ordering);
-    let (swap_is1, simplices_that_got_swapped1) =
-        compute_transpositions(vine_ordering1.clone().into_forwards());
-    for &i in &swap_is1 {
-        let res = perform_one_swap2(i, &mut stack1, &mut stack2);
-        stack1.D.swap_cols(i, i + 1);
-        stack2.D.swap_rows(i, i + 1);
-        if let Some(true) = res {
-            let (i, j) = simplices_that_got_swapped1[i];
-            let cann_i = e_perm.inv(i);
-            let cann_j = e_perm.inv(j);
+    if 0 < e_perm.len() {
+        e_perm.reverse();
+        let vine_ordering1 = Permutation::from_to(&e_perm, &stack1.ordering);
+        let (swap_is1, simplices_that_got_swapped1) =
+            compute_transpositions(vine_ordering1.clone().into_forwards());
+        for (swap_i, &i) in swap_is1.iter().enumerate() {
+            let res = perform_one_swap2(i, &mut stack1, &mut stack2);
+            stack1.D.swap_cols(i, i + 1);
+            stack2.D.swap_rows(i, i + 1);
+            if let Some(true) = res {
+                let (i, j) = simplices_that_got_swapped1[swap_i];
+                let cann_i = e_perm.inv(i);
+                let cann_j = e_perm.inv(j);
 
-            faustian_swap_simplices.push((1, (cann_i, cann_j)));
+                faustian_swap_simplices.push((1, (cann_i, cann_j)));
+            }
         }
     }
 
-    t_perm.reverse();
-    let vine_ordering2 = Permutation::from_to(&t_perm, &stack2.ordering);
-    let (swap_is2, simplices_that_got_swapped2) =
-        compute_transpositions(vine_ordering2.clone().into_forwards());
-    for &i in &swap_is2 {
-        let res = perform_one_swap_top_dim(i, &mut stack2);
-        stack2.D.swap_cols(i, i + 1);
-        if let Some(true) = res {
-            let (i, j) = simplices_that_got_swapped2[i];
-            let cann_i = t_perm.inv(i);
-            let cann_j = t_perm.inv(j);
+    if 0 < t_perm.len() {
+        t_perm.reverse();
+        let vine_ordering2 = Permutation::from_to(&t_perm, &stack2.ordering);
+        let (swap_is2, simplices_that_got_swapped2) =
+            compute_transpositions(vine_ordering2.clone().into_forwards());
+        for (swap_i, &i) in swap_is2.iter().enumerate() {
+            let res = perform_one_swap_top_dim(i, &mut stack2);
+            stack2.D.swap_cols(i, i + 1);
+            if let Some(true) = res {
+                let (i, j) = simplices_that_got_swapped2[swap_i];
+                let cann_i = t_perm.inv(i);
+                let cann_j = t_perm.inv(j);
 
-            faustian_swap_simplices.push((2, (cann_i, cann_j)));
+                faustian_swap_simplices.push((2, (cann_i, cann_j)));
+            }
         }
     }
 
-    println!("vineyards_123");
-    dbg!(&vine_ordering0);
-    dbg!(&vine_ordering1);
-    dbg!(&vine_ordering2);
+    stack0.ordering = v_perm;
+    stack1.ordering = e_perm;
+    stack2.ordering = t_perm;
 
-    faustian_swap_simplices
+    // println!("vineyards_123");
+    // dbg!(&vine_ordering0);
+    // dbg!(&vine_ordering1);
+    // dbg!(&vine_ordering2);
+
+    let state = Reduction {
+        key_point,
+        stacks: [stack0, stack1, stack2],
+    };
+
+    (state, faustian_swap_simplices)
 }
 
 #[allow(non_snake_case)]
@@ -387,6 +403,11 @@ pub fn reduce_from_scratch(complex: &Complex, key_point: Pos) -> Reduction {
     };
 
     ret.assert_ordering(&complex);
+
+    // println!(
+    //     "reduce_from_scratch: stack0.ordering: {:?}",
+    //     ret.stacks[0].ordering.clone().into_forwards()
+    // );
 
     ret
 }
@@ -903,6 +924,73 @@ pub fn read_from_obj(p: &str) -> PyResult<Complex> {
     Complex::read_from_obj(p).map_err(PyValueError::new_err)
 }
 
+#[pyfunction]
+fn test_three_points() {
+    // This mesh has three vertices: (1, 0), (1, 1), and (0, 1).
+    // The first MA thus consists of three lines:
+    // ^ Y
+    // |
+    // X--------||---------X
+    // | \      ||      B  |
+    // |    \   ||         |
+    // |       \||=========|======
+    // |     //   \        |
+    // |   //        \     |
+    // | //   A         \  |   X
+    // //------------------X--->
+    //
+
+    let complex = read_from_obj("input/three-points.obj").unwrap();
+    let point_a = Pos([0.3, 0.1, 0.0]);
+    {
+        let mut point = point_a;
+        let mut state = reduce_from_scratch(&complex, point);
+        for _ in 0..10 {
+            let pt = point + Pos([0.1, 0.0, 0.0]);
+            let (next_state, swaps) = vineyards_123(&complex, &state, pt);
+            assert_eq!(swaps.len(), 0);
+            state = next_state;
+            point = pt;
+            println!("{:?}", swaps);
+        }
+    }
+
+    let point_b = Pos([0.8, 0.75, 0.0]);
+    {
+        let mut point = point_b;
+        let mut state = reduce_from_scratch(&complex, point);
+        for k in 0..10 {
+            let pt = point - Pos([0.0, 0.1, 0.0]);
+            println!("between {:?} and {:?}", point, pt);
+            let (next_state, swaps) = vineyards_123(&complex, &state, pt);
+            println!("swaps: {:?}", swaps);
+            if k == 2 {
+                // k=0: 0.75 -- 0.65
+                // k=1: 0.65 -- 0.55
+                // k=2: 0.55 -- 0.45
+                // k=3: 0.45 -- 0.35
+                assert!(0 < swaps.len());
+            } else {
+                assert_eq!(swaps.len(), 0);
+            }
+            state = next_state;
+            point = pt;
+            println!("{:?}", swaps);
+        }
+    }
+}
+
+#[pyfunction]
+fn test_three_points_test1() {
+    let complex = read_from_obj("input/three-points.obj").unwrap();
+    let pt_a = Pos([0.8, 0.45, 0.0]);
+    let pt_b = Pos([0.8, 0.35, 0.0]);
+
+    let state = reduce_from_scratch(&complex, pt_a);
+    let (_next_state, swaps) = vineyards_123(&complex, &state, pt_b);
+    assert_eq!(swaps.len(), 0);
+}
+
 #[pymodule]
 fn mars(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(vine_to_vine, m)?)?;
@@ -911,6 +999,8 @@ fn mars(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(read_from_obj, m)?)?;
     m.add_function(wrap_pyfunction!(reduce_from_scratch, m)?)?;
     m.add_function(wrap_pyfunction!(vineyards_123, m)?)?;
+    m.add_function(wrap_pyfunction!(test_three_points, m)?)?;
+    m.add_function(wrap_pyfunction!(test_three_points_test1, m)?)?;
     m.add_class::<SneakyMatrix>()?;
     m.add_class::<Permutation>()?;
     m.add_class::<Col>()?;

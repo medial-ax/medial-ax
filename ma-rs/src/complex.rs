@@ -55,6 +55,30 @@ impl std::fmt::Debug for Pos {
     }
 }
 
+impl std::ops::Add for Pos {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        let mut arr = [0.0; 3];
+        for i in 0..3 {
+            arr[i] = self.0[i] + rhs.0[i];
+        }
+        Pos(arr)
+    }
+}
+
+impl std::ops::Sub for Pos {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        let mut arr = [0.0; 3];
+        for i in 0..3 {
+            arr[i] = self.0[i] - rhs.0[i];
+        }
+        Pos(arr)
+    }
+}
+
 #[derive(Debug, Clone)]
 #[pyo3::pyclass(get_all)]
 pub struct Simplex {

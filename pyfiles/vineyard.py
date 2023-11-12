@@ -327,9 +327,6 @@ class vineyard:
                 # `state.ordering`.
                 our = state.ordering.list_unique_index()
                 other_order = [ordering.i2o[s] for s in our]
-                print("other_order")
-                print(other_order)
-                print([ordering.get_simplex(i) for i in other_order])
                 with utils.Timed("mars.reduce_vine"):
                     faus_swap_is, num_swaps = mars.reduce_vine(other_order, R, D, U_t)
                 self.num_swaps += num_swaps
