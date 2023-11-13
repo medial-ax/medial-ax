@@ -177,6 +177,16 @@ class complex:
         assert splx.dim() == 0, "only works for vertices"
         return [self.edgelist[i] for i in self.coboundary[splx.index]]
 
+    def get_simplex(self, dim: int, id: int) -> simplex:
+        if dim == 0:
+            return self.vertlist[id]
+        elif dim == 1:
+            return self.edgelist[id]
+        elif dim == 2:
+            return self.trilist[id]
+        else:
+            raise Exception("Only works for simplices of dimension 0, 1, or 2")
+
     def sort_by_dist(self, distlist: List[float]):
         """Sort the vertices with the given list of distances.  Other simplices
         are ordered by the largest distance of any face simplex.

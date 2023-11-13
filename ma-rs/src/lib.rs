@@ -12,6 +12,100 @@ pub mod sneaky_matrix;
 
 #[pyo3::pyclass(get_all)]
 #[derive(Clone, Debug)]
+pub struct Swap {
+    /// Dimension in which the swap happened.
+    dim: usize,
+    /// Canonical index of the first simplex.
+    i: usize,
+    /// Canonical index of the second simplex.
+    j: usize,
+}
+
+#[pyo3::pyclass(get_all)]
+#[derive(Clone, Debug)]
+pub struct Swaps {
+    pub v: Vec<Swap>,
+}
+
+#[pyo3::pymethods]
+impl Swaps {
+    /// Remove all swaps that were done between simplices that are closer than
+    /// `min_dist`.
+    pub fn prune_euclidian(&mut self, complex: &Complex, min_dist: f64) {
+        self.v.retain(|swap| {
+            let c1 = complex.simplices_per_dim[swap.dim][swap.i].center_point(complex);
+            let c2 = complex.simplices_per_dim[swap.dim][swap.j].center_point(complex);
+            let dist = c1.dist2(&c2);
+            min_dist < dist
+        });
+    }
+
+    /// Remove all swaps that happened where the persistence of any of the
+    /// simplices were less than `lifetime`.
+    ///
+    /// `lifetime` can for instance be `0.01`.
+    pub fn prune_persistence(
+        &mut self,
+        complex: &Complex,
+        reduction_from: &Reduction,
+        reduction_to: &Reduction,
+        lifetime: f64,
+    ) {
+        let (vd, ed, td) = complex.distances_to(reduction_from.key_point);
+        let distances_from = [vd, ed, td];
+        let (vd, ed, td) = complex.distances_to(reduction_to.key_point);
+        let distances_to = [vd, ed, td];
+
+        fn find_killer(dim: usize, can_id: usize, reduction: &Reduction) -> Option<usize> {
+            if reduction.stacks.len() <= dim + 1 {
+                return None;
+            }
+            let ordering = &reduction.stacks[dim].ordering;
+            let sorted_i = ordering.map(can_id);
+            let killer = reduction.stacks[dim + 1].R.col_with_low(sorted_i);
+            if let Some(k) = killer {
+                let can_k = reduction.stacks[dim + 1].ordering.inv(k);
+                Some(can_k)
+            } else {
+                None
+            }
+        }
+
+        fn persistence(
+            dim: usize,
+            can_id: usize,
+            reduction: &Reduction,
+            distances: &[Vec<f64>],
+        ) -> Option<f64> {
+            let killer = find_killer(dim, can_id, reduction);
+            if let Some(killer) = killer {
+                let dist = distances[dim][can_id];
+                let killer_dist = distances[dim + 1][killer];
+                Some(dist - killer_dist)
+            } else {
+                None
+            }
+        }
+
+        self.v.retain(|swap| {
+            if let Some(p) = persistence(swap.dim, swap.i, reduction_from, &distances_from) {
+                if p < lifetime {
+                    return false;
+                }
+            }
+            if let Some(p) = persistence(swap.dim, swap.j, reduction_to, &distances_to) {
+                if p < lifetime {
+                    return false;
+                }
+            }
+
+            true
+        });
+    }
+}
+
+#[pyo3::pyclass(get_all)]
+#[derive(Clone, Debug)]
 #[allow(non_snake_case)]
 pub struct Stack {
     /// Boundary matrix
@@ -231,7 +325,7 @@ pub fn vineyards_123(
     complex: &Complex,
     reduction: &Reduction,
     key_point: Pos,
-) -> (Reduction, Vec<(i32, (usize, usize))>) {
+) -> (Reduction, Swaps) {
     let (mut v_perm, mut e_perm, mut t_perm) = compute_permutations(complex, key_point);
 
     let mut stack0 = reduction.stacks[0].clone();
@@ -270,7 +364,11 @@ pub fn vineyards_123(
             let cann_i = v_perm.inv(i);
             let cann_j = v_perm.inv(j);
 
-            faustian_swap_simplices.push((0, (cann_i, cann_j)));
+            faustian_swap_simplices.push(Swap {
+                dim: 0,
+                i: cann_i,
+                j: cann_j,
+            });
         }
     }
 
@@ -288,7 +386,11 @@ pub fn vineyards_123(
                 let cann_i = e_perm.inv(i);
                 let cann_j = e_perm.inv(j);
 
-                faustian_swap_simplices.push((1, (cann_i, cann_j)));
+                faustian_swap_simplices.push(Swap {
+                    dim: 1,
+                    i: cann_i,
+                    j: cann_j,
+                });
             }
         }
     }
@@ -306,7 +408,11 @@ pub fn vineyards_123(
                 let cann_i = t_perm.inv(i);
                 let cann_j = t_perm.inv(j);
 
-                faustian_swap_simplices.push((2, (cann_i, cann_j)));
+                faustian_swap_simplices.push(Swap {
+                    dim: 2,
+                    i: cann_i,
+                    j: cann_j,
+                });
             }
         }
     }
@@ -325,7 +431,12 @@ pub fn vineyards_123(
         stacks: [stack0, stack1, stack2],
     };
 
-    (state, faustian_swap_simplices)
+    (
+        state,
+        Swaps {
+            v: faustian_swap_simplices,
+        },
+    )
 }
 
 #[allow(non_snake_case)]
@@ -948,7 +1059,7 @@ fn test_three_points() {
         for _ in 0..10 {
             let pt = point + Pos([0.1, 0.0, 0.0]);
             let (next_state, swaps) = vineyards_123(&complex, &state, pt);
-            assert_eq!(swaps.len(), 0);
+            assert_eq!(swaps.v.len(), 0);
             state = next_state;
             point = pt;
             println!("{:?}", swaps);
@@ -969,9 +1080,9 @@ fn test_three_points() {
                 // k=1: 0.65 -- 0.55
                 // k=2: 0.55 -- 0.45
                 // k=3: 0.45 -- 0.35
-                assert!(0 < swaps.len());
+                assert!(0 < swaps.v.len());
             } else {
-                assert_eq!(swaps.len(), 0);
+                assert_eq!(swaps.v.len(), 0);
             }
             state = next_state;
             point = pt;
@@ -988,7 +1099,7 @@ fn test_three_points_test1() {
 
     let state = reduce_from_scratch(&complex, pt_a);
     let (_next_state, swaps) = vineyards_123(&complex, &state, pt_b);
-    assert_eq!(swaps.len(), 0);
+    assert_eq!(swaps.v.len(), 0);
 }
 
 #[pymodule]

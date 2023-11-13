@@ -79,6 +79,30 @@ impl std::ops::Sub for Pos {
     }
 }
 
+impl std::ops::Mul<f64> for Pos {
+    type Output = Self;
+
+    fn mul(self, rhs: f64) -> Self::Output {
+        let mut arr = [0.0; 3];
+        for i in 0..3 {
+            arr[i] = self.0[i] * rhs;
+        }
+        Pos(arr)
+    }
+}
+
+impl std::ops::Div<f64> for Pos {
+    type Output = Self;
+
+    fn div(self, rhs: f64) -> Self::Output {
+        let mut arr = [0.0; 3];
+        for i in 0..3 {
+            arr[i] = self.0[i] / rhs;
+        }
+        Pos(arr)
+    }
+}
+
 #[derive(Debug, Clone)]
 #[pyo3::pyclass(get_all)]
 pub struct Simplex {
@@ -109,6 +133,24 @@ impl Simplex {
             1 => format!("e({}; bnd={:?})", self.id, self.boundary),
             2 => format!("f({}; bnd={:?})", self.id, self.boundary),
             _ => panic!(),
+        }
+    }
+
+    pub fn center_point(&self, complex: &Complex) -> Pos {
+        match self.dim() {
+            0 => self.coords.unwrap(),
+            1 => {
+                let a = &complex.simplices_per_dim[0][self.boundary[0]];
+                let b = &complex.simplices_per_dim[0][self.boundary[1]];
+                (a.coords.unwrap() + b.coords.unwrap()) * 0.5
+            }
+            2 => {
+                let a = &complex.simplices_per_dim[1][self.boundary[0]];
+                let b = &complex.simplices_per_dim[1][self.boundary[1]];
+                let c = &complex.simplices_per_dim[1][self.boundary[2]];
+                (a.center_point(complex) + b.center_point(complex) + c.center_point(complex)) / 3.0
+            }
+            _ => panic!("Missing arms for simplex of dimension {}", self.dim()),
         }
     }
 }
@@ -289,6 +331,32 @@ impl Complex {
             simplices_per_dim: vec![vertices, edges, triangles],
             coboundary_map: Vec::new(),
         })
+    }
+
+    pub fn distances_to(&self, key_point: Pos) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
+        let vertex_distances = self.simplices_per_dim[0]
+            .iter()
+            .map(|v| v.coords.unwrap().dist2(&key_point))
+            .collect::<Vec<_>>();
+
+        let edge_distances = self.simplices_per_dim[1]
+            .iter()
+            .map(|e| {
+                vertex_distances[e.boundary[0] as usize]
+                    .max(vertex_distances[e.boundary[1] as usize])
+            })
+            .collect::<Vec<_>>();
+
+        let triangle_distances = self.simplices_per_dim[2]
+            .iter()
+            .map(|f| {
+                edge_distances[f.boundary[0] as usize]
+                    .max(edge_distances[f.boundary[1] as usize])
+                    .max(edge_distances[f.boundary[2] as usize])
+            })
+            .collect::<Vec<_>>();
+
+        (vertex_distances, edge_distances, triangle_distances)
     }
 }
 
