@@ -1,4 +1,7 @@
-use std::{collections::HashMap, iter::zip};
+use std::{
+    collections::{HashMap, HashSet},
+    iter::zip,
+};
 
 use complex::{Complex, Pos, Simplex};
 use permutation::Permutation;
@@ -37,6 +40,38 @@ impl Swaps {
             let c2 = complex.simplices_per_dim[swap.dim][swap.j].center_point(complex);
             let dist = c1.dist2(&c2);
             min_dist < dist
+        });
+    }
+
+    /// Remove all swaps that happen between simplices if there is a simplex
+    /// with the two simplices in its boundary.
+    pub fn prune_coboundary(&mut self, complex: &Complex) {
+        // (dim, id) to [id].
+        let mut coboundary: HashMap<(usize, usize), HashSet<usize>> = HashMap::new();
+
+        for dim in 1..3 {
+            for (i, s) in complex.simplices_per_dim[dim].iter().enumerate() {
+                for j in &s.boundary {
+                    let j = *j as usize;
+                    let v = coboundary.entry((dim - 1, j)).or_insert_with(HashSet::new);
+                    v.insert(i);
+                }
+            }
+        }
+        self.v.retain(|swap| {
+            if swap.dim == 2 {
+                return true;
+            }
+
+            let cob_i = coboundary.get(&(swap.dim, swap.i));
+            let cob_j = coboundary.get(&(swap.dim, swap.j));
+
+            if let (Some(cob_i), Some(cob_j)) = (cob_i, cob_j) {
+                let mut intersection = cob_i.intersection(cob_j);
+                intersection.next() == None
+            } else {
+                true
+            }
         });
     }
 
@@ -81,7 +116,7 @@ impl Swaps {
             if let Some(killer) = killer {
                 let dist = distances[dim][can_id];
                 let killer_dist = distances[dim + 1][killer];
-                Some(dist - killer_dist)
+                Some(killer_dist - dist)
             } else {
                 None
             }
@@ -101,6 +136,10 @@ impl Swaps {
 
             true
         });
+    }
+
+    pub fn pyclone(&self) -> Self {
+        self.clone()
     }
 }
 

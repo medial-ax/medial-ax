@@ -190,7 +190,7 @@ squish_cyl = Example(
     grid_buffer=0.17,
     camera_opt=CameraOpt(azim=20, elev=30),
     prune_eps=0,
-    medial_axis=1,
+    medial_axis=0,
 )
 
 three_points = Example(
