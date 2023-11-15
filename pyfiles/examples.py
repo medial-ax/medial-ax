@@ -39,6 +39,14 @@ hinge2 = Example(
 )
 """Try to make the hinge example a bit more interesting. It's not very interesting, but it looks right."""
 
+cube_0 = Example(
+    filename="input/cube.obj",
+    grid_size=0.1,
+    grid_buffer=0.12,
+    camera_opt=CameraOpt(azim=20, elev=30),
+    prune_eps=0,
+)
+
 cube_1 = Example(
     filename="input/cube-subdiv-1.obj",
     grid_size=0.2,
@@ -53,11 +61,12 @@ Subdivided once; 8 triangles per cube face. Looks pretty good, but grid is coars
 
 cube_2 = Example(
     filename="input/cube-subdiv-1.obj",
-    grid_size=0.1,
-    grid_buffer=0.15,
+    grid_size=0.098123,
+    grid_buffer=0.14321,
     camera_opt=CameraOpt(azim=20, elev=30),
     prune_eps=0,
-    medial_axis=1,
+    medial_axis=0,
+    prune_dist=1,
 )
 """
 Subdivided once; 8 triangles per cube face.
@@ -65,11 +74,12 @@ Subdivided once; 8 triangles per cube face.
 
 cube_3 = Example(
     filename="input/cube-subdiv-2.obj",
-    grid_size=0.1,
-    grid_buffer=0.1,
+    grid_size=0.098123,
+    grid_buffer=0.1523,
     camera_opt=CameraOpt(azim=20, elev=30),
     prune_eps=0,
     medial_axis=0,
+    prune_dist=0.61**2,
 )
 """
 Subdivided twice; 32 triangles per cube face.
@@ -294,5 +304,16 @@ junglegym = Example(
     prune_eps=0,
     medial_axis=0,
     prune_dist=0.75,
+)
+"""Jungle Gym"""
+
+maze = Example(
+    filename="input/maze_2.obj",
+    grid_size=0.05,
+    grid_buffer=0.1,
+    camera_opt=CameraOpt(azim=-60, elev=30),
+    prune_eps=0,
+    medial_axis=0,
+    # prune_dist=0,
 )
 """Jungle Gym"""

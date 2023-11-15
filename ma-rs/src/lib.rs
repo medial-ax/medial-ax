@@ -395,19 +395,29 @@ pub fn vineyards_123(
     //     vine_ordering0.clone().into_forwards()
     // );
 
+    // let mut seen_swaps = HashSet::new();
+
     let (swap_is0, simplices_that_got_swapped0) =
         compute_transpositions(vine_ordering0.clone().into_forwards());
     for (swap_i, &i) in swap_is0.iter().enumerate() {
         let res = perform_one_swap2(i, &mut stack0, &mut stack1);
         stack0.D.swap_cols(i, i + 1);
         stack1.D.swap_rows(i, i + 1);
+
+        // {
+        //     let (i, j) = simplices_that_got_swapped0[swap_i];
+        //     let cann_i = stack0.ordering.inv(i);
+        //     let cann_j = stack0.ordering.inv(j);
+        //     seen_swaps.insert((cann_i.min(cann_j), cann_i.max(cann_j)));
+        // }
+
         if let Some(true) = res {
             // These are indices of simplices that we said were the 0,1,2... order
             // in the bubble sort (compute_transpositions).  This is the order
-            // of the simplices at `b`.
+            // of the simplices at `a`.
             let (i, j) = simplices_that_got_swapped0[swap_i];
-            let cann_i = v_perm.inv(i);
-            let cann_j = v_perm.inv(j);
+            let cann_i = stack0.ordering.inv(i);
+            let cann_j = stack0.ordering.inv(j);
 
             faustian_swap_simplices.push(Swap {
                 dim: 0,
@@ -416,6 +426,38 @@ pub fn vineyards_123(
             });
         }
     }
+
+    // Check that all pairs we've seen swapped actually has their ordering changed
+    // wrt. the two key points.  In addition, check that the ones we have NOT seen
+    // has their ordering the same.
+    // for i in 0..complex.simplices_per_dim[0].len() {
+    //     for j in 0..i {
+    //         let p_i = complex.simplices_per_dim[0][i].coords.unwrap();
+    //         let p_j = complex.simplices_per_dim[0][j].coords.unwrap();
+
+    //         let a = reduction.key_point;
+    //         let b = key_point;
+
+    //         let cmp_at_a = a.dist(&p_i).total_cmp(&a.dist(&p_j));
+    //         let cmp_at_b = b.dist(&p_i).total_cmp(&b.dist(&p_j));
+
+    //         if seen_swaps.contains(&(j, i)) {
+    //             assert!(
+    //                 (cmp_at_a.is_eq() && cmp_at_b.is_eq()) || (cmp_at_a != cmp_at_b),
+    //                 "Swapped, so ordering should have too: {:?} {:?}",
+    //                 cmp_at_a,
+    //                 cmp_at_b
+    //             );
+    //         } else {
+    //             assert!(
+    //                 cmp_at_a.is_eq() || cmp_at_b.is_eq() || cmp_at_a == cmp_at_b,
+    //                 "Ordering should be the same since they didn't swap: {:?} {:?}",
+    //                 cmp_at_a,
+    //                 cmp_at_b
+    //             );
+    //         }
+    //     }
+    // }
 
     if 0 < e_perm.len() {
         e_perm.reverse();
@@ -428,8 +470,8 @@ pub fn vineyards_123(
             stack2.D.swap_rows(i, i + 1);
             if let Some(true) = res {
                 let (i, j) = simplices_that_got_swapped1[swap_i];
-                let cann_i = e_perm.inv(i);
-                let cann_j = e_perm.inv(j);
+                let cann_i = stack1.ordering.inv(i);
+                let cann_j = stack1.ordering.inv(j);
 
                 faustian_swap_simplices.push(Swap {
                     dim: 1,
@@ -450,8 +492,8 @@ pub fn vineyards_123(
             stack2.D.swap_cols(i, i + 1);
             if let Some(true) = res {
                 let (i, j) = simplices_that_got_swapped2[swap_i];
-                let cann_i = t_perm.inv(i);
-                let cann_j = t_perm.inv(j);
+                let cann_i = stack2.ordering.inv(i);
+                let cann_j = stack2.ordering.inv(j);
 
                 faustian_swap_simplices.push(Swap {
                     dim: 2,
