@@ -34,13 +34,15 @@ pub struct Swaps {
 impl Swaps {
     /// Remove all swaps that were done between simplices that are closer than
     /// `min_dist`.
+    ///
+    /// Useful for 0th MA.
     pub fn prune_euclidian(&mut self, complex: &Complex, min_dist: f64) {
         self.v.retain(|swap| {
             let c1 = complex.simplices_per_dim[swap.dim][swap.i].center_point(complex);
             let c2 = complex.simplices_per_dim[swap.dim][swap.j].center_point(complex);
             let dist = c1.dist2(&c2);
             min_dist < dist
-        });
+        })
     }
 
     /// Remove all swaps that happen between simplices if there is a simplex
@@ -50,14 +52,16 @@ impl Swaps {
         let mut coboundary: HashMap<(usize, usize), HashSet<usize>> = HashMap::new();
 
         for dim in 1..3 {
-            for (i, s) in complex.simplices_per_dim[dim].iter().enumerate() {
-                for j in &s.boundary {
-                    let j = *j as usize;
-                    let v = coboundary.entry((dim - 1, j)).or_insert_with(HashSet::new);
-                    v.insert(i);
+            for (parent_i, s) in complex.simplices_per_dim[dim].iter().enumerate() {
+                for face_i in &s.boundary {
+                    let v = coboundary
+                        .entry((dim - 1, *face_i))
+                        .or_insert_with(HashSet::new);
+                    v.insert(parent_i);
                 }
             }
         }
+
         self.v.retain(|swap| {
             if swap.dim == 2 {
                 return true;
@@ -79,6 +83,8 @@ impl Swaps {
     /// simplices were less than `lifetime`.
     ///
     /// `lifetime` can for instance be `0.01`.
+    ///
+    /// Probably only useful for 1st MA.
     pub fn prune_persistence(
         &mut self,
         complex: &Complex,

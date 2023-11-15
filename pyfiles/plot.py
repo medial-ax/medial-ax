@@ -428,4 +428,5 @@ def plot_vineyard_results(
     ax.set_aspect("equal")
     for [a, b, c, d] in faces:
         plot_face_3d(ax, a, b, c, d)
+    ax.set_aspect("equal")
     return fig, ax

@@ -11,6 +11,8 @@ class Example:
     camera_opt: "CameraOpt" = None
     medial_axis: int = 0
     prune_eps: Optional[float] = None
+    prune_dist: Optional[float] = None
+    """Suggested pruning value for euclidean absolute pruning distance. In m."""
 
 
 @dataclass
@@ -211,4 +213,86 @@ four_points = Example(
     prune_eps=0,
     medial_axis=0,
 )
-"""Three points in the plane. No edges. No faces."""
+"""Four points in the plane. No edges. No faces."""
+
+tet_points = Example(
+    filename="input/tet-points.obj",
+    grid_size=0.1,
+    grid_buffer=0.25,
+    camera_opt=CameraOpt(azim=20, elev=30),
+    prune_eps=0,
+    medial_axis=0,
+)
+"""Test input"""
+
+tet_filled = Example(
+    filename="input/tet-filled.obj",
+    grid_size=0.1,
+    grid_buffer=0.25,
+    camera_opt=CameraOpt(azim=20, elev=30),
+    prune_eps=0,
+    medial_axis=0,
+)
+"""Test input"""
+
+tet1 = Example(
+    filename="input/tet1.obj",
+    grid_size=0.1,
+    grid_buffer=0.25,
+    camera_opt=CameraOpt(azim=20, elev=30),
+    prune_eps=0,
+    medial_axis=0,
+)
+"""Tet, subdivided once"""
+
+tet2 = Example(
+    filename="input/tet2.obj",
+    grid_size=0.1,
+    grid_buffer=0.25,
+    camera_opt=CameraOpt(azim=20, elev=30),
+    prune_eps=0,
+    medial_axis=0,
+)
+"""Tet, subdivided twice"""
+
+tet3 = Example(
+    filename="input/tet3.obj",
+    grid_size=0.1,
+    grid_buffer=0.25,
+    camera_opt=CameraOpt(azim=20, elev=30),
+    prune_eps=0,
+    medial_axis=0,
+)
+"""Tet, subdivided thrice"""
+
+u = Example(
+    filename="input/u.obj",
+    grid_size=0.05,
+    grid_buffer=0.2,
+    camera_opt=CameraOpt(azim=20, elev=30),
+    prune_eps=0,
+    medial_axis=0,
+)
+"""U shape"""
+
+u2 = Example(
+    filename="input/u2.obj",
+    grid_size=0.05,
+    grid_buffer=0.2,
+    camera_opt=CameraOpt(azim=-60, elev=30),
+    prune_eps=0,
+    medial_axis=0,
+)
+"""U shape"""
+
+
+junglegym = Example(
+    filename="input/jungle-gym.obj",
+    grid_size=0.3,
+    grid_buffer=0.2,
+    camera_opt=CameraOpt(azim=-60, elev=30),
+    prune_eps=0,
+    medial_axis=0,
+    prune_dist=0.75,
+)
+"""Jungle Gym"""
