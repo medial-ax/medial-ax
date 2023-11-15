@@ -199,3 +199,21 @@ confused_pretzel = Example(
     prune_eps=0,
     medial_axis=0,
 )
+
+maze = Example(
+    filename="input/maze_2.obj",
+    grid_size=0.05,
+    grid_buffer=0.1,
+    camera_opt=CameraOpt(azim=20, elev=30),
+    prune_eps=0,
+    medial_axis=0,
+)
+
+maze_curve = Example(
+    filename="input/maze_curve.obj",
+    grid_size=0.09,
+    grid_buffer=0.1,
+    camera_opt=CameraOpt(azim=20, elev=30),
+    prune_eps=0,
+    medial_axis=0,
+)
