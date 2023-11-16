@@ -217,3 +217,13 @@ maze_curve = Example(
     prune_eps=0,
     medial_axis=0,
 )
+
+# SAVE THESE FOR TOMORRROW RUN IN RUST
+maybepipe = Example(
+    filename="input/maybe_pipe_sparse.obj",
+    grid_size=0.05,
+    grid_buffer=0.1,
+    camera_opt=CameraOpt(azim=20, elev=30),
+    prune_eps=0,
+    medial_axis=0,
+)
