@@ -79,6 +79,53 @@ impl Grid {
         }
         Index(arr)
     }
+
+    fn coordinate(&self, i: Index) -> Pos {
+        let mut arr = [0.0; 3];
+        for j in 0..3 {
+            arr[j] = self.corner.0[j] + self.size * i.0[j] as f64;
+        }
+        Pos(arr)
+    }
+
+    /// Splits the grid into two along the longest axis.
+    pub fn split_with_overlap(&self) -> (Self, Self) {
+        let [w, h, d] = self.shape.0;
+        if h <= w && d <= w {
+            let wmin = w / 2;
+            let wmax = w - wmin;
+            (
+                Self::new(self.corner, self.size, [wmin + 1, h, d]),
+                Self::new(
+                    self.coordinate(Index([wmin, 0, 0])),
+                    self.size,
+                    [wmax, h, d],
+                ),
+            )
+        } else if w <= h && d <= h {
+            let hmin = h / 2;
+            let hmax = h - hmin;
+            (
+                Self::new(self.corner, self.size, [w, hmin + 1, d]),
+                Self::new(
+                    self.coordinate(Index([0, hmax, 0])),
+                    self.size,
+                    [w, hmax, d],
+                ),
+            )
+        } else {
+            let dmin = d / 2;
+            let dmax = d - dmin;
+            (
+                Self::new(self.corner, self.size, [w, h, dmin + 1]),
+                Self::new(
+                    self.coordinate(Index([0, 0, dmax])),
+                    self.size,
+                    [w, h, dmax],
+                ),
+            )
+        }
+    }
 }
 
 impl Grid {

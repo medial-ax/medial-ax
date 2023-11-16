@@ -4,6 +4,7 @@ use std::{
 };
 
 use complex::{Complex, Pos, Simplex};
+use grid::Grid;
 use permutation::Permutation;
 use pyo3::{exceptions::PyValueError, prelude::*};
 use sneaky_matrix::{Col, SneakyMatrix};
@@ -1204,6 +1205,7 @@ fn mars(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<Col>()?;
     m.add_class::<Simplex>()?;
     m.add_class::<Complex>()?;
+    m.add_class::<Grid>()?;
     Ok(())
 }
 
