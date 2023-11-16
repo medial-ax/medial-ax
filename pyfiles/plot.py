@@ -129,7 +129,7 @@ def plot_complex(
     return ax
 
 
-def plot_complex_3d(ax: plt.Axes, complex: complex):
+def plot_complex_3d(ax: plt.Axes, complex: complex, alpha=0.6):
     xs = []
     ys = []
     zs = []
@@ -151,7 +151,7 @@ def plot_complex_3d(ax: plt.Axes, complex: complex):
         ys,
         zs,
         triangles=triangles,
-        alpha=0.6,
+        alpha=alpha,
     )
 
     for triangle in complex.trilist:
@@ -183,12 +183,17 @@ def plot_face_3d(
     xs = [a[0], b[0], c[0], d[0]]
     ys = [a[1], b[1], c[1], d[1]]
     zs = [a[2], b[2], c[2], d[2]]
+
+    index = np.argmax(np.abs(np.cross(b - a, c - a)))
+    color = color_sunset(index / 2)
+
     ax.plot_trisurf(
         xs,
         ys,
         zs,
         triangles=[[0, 1, 2], [0, 2, 3]],
         alpha=0.6,
+        color=color,
     )
 
 
@@ -422,10 +427,18 @@ def plot_vineyard_results(
     fig, ax = plt.subplots(subplot_kw={"projection": "3d", "computed_zorder": False})
     ax.view_init(**camera_opt.__dict__)
     if not skip_cube:
-        plot_complex_3d(ax, complex)
+        plot_complex_3d(ax, complex, 0.3)
     if not skip_grid:
         plot_grid_3d(ax, grid)
     ax.set_aspect("equal")
     for [a, b, c, d] in faces:
         plot_face_3d(ax, a, b, c, d)
+    # ax.plot([1], [1], [-1], "o", color="red")  # simplex 2
+    # ax.plot([-1], [1], [-1], "o", color="blue")  # simplex 0
+    # ax.plot([-1], [1], [1], "o", color="green")  # simplex 1
+    # ax.plot([1], [1], [1], "o", color="purple")  # simplex 3
+
+    # ax.plot([-1], [-1], [1], "o", color="orange")  # simplex 5
+    # ax.plot([-1], [-1], [-1], "o", color="magenta")  # simplex 4
+    ax.set_aspect("equal")
     return fig, ax

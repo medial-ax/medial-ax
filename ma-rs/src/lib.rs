@@ -1,283 +1,891 @@
-use std::iter::zip;
+use std::{
+    collections::{HashMap, HashSet},
+    iter::zip,
+};
 
-use pyo3::prelude::*;
+use complex::{Complex, Pos, Simplex};
+use permutation::Permutation;
+use pyo3::{exceptions::PyValueError, prelude::*};
+use sneaky_matrix::{Col, SneakyMatrix};
 
-#[derive(Debug, Clone)]
-#[pyclass]
-pub struct Permutation {
-    forwards: Vec<usize>,
-    backwards: Vec<usize>,
+pub mod complex;
+pub mod grid;
+pub mod permutation;
+pub mod sneaky_matrix;
+
+#[pyo3::pyclass(get_all)]
+#[derive(Clone, Debug)]
+pub struct Swap {
+    /// Dimension in which the swap happened.
+    dim: usize,
+    /// Canonical index of the first simplex.
+    i: usize,
+    /// Canonical index of the second simplex.
+    j: usize,
 }
 
-impl Permutation {
-    pub fn new(n: usize) -> Self {
-        Permutation {
-            forwards: (0..n).collect(),
-            backwards: (0..n).collect(),
-        }
-    }
-
-    pub fn map(&self, a: usize) -> usize {
-        self.forwards[a]
-    }
-
-    pub fn inv(&self, a: usize) -> usize {
-        self.backwards[a]
-    }
-
-    /// Apply the swap to the "end" of the permutation.
-    /// ```rust
-    /// # use ma_rs::Permutation;
-    /// let mut p = Permutation::new(10);
-    /// p.swap(2, 3);
-    /// assert_eq!(p.map(0), 0);
-    /// assert_eq!(p.map(1), 1);
-    /// assert_eq!(p.map(2), 3);
-    /// assert_eq!(p.map(3), 2);
-    /// p.swap(3, 1);
-    /// assert_eq!(p.map(0), 0);
-    /// assert_eq!(p.map(1), 2);
-    /// assert_eq!(p.map(2), 3);
-    /// assert_eq!(p.map(3), 1);
-    /// ```
-    pub fn swap(&mut self, a: usize, b: usize) {
-        self.forwards.swap(a, b);
-        self.backwards.swap(self.forwards[a], self.forwards[b]);
-    }
-
-    pub fn len(&self) -> usize {
-        self.forwards.len()
-    }
+#[pyo3::pyclass(get_all)]
+#[derive(Clone, Debug)]
+pub struct Swaps {
+    pub v: Vec<Swap>,
 }
 
-#[derive(PartialEq, Eq, Debug, Clone)]
-#[pyclass]
-struct Col(Vec<usize>);
-
-#[pymethods]
-impl Col {
-    #[staticmethod]
-    fn new() -> Self {
-        Col(Vec::new())
-    }
-
-    /// Checks if the column contains an entry at the given row.
-    fn has(&self, a: usize) -> bool {
-        self.0.binary_search(&a).is_ok()
-    }
-
-    /// Checks if the column is empty.
-    fn empty(&self) -> bool {
-        self.0.is_empty()
-    }
-
-    /// Set the given row.
-    fn set(&mut self, r: usize) {
-        match self.0.binary_search(&r) {
-            Ok(_) => {}
-            Err(i) => {
-                self.0.insert(i, r);
-            }
-        }
-    }
-
-    /// Clear a row entry.
-    fn unset(&mut self, r: usize) {
-        match self.0.binary_search(&r) {
-            Ok(i) => {
-                self.0.remove(i);
-            }
-            Err(_) => {}
-        }
-    }
-
-    /// Add in another column in Z/Z2 arithmetic.
-    fn add_mod2(&self, other: &Self) -> Self {
-        let mut v = Vec::new();
-        let mut i = 0;
-        let mut j = 0;
-
-        while i < self.0.len() && j < other.0.len() {
-            if self.0[i] < other.0[j] {
-                v.push(self.0[i]);
-                i += 1;
-            } else if self.0[i] > other.0[j] {
-                v.push(other.0[j]);
-                j += 1;
-            } else {
-                i += 1;
-                j += 1;
-            }
-        }
-
-        while i < self.0.len() {
-            v.push(self.0[i]);
-            i += 1;
-        }
-
-        while j < other.0.len() {
-            v.push(other.0[j]);
-            j += 1;
-        }
-
-        Col(v)
-    }
-
-    /// Get the lowest 1 in this column, under the permutation.
-    fn max_under(&self, perm: &Permutation) -> Option<usize> {
-        self.0.iter().max_by_key(|&&rr| perm.inv(rr)).cloned()
-    }
-
-    /// Turn the column into a `Vec<usize>` of row indices.
-    pub fn as_vec(&self) -> Vec<usize> {
-        self.0.clone()
-    }
-}
-
-impl From<Vec<usize>> for Col {
-    fn from(v: Vec<usize>) -> Self {
-        Col(v)
-    }
-}
-
-#[derive(Debug, Clone)]
-#[pyclass(get_all)]
-pub struct SneakyMatrix {
-    columns: Vec<Col>,
-    pub rows: usize,
-    pub cols: usize,
-
-    col_perm: Permutation,
-    row_perm: Permutation,
-}
-
-#[pymethods]
-impl SneakyMatrix {
-    #[staticmethod]
-    pub fn zeros(rows: usize, cols: usize) -> Self {
-        let mut columns = Vec::with_capacity(cols);
-        for _ in 0..cols {
-            columns.push(Col::new());
-        }
-
-        SneakyMatrix {
-            columns,
-            rows,
-            cols,
-            col_perm: Permutation::new(cols),
-            row_perm: Permutation::new(rows),
-        }
-    }
-
-    #[staticmethod]
-    pub fn eye(n: usize) -> Self {
-        let mut columns = Vec::with_capacity(n);
-        for i in 0..n {
-            let mut v = Vec::with_capacity(1);
-            v.push(i);
-            columns.push(Col(v));
-        }
-
-        SneakyMatrix {
-            columns,
-            rows: n,
-            cols: n,
-            col_perm: Permutation::new(n),
-            row_perm: Permutation::new(n),
-        }
-    }
-
-    /// Assume that we can call `.cols` and `.rows` and index into the matrix,
-    /// as well as a `.column(c)` method that returns a list of set rows.
-    #[staticmethod]
-    pub fn from_py_sneakymatrix(p: PyObject) -> Self {
-        Python::with_gil(|py| {
-            let cols: usize = p.getattr(py, "cols").unwrap().extract(py).unwrap();
-            let rows: usize = p.getattr(py, "rows").unwrap().extract(py).unwrap();
-            let columns_fn = p.getattr(py, "columns").unwrap();
-            let columns_ret = columns_fn.call0(py).unwrap();
-            let columns: Vec<(usize, Vec<usize>)> = columns_ret.extract(py).unwrap();
-            let mut z = Self::zeros(rows, cols);
-            for (c, col) in columns.iter() {
-                for &r in col.iter() {
-                    z.set(r, *c, true);
-                }
-            }
-            z
+#[pyo3::pymethods]
+impl Swaps {
+    /// Remove all swaps that were done between simplices that are closer than
+    /// `min_dist`.
+    ///
+    /// Useful for 0th MA.
+    pub fn prune_euclidian(&mut self, complex: &Complex, min_dist: f64) {
+        self.v.retain(|swap| {
+            let c1 = complex.simplices_per_dim[swap.dim][swap.i].center_point(complex);
+            let c2 = complex.simplices_per_dim[swap.dim][swap.j].center_point(complex);
+            let dist = c1.dist2(&c2);
+            min_dist < dist
         })
     }
 
-    pub fn swap_rows(&mut self, a: usize, b: usize) {
-        self.row_perm.swap(a, b);
-    }
+    /// Remove all swaps that happen between simplices if there is a simplex
+    /// with the two simplices in its boundary.
+    pub fn prune_coboundary(&mut self, complex: &Complex) {
+        // (dim, id) to [id].
+        let mut coboundary: HashMap<(usize, usize), HashSet<usize>> = HashMap::new();
 
-    pub fn swap_cols(&mut self, a: usize, b: usize) {
-        self.col_perm.swap(a, b);
-    }
-
-    pub fn swap_cols_and_rows(&mut self, a: usize, b: usize) {
-        self.col_perm.swap(a, b);
-        self.row_perm.swap(a, b);
-    }
-
-    pub fn add_cols(&mut self, c1: usize, c2: usize) {
-        let cc1 = self.col_perm.map(c1);
-        let cc2 = self.col_perm.map(c2);
-        let col_1 = &self.columns[cc1];
-        let col_2 = &self.columns[cc2];
-        let c3 = col_1.add_mod2(col_2);
-        self.columns[cc1] = c3;
-    }
-
-    /// Searches for the lowest 1 in the given column. The returned row is under
-    /// the row permutation, so it is the "logical" row.
-    pub fn colmax(&self, c: usize) -> Option<usize> {
-        let cc = self.col_perm.map(c);
-        let col = &self.columns[cc];
-        col.max_under(&self.row_perm)
-    }
-
-    /// Search for the column which lowest one is the given `r`.
-    pub fn col_with_low(&self, r: usize) -> Option<usize> {
-        let rr = self.row_perm.map(r);
-        for (cc, col) in self.columns.iter().enumerate() {
-            if col.max_under(&self.row_perm) == Some(rr) {
-                let c = self.col_perm.inv(cc);
-                return Some(c);
+        for dim in 1..3 {
+            for (parent_i, s) in complex.simplices_per_dim[dim].iter().enumerate() {
+                for face_i in &s.boundary {
+                    let v = coboundary
+                        .entry((dim - 1, *face_i))
+                        .or_insert_with(HashSet::new);
+                    v.insert(parent_i);
+                }
             }
         }
-        None
+
+        self.v.retain(|swap| {
+            if swap.dim == 2 {
+                return true;
+            }
+
+            let cob_i = coboundary.get(&(swap.dim, swap.i));
+            let cob_j = coboundary.get(&(swap.dim, swap.j));
+
+            if let (Some(cob_i), Some(cob_j)) = (cob_i, cob_j) {
+                let mut intersection = cob_i.intersection(cob_j);
+                intersection.next() == None
+            } else {
+                true
+            }
+        });
     }
 
-    /// Return [true] if the column is not empty.
-    pub fn col_is_not_empty(&self, c: usize) -> bool {
-        let cc = self.col_perm.map(c);
-        !self.columns[cc].empty()
+    /// Remove all swaps that happened where the persistence of any of the
+    /// simplices were less than `lifetime`.
+    ///
+    /// `lifetime` can for instance be `0.01`.
+    ///
+    /// Probably only useful for 1st MA.
+    pub fn prune_persistence(
+        &mut self,
+        complex: &Complex,
+        reduction_from: &Reduction,
+        reduction_to: &Reduction,
+        lifetime: f64,
+    ) {
+        let (vd, ed, td) = complex.distances_to(reduction_from.key_point);
+        let distances_from = [vd, ed, td];
+        let (vd, ed, td) = complex.distances_to(reduction_to.key_point);
+        let distances_to = [vd, ed, td];
+
+        fn find_killer(dim: usize, can_id: usize, reduction: &Reduction) -> Option<usize> {
+            if reduction.stacks.len() <= dim + 1 {
+                return None;
+            }
+            let ordering = &reduction.stacks[dim].ordering;
+            let sorted_i = ordering.map(can_id);
+            let killer = reduction.stacks[dim + 1].R.col_with_low(sorted_i);
+            if let Some(k) = killer {
+                let can_k = reduction.stacks[dim + 1].ordering.inv(k);
+                Some(can_k)
+            } else {
+                None
+            }
+        }
+
+        fn persistence(
+            dim: usize,
+            can_id: usize,
+            reduction: &Reduction,
+            distances: &[Vec<f64>],
+        ) -> Option<f64> {
+            let killer = find_killer(dim, can_id, reduction);
+            if let Some(killer) = killer {
+                let dist = distances[dim][can_id];
+                let killer_dist = distances[dim + 1][killer];
+                Some(killer_dist - dist)
+            } else {
+                None
+            }
+        }
+
+        self.v.retain(|swap| {
+            if let Some(p) = persistence(swap.dim, swap.i, reduction_from, &distances_from) {
+                if p < lifetime {
+                    return false;
+                }
+            }
+            if let Some(p) = persistence(swap.dim, swap.j, reduction_to, &distances_to) {
+                if p < lifetime {
+                    return false;
+                }
+            }
+
+            true
+        });
     }
 
-    pub fn shape(&self) -> (usize, usize) {
-        (self.rows, self.cols)
+    pub fn pyclone(&self) -> Self {
+        self.clone()
+    }
+}
+
+#[pyo3::pyclass(get_all)]
+#[derive(Clone, Debug)]
+#[allow(non_snake_case)]
+pub struct Stack {
+    /// Boundary matrix
+    pub D: SneakyMatrix,
+    /// Reduced boundary matrix
+    pub R: SneakyMatrix,
+    /// Inverse of the "column adds" matrix.
+    pub U_t: SneakyMatrix,
+    /// Ordering of the simplices. Cannonical to sorted order.
+    pub ordering: Permutation,
+}
+
+#[pyo3::pyclass(get_all)]
+#[derive(Clone, Debug)]
+pub struct Reduction {
+    /// Key point around which the reduction is done.
+    pub key_point: Pos,
+    pub stacks: [Stack; 3],
+}
+
+#[allow(non_snake_case)]
+impl Reduction {
+    pub fn D(&self, dim: isize) -> &SneakyMatrix {
+        assert!(0 <= dim);
+        assert!(dim <= 2);
+        &self.stacks[dim as usize].D
     }
 
-    pub fn set(&mut self, r: usize, c: usize, val: bool) {
-        let cc = self.col_perm.map(c);
-        let rr = self.row_perm.map(r);
-        if val {
-            self.columns[cc].set(rr);
-        } else {
-            self.columns[cc].unset(rr);
+    pub fn R(&self, dim: isize) -> &SneakyMatrix {
+        assert!(0 <= dim);
+        assert!(dim <= 2);
+        &self.stacks[dim as usize].R
+    }
+
+    pub fn U_t(&self, dim: isize) -> &SneakyMatrix {
+        assert!(0 <= dim);
+        assert!(dim <= 2);
+        &self.stacks[dim as usize].U_t
+    }
+
+    pub fn ordering(&self, dim: isize) -> &Permutation {
+        assert!(0 <= dim);
+        assert!(dim <= 2);
+        &self.stacks[dim as usize].ordering
+    }
+
+    /// Checks that the ordering is consistent.
+    pub fn assert_ordering(&self, complex: &Complex) {
+        let mut vertex_distance = HashMap::new();
+
+        let mut vertex_order = (0..complex.simplices_per_dim[0].len())
+            .map(|i| {
+                let s = &complex.simplices_per_dim[0][i];
+                let coords = s.coords.unwrap();
+                let dist = coords.dist2(&self.key_point);
+                vertex_distance.insert(i, dist);
+                let sorted_order = self.stacks[0].ordering.map(i);
+                (float_ord::FloatOrd(dist), sorted_order)
+            })
+            .collect::<Vec<_>>();
+        vertex_order.sort();
+
+        for t in vertex_order.windows(2) {
+            let a = t[0];
+            let b = t[1];
+            assert!(a.1 <= b.1, "a[1] = {:?}, b[1] = {:?}", a.1, b.1);
+        }
+
+        let mut edge_dist = HashMap::new();
+        let mut edge_order = (0..complex.simplices_per_dim[1].len())
+            .map(|i| {
+                let s = &complex.simplices_per_dim[1][i];
+                let ai = s.boundary[0] as usize;
+                let bi = s.boundary[1] as usize;
+
+                let adist = *vertex_distance.get(&ai).unwrap();
+                let bdist = *vertex_distance.get(&bi).unwrap();
+
+                let dist = adist.max(bdist);
+                edge_dist.insert(i, dist);
+
+                let sorted_order = self.stacks[1].ordering.map(i);
+                (float_ord::FloatOrd(dist), sorted_order)
+            })
+            .collect::<Vec<_>>();
+        edge_order.sort();
+
+        for t in edge_order.windows(2) {
+            let a = t[0];
+            let b = t[1];
+            assert!(a.1 <= b.1, "a.1 = {:?}, b.1 = {:?}", a, b);
+        }
+
+        let mut tri_order = (0..complex.simplices_per_dim[2].len())
+            .map(|i| {
+                let s = &complex.simplices_per_dim[2][i];
+
+                let ai = s.boundary[0] as usize;
+                let bi = s.boundary[1] as usize;
+                let ci = s.boundary[1] as usize;
+
+                let adist = *edge_dist.get(&ai).unwrap();
+                let bdist = *edge_dist.get(&bi).unwrap();
+                let cdist = *edge_dist.get(&ci).unwrap();
+
+                let dist = adist.max(bdist).max(cdist);
+
+                let sorted_order = self.stacks[2].ordering.map(i);
+                (float_ord::FloatOrd(dist), sorted_order)
+            })
+            .collect::<Vec<_>>();
+        tri_order.sort();
+
+        for t in tri_order.windows(2) {
+            let a = t[0];
+            let b = t[1];
+            assert!(a.0 <= b.0, "a[0] = {:?}, b[0] = {:?}", a.0, b.0); // This will always pass
+            assert!(a.1 <= b.1, "a[1] = {:?}, b[1] = {:?}", a.1, b.1);
+        }
+    }
+}
+
+pub fn inverse_zz2(mat: &SneakyMatrix) -> Result<SneakyMatrix, String> {
+    let res: PyResult<SneakyMatrix> = Python::with_gil(|py| {
+        // println!("set up module");
+        let module = PyModule::from_code(
+            py,
+            r#"
+import numpy as np
+import mars
+import galois
+GF2 = galois.GF(2)
+
+def invert(rs_mat):
+    A = np.zeros((rs_mat.rows, rs_mat.cols), dtype=np.int8)
+    for r in range(rs_mat.rows):
+        for c in range(rs_mat.cols):
+            if rs_mat.get(r, c):
+                A[r, c] = 1
+    gf = GF2(A)
+    inv = np.linalg.inv(gf)
+    U_t = np.array(inv).T
+
+    (rr, cc) = U_t.shape
+    ret = mars.SneakyMatrix.zeros(rr, cc)
+    for r in range(rr):
+        for c in range(cc):
+            if U_t[r, c] == 1:
+                ret.set(r, c, True)
+    return ret
+"#,
+            "pretend.py",
+            "pretend",
+        )?;
+
+        // println!("set up module done");
+
+        let invert = module.getattr("invert")?;
+
+        // println!("call invert");
+        let res = invert
+            .call((mat.clone(),), None)?
+            .extract::<SneakyMatrix>()?;
+        // println!("call invert done");
+
+        Ok(res)
+    });
+
+    res.map_err(|e| e.to_string())
+}
+
+/// The permutations returned are such that when you go forwards through the
+/// permutation, you get the simplices in sorted order based on their distance
+/// to the key point.
+///
+/// I.e, `v_perm[0]` is the canonical index of the closest vertex, and
+/// `v_perm[0]` is the canonical index of the second closest index.
+///
+/// In other words, `v_perm.map` takes a "sorted" index and returns a "canonical" index.
+fn compute_permutations(
+    complex: &Complex,
+    key_point: Pos,
+) -> (Permutation, Permutation, Permutation) {
+    let vertex_distances = complex.simplices_per_dim[0]
+        .iter()
+        .map(|v| float_ord::FloatOrd(v.coords.unwrap().dist2(&key_point)))
+        .collect::<Vec<_>>();
+
+    let edge_distances = complex.simplices_per_dim[1]
+        .iter()
+        .map(|e| {
+            vertex_distances[e.boundary[0] as usize].max(vertex_distances[e.boundary[1] as usize])
+        })
+        .collect::<Vec<_>>();
+
+    let triangle_distances = complex.simplices_per_dim[2]
+        .iter()
+        .map(|f| {
+            edge_distances[f.boundary[0] as usize]
+                .max(edge_distances[f.boundary[1] as usize])
+                .max(edge_distances[f.boundary[2] as usize])
+        })
+        .collect::<Vec<_>>();
+
+    let v_perm = Permutation::from_ord(&vertex_distances);
+    let e_perm = Permutation::from_ord(&edge_distances);
+    let t_perm = Permutation::from_ord(&triangle_distances);
+
+    (v_perm, e_perm, t_perm)
+}
+
+#[pyfunction]
+/// Returns a [Vec] with one element per faustian swap. The elements are `(dim,
+/// (i, j))` where `dim` is the dimension of the simplices that were swapped,
+/// and `i` and `j` are the canonical indices of the swapped simplices.
+pub fn vineyards_123(
+    complex: &Complex,
+    reduction: &Reduction,
+    key_point: Pos,
+) -> (Reduction, Swaps) {
+    let (mut v_perm, mut e_perm, mut t_perm) = compute_permutations(complex, key_point);
+
+    let mut stack0 = reduction.stacks[0].clone();
+    let mut stack1 = reduction.stacks[1].clone();
+    let mut stack2 = reduction.stacks[2].clone();
+
+    let mut faustian_swap_simplices = Vec::new();
+
+    // NOTE: we need the permutation from cannonical to sorted, so that we can
+    // get the permutation that takes us from the `b` point to the `a` point, so
+    // that, in turn, we can bubble sort from `a` to `b`.
+    v_perm.reverse();
+    let vine_ordering0 = Permutation::from_to(&v_perm, &stack0.ordering);
+
+    // println!(
+    //     "vineyards: stack0.ordering: {:?}",
+    //     stack0.ordering.clone().into_forwards()
+    // );
+    // println!("vineyards: v_perm: {:?}", v_perm.clone().into_forwards());
+    // println!(
+    //     "vineyards: vine_ordering0: {:?}",
+    //     vine_ordering0.clone().into_forwards()
+    // );
+
+    // let mut seen_swaps = HashSet::new();
+
+    let (swap_is0, simplices_that_got_swapped0) =
+        compute_transpositions(vine_ordering0.clone().into_forwards());
+    for (swap_i, &i) in swap_is0.iter().enumerate() {
+        let res = perform_one_swap2(i, &mut stack0, &mut stack1);
+        stack0.D.swap_cols(i, i + 1);
+        stack1.D.swap_rows(i, i + 1);
+
+        // {
+        //     let (i, j) = simplices_that_got_swapped0[swap_i];
+        //     let cann_i = stack0.ordering.inv(i);
+        //     let cann_j = stack0.ordering.inv(j);
+        //     seen_swaps.insert((cann_i.min(cann_j), cann_i.max(cann_j)));
+        // }
+
+        if let Some(true) = res {
+            // These are indices of simplices that we said were the 0,1,2... order
+            // in the bubble sort (compute_transpositions).  This is the order
+            // of the simplices at `a`.
+            let (i, j) = simplices_that_got_swapped0[swap_i];
+            let cann_i = stack0.ordering.inv(i);
+            let cann_j = stack0.ordering.inv(j);
+
+            faustian_swap_simplices.push(Swap {
+                dim: 0,
+                i: cann_i,
+                j: cann_j,
+            });
         }
     }
 
-    pub fn get(&mut self, r: usize, c: usize) -> bool {
-        let cc = self.col_perm.map(c);
-        let rr = self.row_perm.map(r);
-        self.columns[cc].has(rr)
+    // Check that all pairs we've seen swapped actually has their ordering changed
+    // wrt. the two key points.  In addition, check that the ones we have NOT seen
+    // has their ordering the same.
+    // for i in 0..complex.simplices_per_dim[0].len() {
+    //     for j in 0..i {
+    //         let p_i = complex.simplices_per_dim[0][i].coords.unwrap();
+    //         let p_j = complex.simplices_per_dim[0][j].coords.unwrap();
+
+    //         let a = reduction.key_point;
+    //         let b = key_point;
+
+    //         let cmp_at_a = a.dist(&p_i).total_cmp(&a.dist(&p_j));
+    //         let cmp_at_b = b.dist(&p_i).total_cmp(&b.dist(&p_j));
+
+    //         if seen_swaps.contains(&(j, i)) {
+    //             assert!(
+    //                 (cmp_at_a.is_eq() && cmp_at_b.is_eq()) || (cmp_at_a != cmp_at_b),
+    //                 "Swapped, so ordering should have too: {:?} {:?}",
+    //                 cmp_at_a,
+    //                 cmp_at_b
+    //             );
+    //         } else {
+    //             assert!(
+    //                 cmp_at_a.is_eq() || cmp_at_b.is_eq() || cmp_at_a == cmp_at_b,
+    //                 "Ordering should be the same since they didn't swap: {:?} {:?}",
+    //                 cmp_at_a,
+    //                 cmp_at_b
+    //             );
+    //         }
+    //     }
+    // }
+
+    if 0 < e_perm.len() {
+        e_perm.reverse();
+        let vine_ordering1 = Permutation::from_to(&e_perm, &stack1.ordering);
+        let (swap_is1, simplices_that_got_swapped1) =
+            compute_transpositions(vine_ordering1.clone().into_forwards());
+        for (swap_i, &i) in swap_is1.iter().enumerate() {
+            let res = perform_one_swap2(i, &mut stack1, &mut stack2);
+            stack1.D.swap_cols(i, i + 1);
+            stack2.D.swap_rows(i, i + 1);
+            if let Some(true) = res {
+                let (i, j) = simplices_that_got_swapped1[swap_i];
+                let cann_i = stack1.ordering.inv(i);
+                let cann_j = stack1.ordering.inv(j);
+
+                faustian_swap_simplices.push(Swap {
+                    dim: 1,
+                    i: cann_i,
+                    j: cann_j,
+                });
+            }
+        }
     }
 
-    pub fn clone2(&self) -> Self {
-        self.clone()
+    if 0 < t_perm.len() {
+        t_perm.reverse();
+        let vine_ordering2 = Permutation::from_to(&t_perm, &stack2.ordering);
+        let (swap_is2, simplices_that_got_swapped2) =
+            compute_transpositions(vine_ordering2.clone().into_forwards());
+        for (swap_i, &i) in swap_is2.iter().enumerate() {
+            let res = perform_one_swap_top_dim(i, &mut stack2);
+            stack2.D.swap_cols(i, i + 1);
+            if let Some(true) = res {
+                let (i, j) = simplices_that_got_swapped2[swap_i];
+                let cann_i = stack2.ordering.inv(i);
+                let cann_j = stack2.ordering.inv(j);
+
+                faustian_swap_simplices.push(Swap {
+                    dim: 2,
+                    i: cann_i,
+                    j: cann_j,
+                });
+            }
+        }
     }
+
+    stack0.ordering = v_perm;
+    stack1.ordering = e_perm;
+    stack2.ordering = t_perm;
+
+    // println!("vineyards_123");
+    // dbg!(&vine_ordering0);
+    // dbg!(&vine_ordering1);
+    // dbg!(&vine_ordering2);
+
+    let state = Reduction {
+        key_point,
+        stacks: [stack0, stack1, stack2],
+    };
+
+    (
+        state,
+        Swaps {
+            v: faustian_swap_simplices,
+        },
+    )
+}
+
+#[allow(non_snake_case)]
+#[pyfunction]
+pub fn reduce_from_scratch(complex: &Complex, key_point: Pos) -> Reduction {
+    let (mut v_perm, mut e_perm, mut t_perm) = compute_permutations(complex, key_point);
+
+    let mut boundary_0 = complex.boundary_matrix(0);
+    boundary_0.col_perm = v_perm.clone();
+    let D0 = boundary_0.clone();
+
+    let mut boundary_1 = complex.boundary_matrix(1);
+    boundary_1.col_perm = e_perm.clone();
+    boundary_1.row_perm = v_perm.clone();
+    let D1 = boundary_1.clone();
+
+    let mut boundary_2 = complex.boundary_matrix(2);
+    boundary_2.col_perm = t_perm.clone();
+    boundary_2.row_perm = e_perm.clone();
+    let D2 = boundary_2.clone();
+
+    let adds0 = boundary_0.reduce();
+    let adds1 = boundary_1.reduce();
+    let adds2 = boundary_2.reduce();
+
+    let mut V0 = SneakyMatrix::eye(boundary_0.cols);
+    for (target, other) in adds0 {
+        V0.add_cols(target, other);
+    }
+
+    let mut V1 = SneakyMatrix::eye(boundary_1.cols);
+    for (target, other) in adds1 {
+        V1.add_cols(target, other);
+    }
+
+    let mut V2 = SneakyMatrix::eye(boundary_2.cols);
+    for (target, other) in adds2 {
+        V2.add_cols(target, other);
+    }
+
+    let U_t0 = inverse_zz2(&V0).expect("inverse_zz2 failed");
+    let U_t1 = inverse_zz2(&V1).expect("inverse_zz2 failed");
+    let U_t2 = inverse_zz2(&V2).expect("inverse_zz2 failed");
+
+    let R0 = boundary_0;
+    let R1 = boundary_1;
+    let R2 = boundary_2;
+
+    v_perm.reverse();
+    e_perm.reverse();
+    t_perm.reverse();
+
+    let ret = Reduction {
+        key_point,
+        stacks: [
+            Stack {
+                D: D0,
+                R: R0,
+                U_t: U_t0,
+                ordering: v_perm,
+            },
+            Stack {
+                D: D1,
+                R: R1,
+                U_t: U_t1,
+                ordering: e_perm,
+            },
+            Stack {
+                D: D2,
+                R: R2,
+                U_t: U_t2,
+                ordering: t_perm,
+            },
+        ],
+    };
+
+    ret.assert_ordering(&complex);
+
+    // println!(
+    //     "reduce_from_scratch: stack0.ordering: {:?}",
+    //     ret.stacks[0].ordering.clone().into_forwards()
+    // );
+
+    ret
+}
+
+#[allow(non_snake_case)]
+fn perform_one_swap2(i: usize, stack: &mut Stack, up_stack: &mut Stack) -> Option<bool> {
+    #[allow(non_snake_case)]
+    fn gives_death(R: &SneakyMatrix, c: usize) -> bool {
+        R.col_is_not_empty(c)
+    }
+
+    #[allow(non_snake_case)]
+    fn low(R: &SneakyMatrix, c: usize) -> Option<usize> {
+        R.colmax(c)
+    }
+
+    #[allow(non_snake_case)]
+    fn low_inv(R: &SneakyMatrix, r: usize) -> Option<usize> {
+        R.col_with_low(r)
+    }
+
+    let gives_death_i = gives_death(&stack.R, i);
+    let gives_birth_i = !gives_death_i;
+    let gives_death_i_1 = gives_death(&stack.R, i + 1);
+    let gives_birth_i_1 = !gives_death_i_1;
+
+    // if gives_birth_i and gives_birth_i_1:
+    if gives_birth_i && gives_birth_i_1 {
+        // U_t[i + 1, i] = 0
+        stack.U_t.set(i + 1, i, false);
+        // k = low_inv(i)
+        let k = low_inv(&up_stack.R, i);
+        // l = low_inv(i + 1)
+        let l = low_inv(&up_stack.R, i + 1);
+        // if k != None and l != None and R[i, l] == 1:
+        if let (Some(k), Some(l)) = (k, l) {
+            if up_stack.R.get(i, l) {
+                // if k < l:
+                if k < l {
+                    // R.swap_cols_and_rows(i, i + 1)  # PRP
+                    stack.R.swap_cols(i, i + 1);
+                    up_stack.R.swap_rows(i, i + 1);
+                    // R.add_cols(l, k)  # PRPV
+                    up_stack.R.add_cols(l, k);
+                    // U_t.swap_cols_and_rows(i, i + 1)  # PUP
+                    stack.U_t.swap_cols_and_rows(i, i + 1);
+                    // U_t.add_cols(k, l)  # VPUP
+                    up_stack.U_t.add_cols(k, l);
+                    // return (R, U_t, None)
+                    return None;
+                }
+                // if l < k:
+                if l < k {
+                    // R.swap_cols_and_rows(i, i + 1)  # PRP
+                    stack.R.swap_cols(i, i + 1);
+                    up_stack.R.swap_rows(i, i + 1);
+                    // R.add_cols(k, l)  # PRPV
+                    up_stack.R.add_cols(k, l);
+                    // U_t.swap_cols_and_rows(i, i + 1)  # PUP
+                    stack.U_t.swap_cols_and_rows(i, i + 1);
+                    // U_t.add_cols(l, k)  # VPUP
+                    up_stack.U_t.add_cols(l, k);
+                    // return (R, U_t, False)
+                    return Some(false);
+                }
+                panic!("This should never happen: l == k ({})", l);
+                // raise Exception("k = l; This should never happen.")
+                // else:
+            }
+        }
+
+        // else case
+        // R.swap_cols_and_rows(i, i + 1)  # PRP
+        stack.R.swap_cols(i, i + 1);
+        up_stack.R.swap_rows(i, i + 1);
+        // U_t.swap_cols_and_rows(i, i + 1)  # PUP
+        stack.U_t.swap_cols_and_rows(i, i + 1);
+        // return (R, U_t, None)
+        return None;
+    }
+    // if gives_death_i and gives_death_i_1:
+    if gives_death_i && gives_death_i_1 {
+        // if U_t[i + 1, i] == 1:
+        if stack.U_t.get(i + 1, i) {
+            // low_i = low(i)
+            let low_i = low(&stack.R, i);
+            // low_i_1 = low(i + 1)
+            let low_i_1 = low(&stack.R, i + 1);
+            // U_t.add_cols(i, i + 1)  # W U
+            stack.U_t.add_cols(i, i + 1);
+            // R.add_cols(i + 1, i)  # R W
+            stack.R.add_cols(i + 1, i);
+            // R.swap_cols_and_rows(i, i + 1)  # P R W P
+            stack.R.swap_cols(i, i + 1);
+            up_stack.R.swap_rows(i, i + 1);
+            // U_t.swap_cols_and_rows(i, i + 1)  # P W U P
+            stack.U_t.swap_cols_and_rows(i, i + 1);
+            // if low_i < low_i_1:
+            if low_i < low_i_1 {
+                // return (R, U_t, None)
+                return None;
+            // else:
+            } else {
+                // R.add_cols(i + 1, i)  # (P R W P) W
+                stack.R.add_cols(i + 1, i);
+                // U_t.add_cols(i, i + 1)  # W (P W U P)
+                stack.U_t.add_cols(i, i + 1);
+                // return (R, U_t, False)
+                return Some(false);
+            }
+        // else:
+        } else {
+            // R.swap_cols_and_rows(i, i + 1)  # P R P
+            stack.R.swap_cols(i, i + 1);
+            up_stack.R.swap_rows(i, i + 1);
+            // U_t.swap_cols_and_rows(i, i + 1)  # P U P
+            stack.U_t.swap_cols_and_rows(i, i + 1);
+            // return (R, U_t, None)
+            return None;
+        }
+    }
+    // if gives_death_i and gives_birth_i_1:
+    if gives_death_i && gives_birth_i_1 {
+        // if U_t[i + 1, i] == 1:
+        if stack.U_t.get(i + 1, i) {
+            // U_t.add_cols(i, i + 1)  # W U
+            stack.U_t.add_cols(i, i + 1);
+            // R.add_cols(i + 1, i)  # R W
+            stack.R.add_cols(i + 1, i);
+            // R.swap_cols_and_rows(i, i + 1)  # P R W P
+            stack.R.swap_cols(i, i + 1);
+            up_stack.R.swap_rows(i, i + 1);
+            // R.add_cols(i + 1, i)  # (P R W P) W
+            stack.R.add_cols(i + 1, i);
+            // U_t.swap_cols_and_rows(i, i + 1)  # P W U P
+            stack.U_t.swap_cols_and_rows(i, i + 1);
+            // U_t.add_cols(i, i + 1)  # W (P W U P)
+            stack.U_t.add_cols(i, i + 1);
+            // return (R, U_t, True)
+            return Some(true);
+        // else:
+        } else {
+            // R.swap_cols_and_rows(i, i + 1)  # P R P
+            stack.R.swap_cols(i, i + 1);
+            up_stack.R.swap_rows(i, i + 1);
+            // U_t.swap_cols_and_rows(i, i + 1)  # P U P
+            stack.U_t.swap_cols_and_rows(i, i + 1);
+            // return (R, U_t, None)
+            return None;
+        }
+    }
+    // if gives_birth_i and gives_death_i_1:
+    if gives_birth_i && gives_death_i_1 {
+        // U_t[i + 1, i] = 0
+        stack.U_t.set(i + 1, i, false);
+        // R.swap_cols_and_rows(i, i + 1)  # P R P
+        stack.R.swap_cols(i, i + 1);
+        up_stack.R.swap_rows(i, i + 1);
+        // U_t.swap_cols_and_rows(i, i + 1)  # P U P
+        stack.U_t.swap_cols_and_rows(i, i + 1);
+        // return (R, U_t, None)
+        return None;
+    }
+
+    // raise Exception("bottom of the function; This should never happen.")
+    panic!("This should never happen: no cases matched.");
+}
+
+#[allow(non_snake_case)]
+fn perform_one_swap_top_dim(i: usize, stack: &mut Stack) -> Option<bool> {
+    #[allow(non_snake_case)]
+    fn gives_death(R: &SneakyMatrix, c: usize) -> bool {
+        R.col_is_not_empty(c)
+    }
+
+    #[allow(non_snake_case)]
+    fn low(R: &SneakyMatrix, c: usize) -> Option<usize> {
+        R.colmax(c)
+    }
+
+    let gives_death_i = gives_death(&stack.R, i);
+    let gives_birth_i = !gives_death_i;
+    let gives_death_i_1 = gives_death(&stack.R, i + 1);
+    let gives_birth_i_1 = !gives_death_i_1;
+
+    // if gives_birth_i and gives_birth_i_1:
+    if gives_birth_i && gives_birth_i_1 {
+        // U_t[i + 1, i] = 0
+        stack.U_t.set(i + 1, i, false);
+        // k = low_inv(i)
+
+        // else case
+        // R.swap_cols_and_rows(i, i + 1)  # PRP
+        stack.R.swap_cols(i, i + 1);
+        // U_t.swap_cols_and_rows(i, i + 1)  # PUP
+        stack.U_t.swap_cols_and_rows(i, i + 1);
+        // return (R, U_t, None)
+        return None;
+    }
+    // if gives_death_i and gives_death_i_1:
+    if gives_death_i && gives_death_i_1 {
+        // if U_t[i + 1, i] == 1:
+        if stack.U_t.get(i + 1, i) {
+            // low_i = low(i)
+            let low_i = low(&stack.R, i);
+            // low_i_1 = low(i + 1)
+            let low_i_1 = low(&stack.R, i + 1);
+            // U_t.add_cols(i, i + 1)  # W U
+            stack.U_t.add_cols(i, i + 1);
+            // R.add_cols(i + 1, i)  # R W
+            stack.R.add_cols(i + 1, i);
+            // R.swap_cols_and_rows(i, i + 1)  # P R W P
+            stack.R.swap_cols(i, i + 1);
+            // U_t.swap_cols_and_rows(i, i + 1)  # P W U P
+            stack.U_t.swap_cols_and_rows(i, i + 1);
+            // if low_i < low_i_1:
+            if low_i < low_i_1 {
+                // return (R, U_t, None)
+                return None;
+            // else:
+            } else {
+                // R.add_cols(i + 1, i)  # (P R W P) W
+                stack.R.add_cols(i + 1, i);
+                // U_t.add_cols(i, i + 1)  # W (P W U P)
+                stack.U_t.add_cols(i, i + 1);
+                // return (R, U_t, False)
+                return Some(false);
+            }
+        // else:
+        } else {
+            // R.swap_cols_and_rows(i, i + 1)  # P R P
+            stack.R.swap_cols(i, i + 1);
+            // U_t.swap_cols_and_rows(i, i + 1)  # P U P
+            stack.U_t.swap_cols_and_rows(i, i + 1);
+            // return (R, U_t, None)
+            return None;
+        }
+    }
+    // if gives_death_i and gives_birth_i_1:
+    if gives_death_i && gives_birth_i_1 {
+        // if U_t[i + 1, i] == 1:
+        if stack.U_t.get(i + 1, i) {
+            // U_t.add_cols(i, i + 1)  # W U
+            stack.U_t.add_cols(i, i + 1);
+            // R.add_cols(i + 1, i)  # R W
+            stack.R.add_cols(i + 1, i);
+            // R.swap_cols_and_rows(i, i + 1)  # P R W P
+            stack.R.swap_cols(i, i + 1);
+            // R.add_cols(i + 1, i)  # (P R W P) W
+            stack.R.add_cols(i + 1, i);
+            // U_t.swap_cols_and_rows(i, i + 1)  # P W U P
+            stack.U_t.swap_cols_and_rows(i, i + 1);
+            // U_t.add_cols(i, i + 1)  # W (P W U P)
+            stack.U_t.add_cols(i, i + 1);
+            // return (R, U_t, True)
+            return Some(true);
+        // else:
+        } else {
+            // R.swap_cols_and_rows(i, i + 1)  # P R P
+            stack.R.swap_cols(i, i + 1);
+            // U_t.swap_cols_and_rows(i, i + 1)  # P U P
+            stack.U_t.swap_cols_and_rows(i, i + 1);
+            // return (R, U_t, None)
+            return None;
+        }
+    }
+    // if gives_birth_i and gives_death_i_1:
+    if gives_birth_i && gives_death_i_1 {
+        // U_t[i + 1, i] = 0
+        stack.U_t.set(i + 1, i, false);
+        // R.swap_cols_and_rows(i, i + 1)  # P R P
+        stack.R.swap_cols(i, i + 1);
+        // U_t.swap_cols_and_rows(i, i + 1)  # P U P
+        stack.U_t.swap_cols_and_rows(i, i + 1);
+        // return (R, U_t, None)
+        return None;
+    }
+
+    // raise Exception("bottom of the function; This should never happen.")
+    panic!("This should never happen: no cases matched.");
 }
 
 #[allow(non_snake_case)]
@@ -509,130 +1117,99 @@ pub fn reduce_vine(
     )
 }
 
+#[pyfunction]
+pub fn read_from_obj(p: &str) -> PyResult<Complex> {
+    Complex::read_from_obj(p).map_err(PyValueError::new_err)
+}
+
+#[pyfunction]
+fn test_three_points() {
+    // This mesh has three vertices: (1, 0), (1, 1), and (0, 1).
+    // The first MA thus consists of three lines:
+    // ^ Y
+    // |
+    // X--------||---------X
+    // | \      ||      B  |
+    // |    \   ||         |
+    // |       \||=========|======
+    // |     //   \        |
+    // |   //        \     |
+    // | //   A         \  |   X
+    // //------------------X--->
+    //
+
+    let complex = read_from_obj("input/three-points.obj").unwrap();
+    let point_a = Pos([0.3, 0.1, 0.0]);
+    {
+        let mut point = point_a;
+        let mut state = reduce_from_scratch(&complex, point);
+        for _ in 0..10 {
+            let pt = point + Pos([0.1, 0.0, 0.0]);
+            let (next_state, swaps) = vineyards_123(&complex, &state, pt);
+            assert_eq!(swaps.v.len(), 0);
+            state = next_state;
+            point = pt;
+            println!("{:?}", swaps);
+        }
+    }
+
+    let point_b = Pos([0.8, 0.75, 0.0]);
+    {
+        let mut point = point_b;
+        let mut state = reduce_from_scratch(&complex, point);
+        for k in 0..10 {
+            let pt = point - Pos([0.0, 0.1, 0.0]);
+            println!("between {:?} and {:?}", point, pt);
+            let (next_state, swaps) = vineyards_123(&complex, &state, pt);
+            println!("swaps: {:?}", swaps);
+            if k == 2 {
+                // k=0: 0.75 -- 0.65
+                // k=1: 0.65 -- 0.55
+                // k=2: 0.55 -- 0.45
+                // k=3: 0.45 -- 0.35
+                assert!(0 < swaps.v.len());
+            } else {
+                assert_eq!(swaps.v.len(), 0);
+            }
+            state = next_state;
+            point = pt;
+            println!("{:?}", swaps);
+        }
+    }
+}
+
+#[pyfunction]
+fn test_three_points_test1() {
+    let complex = read_from_obj("input/three-points.obj").unwrap();
+    let pt_a = Pos([0.8, 0.45, 0.0]);
+    let pt_b = Pos([0.8, 0.35, 0.0]);
+
+    let state = reduce_from_scratch(&complex, pt_a);
+    let (_next_state, swaps) = vineyards_123(&complex, &state, pt_b);
+    assert_eq!(swaps.v.len(), 0);
+}
+
 #[pymodule]
 fn mars(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(vine_to_vine, m)?)?;
     m.add_function(wrap_pyfunction!(compute_transpositions, m)?)?;
     m.add_function(wrap_pyfunction!(reduce_vine, m)?)?;
+    m.add_function(wrap_pyfunction!(read_from_obj, m)?)?;
+    m.add_function(wrap_pyfunction!(reduce_from_scratch, m)?)?;
+    m.add_function(wrap_pyfunction!(vineyards_123, m)?)?;
+    m.add_function(wrap_pyfunction!(test_three_points, m)?)?;
+    m.add_function(wrap_pyfunction!(test_three_points_test1, m)?)?;
     m.add_class::<SneakyMatrix>()?;
     m.add_class::<Permutation>()?;
     m.add_class::<Col>()?;
+    m.add_class::<Simplex>()?;
+    m.add_class::<Complex>()?;
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn permutation() {
-        fn test_inverse(p: &Permutation) {
-            for i in 0..p.len() {
-                assert_eq!(p.inv(p.map(i)), i);
-                assert_eq!(p.map(p.inv(i)), i);
-            }
-        }
-
-        let mut p = Permutation::new(10);
-
-        for i in 0..p.len() {
-            assert_eq!(p.map(i), i);
-        }
-        test_inverse(&p);
-
-        p.swap(2, 3);
-
-        assert_eq!(p.map(0), 0);
-        assert_eq!(p.map(1), 1);
-        assert_eq!(p.map(2), 3);
-        assert_eq!(p.map(3), 2);
-
-        assert_eq!(p.inv(0), 0);
-        assert_eq!(p.inv(1), 1);
-        assert_eq!(p.inv(2), 3);
-        assert_eq!(p.inv(3), 2);
-        test_inverse(&p);
-
-        p.swap(1, 2);
-
-        assert_eq!(p.map(0), 0);
-        assert_eq!(p.map(1), 3);
-        assert_eq!(p.map(2), 1);
-        assert_eq!(p.map(3), 2);
-
-        assert_eq!(p.inv(0), 0);
-        assert_eq!(p.inv(1), 2);
-        assert_eq!(p.inv(2), 3);
-        assert_eq!(p.inv(3), 1);
-        test_inverse(&p);
-    }
-
-    #[test]
-    fn column() {
-        let c1: Col = vec![1, 2, 3, 4, 5].into(); // 1 through 5
-        let c2: Col = vec![2, 4, 6, 8, 10].into(); // even below 10
-        let c3: Col = vec![1, 3, 5, 7, 9].into(); // odds below 10
-
-        assert_eq!(c1.add_mod2(&c2), vec![1, 3, 5, 6, 8, 10].into());
-        assert_eq!(c2.add_mod2(&c1), vec![1, 3, 5, 6, 8, 10].into());
-        assert_eq!(c1.add_mod2(&c3), vec![2, 4, 7, 9].into());
-        assert_eq!(c3.add_mod2(&c1), vec![2, 4, 7, 9].into());
-
-        assert_eq!(c2.add_mod2(&c3), vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10].into());
-        assert_eq!(c3.add_mod2(&c2), vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10].into());
-    }
-
-    #[test]
-    fn sneaky_matrix() {
-        let mut sm = SneakyMatrix::zeros(3, 3);
-        sm.set(1, 1, true);
-        sm.swap_cols_and_rows(0, 1); // (0, 0) has the 1 now
-        sm.add_cols(1, 0);
-        sm.add_cols(2, 0);
-
-        assert_eq!(sm.get(0, 0), true);
-        assert_eq!(sm.get(0, 1), true);
-        assert_eq!(sm.get(0, 2), true);
-
-        sm = SneakyMatrix::zeros(3, 3);
-        sm.set(1, 1, true);
-        sm.swap_cols(0, 1); // (1, 0) has the 1 now
-        sm.add_cols(1, 0);
-        sm.add_cols(2, 0);
-        assert_eq!(sm.get(1, 0), true);
-        assert_eq!(sm.get(1, 1), true);
-        assert_eq!(sm.get(1, 2), true);
-
-        sm = SneakyMatrix::zeros(3, 3);
-        sm.set(1, 1, true);
-        sm.swap_rows(1, 0); // (0, 1) has the 1 now
-        sm.add_cols(0, 1);
-        sm.add_cols(2, 0);
-        assert_eq!(sm.get(0, 0), true);
-        assert_eq!(sm.get(0, 1), true);
-        assert_eq!(sm.get(0, 2), true);
-    }
-
-    #[test]
-    fn sneaky_matrix_col_swap() {
-        let mut sm = SneakyMatrix::zeros(6, 1);
-        sm.set(0, 0, true);
-
-        sm.swap_rows(0, 1);
-        assert!(sm.get(1, 0));
-        sm.swap_rows(0, 2);
-        assert!(sm.get(1, 0));
-        sm.swap_rows(2, 1);
-        assert!(sm.get(2, 0));
-        sm.swap_rows(2, 3);
-        assert!(sm.get(3, 0));
-        sm.swap_rows(0, 3);
-        assert!(sm.get(0, 0));
-        sm.swap_rows(1, 4);
-        assert!(sm.get(0, 0));
-        sm.swap_rows(0, 4);
-        assert!(sm.get(4, 0));
-    }
 
     #[test]
     fn test_compute_transpositions() {

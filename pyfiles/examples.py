@@ -11,6 +11,8 @@ class Example:
     camera_opt: "CameraOpt" = None
     medial_axis: int = 0
     prune_eps: Optional[float] = None
+    prune_dist: Optional[float] = None
+    """Suggested pruning value for euclidean absolute pruning distance. In m."""
 
 
 @dataclass
@@ -24,6 +26,8 @@ hinge = Example(
     grid_size=0.2,
     grid_buffer=0.15,
     camera_opt=CameraOpt(azim=20, elev=30),
+    prune_eps=0,
+    medial_axis=1,
 )
 """Pretty coarse example, but good for very quick testing."""
 
@@ -34,6 +38,14 @@ hinge2 = Example(
     camera_opt=CameraOpt(azim=20, elev=30),
 )
 """Try to make the hinge example a bit more interesting. It's not very interesting, but it looks right."""
+
+cube_0 = Example(
+    filename="input/cube.obj",
+    grid_size=0.1,
+    grid_buffer=0.12,
+    camera_opt=CameraOpt(azim=20, elev=30),
+    prune_eps=0,
+)
 
 cube_1 = Example(
     filename="input/cube-subdiv-1.obj",
@@ -49,11 +61,12 @@ Subdivided once; 8 triangles per cube face. Looks pretty good, but grid is coars
 
 cube_2 = Example(
     filename="input/cube-subdiv-1.obj",
-    grid_size=0.1,
-    grid_buffer=0.15,
+    grid_size=0.098123,
+    grid_buffer=0.14321,
     camera_opt=CameraOpt(azim=20, elev=30),
     prune_eps=0,
-    medial_axis=1,
+    medial_axis=0,
+    prune_dist=1,
 )
 """
 Subdivided once; 8 triangles per cube face.
@@ -61,11 +74,12 @@ Subdivided once; 8 triangles per cube face.
 
 cube_3 = Example(
     filename="input/cube-subdiv-2.obj",
-    grid_size=0.1,
-    grid_buffer=0.1,
+    grid_size=0.098123,
+    grid_buffer=0.1523,
     camera_opt=CameraOpt(azim=20, elev=30),
     prune_eps=0,
     medial_axis=0,
+    prune_dist=0.61**2,
 )
 """
 Subdivided twice; 32 triangles per cube face.
@@ -200,6 +214,108 @@ confused_pretzel = Example(
     medial_axis=0,
 )
 
+three_points = Example(
+    filename="input/three-points.obj",
+    grid_size=0.1,
+    grid_buffer=0.25,
+    camera_opt=CameraOpt(azim=20, elev=30),
+    prune_eps=0,
+    medial_axis=0,
+)
+"""Three points in the plane. No edges. No faces."""
+
+four_points = Example(
+    filename="input/four-points.obj",
+    grid_size=0.1,
+    grid_buffer=0.25,
+    camera_opt=CameraOpt(azim=20, elev=30),
+    prune_eps=0,
+    medial_axis=0,
+)
+"""Four points in the plane. No edges. No faces."""
+
+tet_points = Example(
+    filename="input/tet-points.obj",
+    grid_size=0.1,
+    grid_buffer=0.25,
+    camera_opt=CameraOpt(azim=20, elev=30),
+    prune_eps=0,
+    medial_axis=0,
+)
+"""Test input"""
+
+tet_filled = Example(
+    filename="input/tet-filled.obj",
+    grid_size=0.1,
+    grid_buffer=0.25,
+    camera_opt=CameraOpt(azim=20, elev=30),
+    prune_eps=0,
+    medial_axis=0,
+)
+"""Test input"""
+
+tet1 = Example(
+    filename="input/tet1.obj",
+    grid_size=0.1,
+    grid_buffer=0.25,
+    camera_opt=CameraOpt(azim=20, elev=30),
+    prune_eps=0,
+    medial_axis=0,
+)
+"""Tet, subdivided once"""
+
+tet2 = Example(
+    filename="input/tet2.obj",
+    grid_size=0.1,
+    grid_buffer=0.25,
+    camera_opt=CameraOpt(azim=20, elev=30),
+    prune_eps=0,
+    medial_axis=0,
+)
+"""Tet, subdivided twice"""
+
+tet3 = Example(
+    filename="input/tet3.obj",
+    grid_size=0.1,
+    grid_buffer=0.25,
+    camera_opt=CameraOpt(azim=20, elev=30),
+    prune_eps=0,
+    medial_axis=0,
+)
+"""Tet, subdivided thrice"""
+
+u = Example(
+    filename="input/u.obj",
+    grid_size=0.05,
+    grid_buffer=0.2,
+    camera_opt=CameraOpt(azim=20, elev=30),
+    prune_eps=0,
+    medial_axis=0,
+)
+"""U shape"""
+
+u2 = Example(
+    filename="input/u2.obj",
+    grid_size=0.05,
+    grid_buffer=0.2,
+    camera_opt=CameraOpt(azim=-60, elev=30),
+    prune_eps=0,
+    medial_axis=0,
+)
+"""U shape"""
+
+
+junglegym = Example(
+    filename="input/jungle-gym.obj",
+    grid_size=0.3,
+    grid_buffer=0.2,
+    camera_opt=CameraOpt(azim=-60, elev=30),
+    prune_eps=0,
+    medial_axis=0,
+    prune_dist=0.75,
+)
+"""Jungle Gym"""
+
 maze = Example(
     filename="input/maze_2.obj",
     grid_size=0.05,
@@ -219,6 +335,17 @@ maze_curve = Example(
 )
 
 # SAVE THESE FOR TOMORRROW RUN IN RUST
+maze2 = Example(
+    filename="input/maze_2.obj",
+    grid_size=0.05,
+    grid_buffer=0.1,
+    camera_opt=CameraOpt(azim=-60, elev=30),
+    prune_eps=0,
+    medial_axis=0,
+    # prune_dist=0,
+)
+"""Jungle Gym"""
+
 maybepipe = Example(
     filename="input/maybe_pipe_sparse.obj",
     grid_size=0.05,
