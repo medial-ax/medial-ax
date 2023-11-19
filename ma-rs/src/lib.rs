@@ -284,10 +284,7 @@ impl Reduction {
             return None;
         }
         let sorted_id = self.stacks[dim].ordering.map(id);
-        self.stacks[dim]
-            .R
-            .colmax(sorted_id)
-            .map(|rr| self.stacks[dim - 1].ordering.inv(rr))
+        self.stacks[dim].R.colmax(sorted_id)
     }
 
     /// Compute the persistence of the given "simplex".
