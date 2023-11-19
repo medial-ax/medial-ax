@@ -343,16 +343,19 @@ fn compute_permutations(
     let edge_distances = complex.simplices_per_dim[1]
         .iter()
         .map(|e| {
-            vertex_distances[e.boundary[0] as usize].max(vertex_distances[e.boundary[1] as usize])
+            let dist_a = vertex_distances[e.boundary[0] as usize];
+            let dist_b = vertex_distances[e.boundary[1] as usize];
+            dist_a.max(dist_b)
         })
         .collect::<Vec<_>>();
 
     let triangle_distances = complex.simplices_per_dim[2]
         .iter()
         .map(|f| {
-            edge_distances[f.boundary[0] as usize]
-                .max(edge_distances[f.boundary[1] as usize])
-                .max(edge_distances[f.boundary[2] as usize])
+            let dist_a = edge_distances[f.boundary[0] as usize];
+            let dist_b = edge_distances[f.boundary[1] as usize];
+            let dist_c = edge_distances[f.boundary[2] as usize];
+            dist_a.max(dist_b).max(dist_c)
         })
         .collect::<Vec<_>>();
 
@@ -385,21 +388,9 @@ pub fn vineyards_123(
     // that, in turn, we can bubble sort from `a` to `b`.
     v_perm.reverse();
     let vine_ordering0 = Permutation::from_to(&v_perm, &stack0.ordering);
-
-    // println!(
-    //     "vineyards: stack0.ordering: {:?}",
-    //     stack0.ordering.clone().into_forwards()
-    // );
-    // println!("vineyards: v_perm: {:?}", v_perm.clone().into_forwards());
-    // println!(
-    //     "vineyards: vine_ordering0: {:?}",
-    //     vine_ordering0.clone().into_forwards()
-    // );
-
-    // let mut seen_swaps = HashSet::new();
-
     let (swap_is0, simplices_that_got_swapped0) =
         compute_transpositions(vine_ordering0.clone().into_forwards());
+
     for (swap_i, &i) in swap_is0.iter().enumerate() {
         let res = perform_one_swap(i, &mut stack0, &mut stack1);
         stack0.D.swap_cols(i, i + 1);
@@ -461,6 +452,10 @@ pub fn vineyards_123(
     // }
 
     if 0 < e_perm.len() {
+        static EDGE_DEBUG: bool = false;
+
+        let mut seen_swaps = HashSet::new();
+
         e_perm.reverse();
         let vine_ordering1 = Permutation::from_to(&e_perm, &stack1.ordering);
         let (swap_is1, simplices_that_got_swapped1) =
@@ -469,6 +464,12 @@ pub fn vineyards_123(
             let res = perform_one_swap(i, &mut stack1, &mut stack2);
             stack1.D.swap_cols(i, i + 1);
             stack2.D.swap_rows(i, i + 1);
+            if EDGE_DEBUG {
+                let (i, j) = simplices_that_got_swapped1[swap_i];
+                let cann_i = stack1.ordering.inv(i);
+                let cann_j = stack1.ordering.inv(j);
+                seen_swaps.insert((cann_i.min(cann_j), cann_i.max(cann_j)));
+            }
             if let Some(true) = res {
                 let (i, j) = simplices_that_got_swapped1[swap_i];
                 let cann_i = stack1.ordering.inv(i);
@@ -479,6 +480,50 @@ pub fn vineyards_123(
                     i: cann_i,
                     j: cann_j,
                 });
+            }
+        }
+
+        if EDGE_DEBUG {
+            // Check that all pairs we've seen swapped actually has their ordering changed
+            // wrt. the two key points.  In addition, check that the ones we have NOT seen
+            // has their ordering the same.
+            let a = reduction.key_point;
+            let b = key_point;
+            let (vd, ed, td) = complex.distances_to(a);
+            let distances_a = [vd, ed, td];
+            let (vd, ed, td) = complex.distances_to(b);
+            let distances_b = [vd, ed, td];
+
+            for i in 0..complex.simplices_per_dim[1].len() {
+                for j in 0..i {
+                    let dist_a_i = distances_a[1][i];
+                    let dist_a_j = distances_a[1][j];
+                    let cmp_at_a = dist_a_i.total_cmp(&dist_a_j);
+
+                    let dist_b_i = distances_b[1][i];
+                    let dist_b_j = distances_b[1][j];
+                    let cmp_at_b = dist_b_i.total_cmp(&dist_b_j);
+
+                    if cmp_at_a.is_eq() || cmp_at_b.is_eq() {
+                        continue;
+                    }
+
+                    if seen_swaps.contains(&(j, i)) {
+                        assert!(
+                            cmp_at_a != cmp_at_b,
+                            "Swapped, so ordering should have too: {:?} {:?}",
+                            cmp_at_a,
+                            cmp_at_b
+                        );
+                    } else {
+                        assert!(
+                            cmp_at_a == cmp_at_b,
+                            "Ordering should be the same since they didn't swap: {:?} {:?}",
+                            cmp_at_a,
+                            cmp_at_b
+                        );
+                    }
+                }
             }
         }
     }
@@ -749,7 +794,7 @@ fn perform_one_swap(i: usize, stack: &mut Stack, up_stack: &mut Stack) -> Option
 
             // NOTE: We also need to check that the swapped simplices
             // corresponpds to the first birth in this dim.
-            for k in 0..i - 1 {
+            for k in 0..i {
                 if stack.R.col_is_empty(k) {
                     return Some(false);
                 }
@@ -871,6 +916,13 @@ fn perform_one_swap_top_dim(i: usize, stack: &mut Stack) -> Option<bool> {
             // U_t.add_cols(i, i + 1)  # W (P W U P)
             stack.U_t.add_cols(i, i + 1);
             // return (R, U_t, True)
+
+            for k in 0..i {
+                if stack.R.col_is_empty(k) {
+                    return Some(false);
+                }
+            }
+
             return Some(true);
         // else:
         } else {

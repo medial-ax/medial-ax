@@ -199,6 +199,7 @@ impl Complex {
             }
             let mut v = s.into_iter().collect::<Vec<_>>();
             v.sort();
+            assert!(v.len() == 3, "A triangle should be three vertices");
             tris.push([v[0], v[1], v[2]]);
         }
         tris
@@ -279,6 +280,7 @@ impl Complex {
             } else if line.starts_with("f") {
                 // f 20 27 19
                 let groups = line.split_ascii_whitespace().collect::<Vec<_>>();
+                assert!(groups.len() == 4, "A triangle should have three vertices");
                 let a = groups
                     .get(1)
                     .ok_or("missing field".to_string())
