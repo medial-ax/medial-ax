@@ -401,7 +401,7 @@ pub fn vineyards_123(
     let (swap_is0, simplices_that_got_swapped0) =
         compute_transpositions(vine_ordering0.clone().into_forwards());
     for (swap_i, &i) in swap_is0.iter().enumerate() {
-        let res = perform_one_swap2(i, &mut stack0, &mut stack1);
+        let res = perform_one_swap(i, &mut stack0, &mut stack1);
         stack0.D.swap_cols(i, i + 1);
         stack1.D.swap_rows(i, i + 1);
 
@@ -466,7 +466,7 @@ pub fn vineyards_123(
         let (swap_is1, simplices_that_got_swapped1) =
             compute_transpositions(vine_ordering1.clone().into_forwards());
         for (swap_i, &i) in swap_is1.iter().enumerate() {
-            let res = perform_one_swap2(i, &mut stack1, &mut stack2);
+            let res = perform_one_swap(i, &mut stack1, &mut stack2);
             stack1.D.swap_cols(i, i + 1);
             stack2.D.swap_rows(i, i + 1);
             if let Some(true) = res {
@@ -612,7 +612,7 @@ pub fn reduce_from_scratch(complex: &Complex, key_point: Pos) -> Reduction {
 }
 
 #[allow(non_snake_case)]
-fn perform_one_swap2(i: usize, stack: &mut Stack, up_stack: &mut Stack) -> Option<bool> {
+fn perform_one_swap(i: usize, stack: &mut Stack, up_stack: &mut Stack) -> Option<bool> {
     #[allow(non_snake_case)]
     fn gives_death(R: &SneakyMatrix, c: usize) -> bool {
         R.col_is_not_empty(c)
@@ -747,7 +747,13 @@ fn perform_one_swap2(i: usize, stack: &mut Stack, up_stack: &mut Stack) -> Optio
             stack.U_t.add_cols(i, i + 1);
             // return (R, U_t, True)
 
-            // NOTE:
+            // NOTE: We also need to check that the swapped simplices
+            // corresponpds to the first birth in this dim.
+            for k in 0..i - 1 {
+                if stack.R.col_is_empty(k) {
+                    return Some(false);
+                }
+            }
 
             return Some(true);
         // else:

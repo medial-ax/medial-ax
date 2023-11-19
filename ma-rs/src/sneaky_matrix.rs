@@ -221,6 +221,12 @@ impl SneakyMatrix {
         None
     }
 
+    /// Return `true` if the column is empty.
+    pub fn col_is_empty(&self, c: usize) -> bool {
+        let cc = self.col_perm.map(c);
+        self.columns[cc].empty()
+    }
+
     /// Return [true] if the column is not empty.
     pub fn col_is_not_empty(&self, c: usize) -> bool {
         let cc = self.col_perm.map(c);
