@@ -159,8 +159,6 @@ impl Simplex {
 #[pyo3::pyclass(get_all)]
 pub struct Complex {
     pub simplices_per_dim: Vec<Vec<Simplex>>,
-
-    pub coboundary_map: Vec<Vec<usize>>,
 }
 
 #[pyo3::pymethods]
@@ -250,6 +248,7 @@ impl Complex {
             } else if line.starts_with("l") {
                 // l 1 2
                 let groups = line.split_ascii_whitespace().collect::<Vec<_>>();
+                assert!(groups.len() == 3, "An edge should have two vertices");
                 let a = groups
                     .get(1)
                     .ok_or("missing field".to_string())
@@ -305,6 +304,21 @@ impl Complex {
             }
         }
 
+        // Check that no two vertices are actually the same vertex
+        for i in 0..vertices.len() {
+            for j in (i + 1)..vertices.len() {
+                let p = vertices[i].coords.unwrap();
+                let q = vertices[j].coords.unwrap();
+                let dist = p.dist(&q);
+                assert!(
+                    1e-5 < dist,
+                    "Two vertices are too close together: {} and {}",
+                    i,
+                    j
+                );
+            }
+        }
+
         // Replace vertex indices with the correct edge indices.
         // If the edge does not exist, create it.
         for tri in triangles.iter_mut() {
@@ -331,7 +345,6 @@ impl Complex {
 
         Ok(Self {
             simplices_per_dim: vec![vertices, edges, triangles],
-            coboundary_map: Vec::new(),
         })
     }
 

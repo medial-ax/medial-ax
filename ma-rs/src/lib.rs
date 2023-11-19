@@ -46,6 +46,44 @@ impl Swaps {
         })
     }
 
+    pub fn prune_common_face(&mut self, complex: &Complex) {
+        let mut simp_to_vertices: HashMap<(usize, usize), HashSet<usize>> = HashMap::new();
+
+        for dim in 1..3 {
+            for (i, s) in complex.simplices_per_dim[dim].iter().enumerate() {
+                if dim == 1 {
+                    let set = simp_to_vertices
+                        .entry((dim, i))
+                        .or_insert_with(|| HashSet::new());
+                    for b in &s.boundary {
+                        set.insert(*b);
+                    }
+                } else {
+                    for b in &s.boundary {
+                        let face_set = simp_to_vertices
+                            .get(&(dim - 1, *b))
+                            .expect("Should have inserted this simplex before")
+                            .clone();
+                        let set = simp_to_vertices
+                            .entry((dim, i))
+                            .or_insert_with(|| HashSet::new());
+                        set.extend(face_set);
+                    }
+                }
+            }
+        }
+
+        self.v.retain(|swap| {
+            if swap.dim == 0 {
+                return true;
+            }
+            let set_i = simp_to_vertices.get(&(swap.dim, swap.i)).unwrap();
+            let set_j = simp_to_vertices.get(&(swap.dim, swap.j)).unwrap();
+            let mut intersection = set_i.intersection(set_j);
+            intersection.next() == None
+        });
+    }
+
     /// Remove all swaps that happen between simplices if there is a simplex
     /// with the two simplices in its boundary.
     pub fn prune_coboundary(&mut self, complex: &Complex) {
@@ -118,24 +156,56 @@ impl Swaps {
             can_id: usize,
             reduction: &Reduction,
             distances: &[Vec<f64>],
+            complex: &Complex,
         ) -> Option<f64> {
             let killer = find_killer(dim, can_id, reduction);
             if let Some(killer) = killer {
                 let dist = distances[dim][can_id];
                 let killer_dist = distances[dim + 1][killer];
-                Some(killer_dist - dist)
+                let persistence = killer_dist - dist;
+                if dim == 1 {
+                    let killer_simplex = &complex.simplices_per_dim[dim + 1][killer];
+                    assert!(
+                        killer_simplex.boundary.contains(&can_id),
+                        "A killer should be a co-face of it's victim"
+                    );
+
+                    assert!(
+                        persistence < 0.00001,
+                        "Persistence should always be 0.0 or inf, was {} ({} - {})",
+                        persistence,
+                        killer_dist,
+                        dist
+                    );
+                }
+                Some(persistence)
             } else {
                 None
             }
         }
 
         self.v.retain(|swap| {
-            if let Some(p) = persistence(swap.dim, swap.i, reduction_from, &distances_from) {
+            if let Some(p) = persistence(swap.dim, swap.i, reduction_from, &distances_from, complex)
+            {
+                if swap.dim == 1 {
+                    assert!(
+                        p < 0.00001,
+                        "Persistence should always be 0.0 or inf, was {}",
+                        p
+                    );
+                }
                 if p < lifetime {
                     return false;
                 }
             }
-            if let Some(p) = persistence(swap.dim, swap.j, reduction_to, &distances_to) {
+            if let Some(p) = persistence(swap.dim, swap.j, reduction_to, &distances_to, complex) {
+                if swap.dim == 1 {
+                    assert!(
+                        p < 0.00001,
+                        "Persistence should always be 0.0 or inf, was {}",
+                        p
+                    );
+                }
                 if p < lifetime {
                     return false;
                 }
@@ -154,11 +224,11 @@ impl Swaps {
 #[derive(Clone, Debug)]
 #[allow(non_snake_case)]
 pub struct Stack {
-    /// Boundary matrix
+    /// Boundary matrix. Size is (#vert, #edges)  (for 1st stack).
     pub D: SneakyMatrix,
-    /// Reduced boundary matrix
+    /// Reduced boundary matrix. Size is (#vert, #edges) (for 1st stack)
     pub R: SneakyMatrix,
-    /// Inverse of the "column adds" matrix.
+    /// Inverse of the "column adds" matrix. Size is (#edges, #edges) (for 1st stack)
     pub U_t: SneakyMatrix,
     /// Ordering of the simplices. Cannonical to sorted order.
     pub ordering: Permutation,
@@ -170,6 +240,25 @@ pub struct Reduction {
     /// Key point around which the reduction is done.
     pub key_point: Pos,
     pub stacks: [Stack; 3],
+}
+
+#[pymethods]
+impl Reduction {
+    /// Returns the Betti numbers for dimensions 0, 1, and 2.
+    pub fn betti_numbers(&self) -> Vec<i8> {
+        let mut bettis = vec![0; 3];
+        for dim in 0..3 {
+            let stack = &self.stacks[dim];
+            for c in 0..stack.R.cols {
+                if stack.R.col_is_empty(c) {
+                    bettis[dim] += 1;
+                } else if 0 < dim {
+                    bettis[dim - 1] -= 1;
+                }
+            }
+        }
+        bettis
+    }
 }
 
 #[allow(non_snake_case)]

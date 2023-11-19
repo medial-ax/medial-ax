@@ -178,6 +178,15 @@ rect_test2 = Example(
     medial_axis=0,
 )
 
+rect_test2_no_triangles = Example(
+    filename="input/extruded_rect_2_no_triangles.obj",
+    grid_size=0.1,
+    grid_buffer=0.1,
+    camera_opt=CameraOpt(azim=20, elev=30),
+    prune_eps=1,
+    medial_axis=0,
+)
+
 shoebox = Example(
     filename="input/covered_shoebox.obj",
     grid_size=0.1,
@@ -348,6 +357,46 @@ maze2 = Example(
 maybepipe = Example(
     filename="input/squishedtorus.obj",
     grid_size=0.05,
+    grid_buffer=0.1,
+    camera_opt=CameraOpt(azim=20, elev=30),
+    # prune_eps=0,
+    # medial_axis=0,
+    # prune_dist = 0.4
+)
+
+ellipse2d = Example(
+    filename="input/ellipse2d.obj",
+    grid_size=0.1,
+    grid_buffer=0.1,
+    camera_opt=CameraOpt(azim=20, elev=30),
+    # prune_eps=0,
+    # medial_axis=0,
+    # prune_dist = 0.4
+)
+
+ellipse2d_2 = Example(
+    filename="input/ellipse2d-2.obj",
+    grid_size=0.1,
+    grid_buffer=0.1,
+    camera_opt=CameraOpt(azim=20, elev=30),
+    # prune_eps=0,
+    # medial_axis=0,
+    # prune_dist = 0.4
+)
+
+ellipse2d_extrude_2 = Example(
+    filename="input/ellipse2d-extrude-2.obj",
+    grid_size=0.1,
+    grid_buffer=0.1,
+    camera_opt=CameraOpt(azim=20, elev=30),
+    # prune_eps=0,
+    # medial_axis=0,
+    # prune_dist = 0.4
+)
+
+ellipse2d_extrude_noface_2 = Example(
+    filename="input/ellipse2d-extrude-noface-2.obj",
+    grid_size=0.1,
     grid_buffer=0.1,
     camera_opt=CameraOpt(azim=20, elev=30),
     # prune_eps=0,
