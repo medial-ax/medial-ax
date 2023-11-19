@@ -188,7 +188,7 @@ shoebox = Example(
 )
 
 shoebox_3 = Example(
-    filename="input/covered_shoebox_5.obj",
+    filename="input/covered_shoebox_3.obj",
     grid_size=0.1,
     grid_buffer=0.17,
     camera_opt=CameraOpt(azim=20, elev=30),
@@ -334,7 +334,6 @@ maze_curve = Example(
     medial_axis=0,
 )
 
-# SAVE THESE FOR TOMORRROW RUN IN RUST
 maze2 = Example(
     filename="input/maze_2.obj",
     grid_size=0.05,
@@ -347,10 +346,11 @@ maze2 = Example(
 """Jungle Gym"""
 
 maybepipe = Example(
-    filename="input/maybe_pipe_sparse.obj",
+    filename="input/squishedtorus.obj",
     grid_size=0.05,
     grid_buffer=0.1,
     camera_opt=CameraOpt(azim=20, elev=30),
-    prune_eps=0,
-    medial_axis=0,
+    # prune_eps=0,
+    # medial_axis=0,
+    # prune_dist = 0.4
 )
