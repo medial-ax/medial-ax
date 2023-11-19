@@ -3,6 +3,17 @@ use crate::complex::Pos;
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Index(pub [isize; 3]);
 
+impl std::ops::Add<Index> for Index {
+    type Output = Index;
+    fn add(self, rhs: Index) -> Index {
+        let mut arr = [0; 3];
+        for i in 0..3 {
+            arr[i] = self.0[i] + rhs.0[i];
+        }
+        Index(arr)
+    }
+}
+
 impl pyo3::IntoPy<pyo3::PyObject> for Index {
     fn into_py(self, py: pyo3::Python<'_>) -> pyo3::PyObject {
         pyo3::types::PyList::new(py, &self.0).into()
@@ -42,6 +53,8 @@ pub struct Grid {
     pub corner: Pos,
     pub size: f64,
     pub shape: Index,
+
+    pub cell_states: std::collections::HashMap<Index, String>,
 }
 
 #[pyo3::pymethods]
@@ -52,6 +65,7 @@ impl Grid {
             corner,
             size,
             shape: Index(shape),
+            cell_states: std::collections::HashMap::new(),
         }
     }
 
@@ -88,8 +102,12 @@ impl Grid {
         Pos(arr)
     }
 
+    pub fn volume(&self) -> isize {
+        self.shape.0[0] * self.shape.0[1] * self.shape.0[2]
+    }
+
     /// Splits the grid into two along the longest axis.
-    pub fn split_with_overlap(&self) -> (Self, Self) {
+    pub fn split_with_overlap(&self) -> (Self, Self, Index) {
         let [w, h, d] = self.shape.0;
         if h <= w && d <= w {
             let wmin = w / 2;
@@ -101,6 +119,7 @@ impl Grid {
                     self.size,
                     [wmax, h, d],
                 ),
+                Index([wmax, 0, 0]),
             )
         } else if w <= h && d <= h {
             let hmin = h / 2;
@@ -112,6 +131,7 @@ impl Grid {
                     self.size,
                     [w, hmax, d],
                 ),
+                Index([0, hmax, 0]),
             )
         } else {
             let dmin = d / 2;
@@ -123,7 +143,38 @@ impl Grid {
                     self.size,
                     [w, h, dmax],
                 ),
+                Index([0, 0, dmax]),
             )
+        }
+    }
+
+    fn run_state(&mut self, max_volume: isize) {
+        if self.volume() <= max_volume {
+            println!("sleep {:?}", rayon::current_thread_index());
+
+            std::thread::sleep(std::time::Duration::from_millis(1000));
+
+            // let [w, h, d] = self.shape.0;
+            // p
+            // for i in 0..w {
+            //     for j in 0..h {
+            //         for k in 0..d {
+            //             self.cell_states
+            //                 .insert(Index([i, j, k]), format!("{} {} {}", i, j, k));
+            //         }
+            //     }
+            // }
+        } else {
+            let (mut left, mut right, offset_index) = self.split_with_overlap();
+            rayon::join(
+                || left.run_state(max_volume),
+                || right.run_state(max_volume),
+            );
+            self.cell_states = left.cell_states;
+            for (k, v) in right.cell_states.into_iter() {
+                let k = k + offset_index;
+                self.cell_states.insert(k, v);
+            }
         }
     }
 }

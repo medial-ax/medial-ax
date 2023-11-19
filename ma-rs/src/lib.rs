@@ -746,6 +746,9 @@ fn perform_one_swap2(i: usize, stack: &mut Stack, up_stack: &mut Stack) -> Optio
             // U_t.add_cols(i, i + 1)  # W (P W U P)
             stack.U_t.add_cols(i, i + 1);
             // return (R, U_t, True)
+
+            // NOTE:
+
             return Some(true);
         // else:
         } else {
@@ -889,183 +892,6 @@ fn perform_one_swap_top_dim(i: usize, stack: &mut Stack) -> Option<bool> {
     panic!("This should never happen: no cases matched.");
 }
 
-#[allow(non_snake_case)]
-fn perform_one_swap(i: usize, R: &mut SneakyMatrix, U_t: &mut SneakyMatrix) -> Option<bool> {
-    #[allow(non_snake_case)]
-    fn gives_death(R: &mut SneakyMatrix, c: usize) -> bool {
-        R.col_is_not_empty(c)
-    }
-
-    #[allow(non_snake_case)]
-    fn low(R: &mut SneakyMatrix, c: usize) -> Option<usize> {
-        R.colmax(c)
-    }
-
-    #[allow(non_snake_case)]
-    fn low_inv(R: &mut SneakyMatrix, r: usize) -> Option<usize> {
-        R.col_with_low(r)
-    }
-
-    let gives_death_i = gives_death(R, i);
-    let gives_birth_i = !gives_death_i;
-    let gives_death_i_1 = gives_death(R, i + 1);
-    let gives_birth_i_1 = !gives_death_i_1;
-
-    // if gives_birth_i and gives_birth_i_1:
-    if gives_birth_i && gives_birth_i_1 {
-        // U_t[i + 1, i] = 0
-        U_t.set(i + 1, i, false);
-        // k = low_inv(i)
-        let k = low_inv(R, i);
-        // l = low_inv(i + 1)
-        let l = low_inv(R, i + 1);
-        // if k != None and l != None and R[i, l] == 1:
-        if let (Some(k), Some(l)) = (k, l) {
-            if R.get(i, l) {
-                // if k < l:
-                if k < l {
-                    // R.swap_cols_and_rows(i, i + 1)  # PRP
-                    R.swap_cols_and_rows(i, i + 1);
-                    // R.add_cols(l, k)  # PRPV
-                    R.add_cols(l, k);
-                    // U_t.swap_cols_and_rows(i, i + 1)  # PUP
-                    U_t.swap_cols_and_rows(i, i + 1);
-                    // U_t.add_cols(k, l)  # VPUP
-                    U_t.add_cols(k, l);
-                    // return (R, U_t, None)
-                    return None;
-                }
-                // if l < k:
-                if l < k {
-                    // R.swap_cols_and_rows(i, i + 1)  # PRP
-                    R.swap_cols_and_rows(i, i + 1);
-                    // R.add_cols(k, l)  # PRPV
-                    R.add_cols(k, l);
-                    // U_t.swap_cols_and_rows(i, i + 1)  # PUP
-                    U_t.swap_cols_and_rows(i, i + 1);
-                    // U_t.add_cols(l, k)  # VPUP
-                    U_t.add_cols(l, k);
-                    // return (R, U_t, False)
-                    return Some(false);
-                }
-                panic!("This should never happen: l == k ({})", l);
-                // raise Exception("k = l; This should never happen.")
-                // else:
-            }
-        }
-
-        // else case
-        // R.swap_cols_and_rows(i, i + 1)  # PRP
-        R.swap_cols_and_rows(i, i + 1);
-        // U_t.swap_cols_and_rows(i, i + 1)  # PUP
-        U_t.swap_cols_and_rows(i, i + 1);
-        // return (R, U_t, None)
-        return None;
-    }
-    // if gives_death_i and gives_death_i_1:
-    if gives_death_i && gives_death_i_1 {
-        // if U_t[i + 1, i] == 1:
-        if U_t.get(i + 1, i) {
-            // low_i = low(i)
-            let low_i = low(R, i);
-            // low_i_1 = low(i + 1)
-            let low_i_1 = low(R, i + 1);
-            // U_t.add_cols(i, i + 1)  # W U
-            U_t.add_cols(i, i + 1);
-            // R.add_cols(i + 1, i)  # R W
-            R.add_cols(i + 1, i);
-            // R.swap_cols_and_rows(i, i + 1)  # P R W P
-            R.swap_cols_and_rows(i, i + 1);
-            // U_t.swap_cols_and_rows(i, i + 1)  # P W U P
-            U_t.swap_cols_and_rows(i, i + 1);
-            // if low_i < low_i_1:
-            if low_i < low_i_1 {
-                // return (R, U_t, None)
-                return None;
-            // else:
-            } else {
-                // R.add_cols(i + 1, i)  # (P R W P) W
-                R.add_cols(i + 1, i);
-                // U_t.add_cols(i, i + 1)  # W (P W U P)
-                U_t.add_cols(i, i + 1);
-                // return (R, U_t, False)
-                return Some(false);
-            }
-        // else:
-        } else {
-            // R.swap_cols_and_rows(i, i + 1)  # P R P
-            R.swap_cols_and_rows(i, i + 1);
-            // U_t.swap_cols_and_rows(i, i + 1)  # P U P
-            U_t.swap_cols_and_rows(i, i + 1);
-            // return (R, U_t, None)
-            return None;
-        }
-    }
-    // if gives_death_i and gives_birth_i_1:
-    if gives_death_i && gives_birth_i_1 {
-        // if U_t[i + 1, i] == 1:
-        if U_t.get(i + 1, i) {
-            // U_t.add_cols(i, i + 1)  # W U
-            U_t.add_cols(i, i + 1);
-            // R.add_cols(i + 1, i)  # R W
-            R.add_cols(i + 1, i);
-            // R.swap_cols_and_rows(i, i + 1)  # P R W P
-            R.swap_cols_and_rows(i, i + 1);
-            // R.add_cols(i + 1, i)  # (P R W P) W
-            R.add_cols(i + 1, i);
-            // U_t.swap_cols_and_rows(i, i + 1)  # P W U P
-            U_t.swap_cols_and_rows(i, i + 1);
-            // U_t.add_cols(i, i + 1)  # W (P W U P)
-            U_t.add_cols(i, i + 1);
-            // return (R, U_t, True)
-            return Some(true);
-        // else:
-        } else {
-            // R.swap_cols_and_rows(i, i + 1)  # P R P
-            R.swap_cols_and_rows(i, i + 1);
-            // U_t.swap_cols_and_rows(i, i + 1)  # P U P
-            U_t.swap_cols_and_rows(i, i + 1);
-            // return (R, U_t, None)
-            return None;
-        }
-    }
-    // if gives_birth_i and gives_death_i_1:
-    if gives_birth_i && gives_death_i_1 {
-        // U_t[i + 1, i] = 0
-        U_t.set(i + 1, i, false);
-        // R.swap_cols_and_rows(i, i + 1)  # P R P
-        R.swap_cols_and_rows(i, i + 1);
-        // U_t.swap_cols_and_rows(i, i + 1)  # P U P
-        U_t.swap_cols_and_rows(i, i + 1);
-        // return (R, U_t, None)
-        return None;
-    }
-
-    // raise Exception("bottom of the function; This should never happen.")
-    panic!("This should never happen: no cases matched.");
-}
-
-/// Perform all the swaps in `index_swaps`. Return a [Vec] of the indices into
-/// `index_swaps` that were Faustian swaps.
-#[allow(non_snake_case)]
-#[pyfunction]
-pub fn vine_to_vine(
-    D: &mut SneakyMatrix,
-    R: &mut SneakyMatrix,
-    U_t: &mut SneakyMatrix,
-    index_swaps: Vec<usize>,
-) -> Vec<usize> {
-    let mut ret = Vec::new();
-    for (swap_i, &i) in index_swaps.iter().enumerate() {
-        let res = perform_one_swap(i, R, U_t);
-        D.swap_cols_and_rows(i, i + 1);
-        if let Some(true) = res {
-            ret.push(swap_i);
-        }
-    }
-    ret
-}
-
 /// Compute the transpositions required to swap a permutation to become `0..n`.
 ///
 /// Returns a `Vec<usize>` where each element `i` correspond to the transposition
@@ -1095,27 +921,6 @@ pub fn compute_transpositions(mut b: Vec<usize>) -> (Vec<usize>, Vec<(usize, usi
         }
     }
     (ret, swapped_indices)
-}
-
-#[allow(non_snake_case)]
-#[pyfunction]
-/// Run both `compute_transpositions` and `vine_to_vine`.
-pub fn reduce_vine(
-    ordering: Vec<usize>,
-    R: &mut SneakyMatrix,
-    D: &mut SneakyMatrix,
-    U_t: &mut SneakyMatrix,
-) -> (Vec<(usize, usize)>, usize) {
-    let (swapped_indices, swapped_simplices) = compute_transpositions(ordering);
-    let num_swaps = swapped_indices.len();
-    let faustians = vine_to_vine(D, R, U_t, swapped_indices);
-    (
-        faustians
-            .into_iter()
-            .map(|i| swapped_simplices[i])
-            .collect::<Vec<_>>(),
-        num_swaps,
-    )
 }
 
 #[pyfunction]
@@ -1192,9 +997,7 @@ fn test_three_points_test1() {
 
 #[pymodule]
 fn mars(_py: Python, m: &PyModule) -> PyResult<()> {
-    m.add_function(wrap_pyfunction!(vine_to_vine, m)?)?;
     m.add_function(wrap_pyfunction!(compute_transpositions, m)?)?;
-    m.add_function(wrap_pyfunction!(reduce_vine, m)?)?;
     m.add_function(wrap_pyfunction!(read_from_obj, m)?)?;
     m.add_function(wrap_pyfunction!(reduce_from_scratch, m)?)?;
     m.add_function(wrap_pyfunction!(vineyards_123, m)?)?;
