@@ -5,6 +5,17 @@ pub struct Permutation {
     backwards: Vec<usize>,
 }
 
+#[pyo3::pymethods]
+impl Permutation {
+    pub fn map(&self, a: usize) -> usize {
+        self.forwards[a]
+    }
+
+    pub fn inv(&self, a: usize) -> usize {
+        self.backwards[a]
+    }
+}
+
 impl Permutation {
     pub fn new(n: usize) -> Self {
         Permutation {
@@ -22,14 +33,6 @@ impl Permutation {
             forwards,
             backwards,
         }
-    }
-
-    pub fn map(&self, a: usize) -> usize {
-        self.forwards[a]
-    }
-
-    pub fn inv(&self, a: usize) -> usize {
-        self.backwards[a]
     }
 
     /// Reverse the permutation.

@@ -456,6 +456,7 @@ def plot_vineyard_results(
     complex_vertices=False,
 ):
     fig, ax = plt.subplots(subplot_kw={"projection": "3d", "computed_zorder": False})
+    fig.set_dpi(200)
     ax.view_init(**camera_opt.__dict__)
     if not skip_cube:
         plot_complex_3d(

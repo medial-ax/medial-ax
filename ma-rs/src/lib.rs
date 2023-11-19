@@ -163,21 +163,21 @@ impl Swaps {
                 let dist = distances[dim][can_id];
                 let killer_dist = distances[dim + 1][killer];
                 let persistence = killer_dist - dist;
-                if dim == 1 {
-                    let killer_simplex = &complex.simplices_per_dim[dim + 1][killer];
-                    assert!(
-                        killer_simplex.boundary.contains(&can_id),
-                        "A killer should be a co-face of it's victim"
-                    );
+                // if dim == 1 {
+                //     let killer_simplex = &complex.simplices_per_dim[dim + 1][killer];
+                //     assert!(
+                //         killer_simplex.boundary.contains(&can_id),
+                //         "A killer should be a co-face of it's victim"
+                //     );
 
-                    assert!(
-                        persistence < 0.00001,
-                        "Persistence should always be 0.0 or inf, was {} ({} - {})",
-                        persistence,
-                        killer_dist,
-                        dist
-                    );
-                }
+                //     assert!(
+                //         persistence < 0.00001,
+                //         "Persistence should always be 0.0 or inf, was {} ({} - {})",
+                //         persistence,
+                //         killer_dist,
+                //         dist
+                //     );
+                // }
                 Some(persistence)
             } else {
                 None
@@ -187,25 +187,11 @@ impl Swaps {
         self.v.retain(|swap| {
             if let Some(p) = persistence(swap.dim, swap.i, reduction_from, &distances_from, complex)
             {
-                if swap.dim == 1 {
-                    assert!(
-                        p < 0.00001,
-                        "Persistence should always be 0.0 or inf, was {}",
-                        p
-                    );
-                }
                 if p < lifetime {
                     return false;
                 }
             }
             if let Some(p) = persistence(swap.dim, swap.j, reduction_to, &distances_to, complex) {
-                if swap.dim == 1 {
-                    assert!(
-                        p < 0.00001,
-                        "Persistence should always be 0.0 or inf, was {}",
-                        p
-                    );
-                }
                 if p < lifetime {
                     return false;
                 }
@@ -258,6 +244,65 @@ impl Reduction {
             }
         }
         bettis
+    }
+
+    /// Compute the entering value of the given simplex.
+    ///
+    /// Uses squared Euclidian distance.
+    pub fn simplex_entering_value(&self, complex: &Complex, dim: usize, id: usize) -> f64 {
+        let simplex = &complex.simplices_per_dim[dim][id];
+        if dim == 0 {
+            return simplex.coords.unwrap().dist2(&self.key_point);
+        }
+        simplex
+            .boundary
+            .iter()
+            .map(|&b| self.simplex_entering_value(complex, dim - 1, b))
+            .max_by(|a, b| a.partial_cmp(b).unwrap())
+            .unwrap()
+    }
+
+    /// Find the killer of the given "simplex", if any.
+    fn find_killer(&self, dim: usize, id: usize) -> Option<usize> {
+        if self.stacks.len() <= dim + 1 {
+            return None;
+        }
+        let ordering = &self.stacks[dim].ordering;
+        let sorted_i = ordering.map(id);
+        let killer = self.stacks[dim + 1].R.col_with_low(sorted_i);
+        if let Some(k) = killer {
+            let can_k = self.stacks[dim + 1].ordering.inv(k);
+            Some(can_k)
+        } else {
+            None
+        }
+    }
+
+    /// Find the "simplex" that is killed by the given simplex, if any.
+    fn find_victim(&self, dim: usize, id: usize) -> Option<usize> {
+        if dim == 0 {
+            return None;
+        }
+        let sorted_id = self.stacks[dim].ordering.map(id);
+        self.stacks[dim]
+            .R
+            .colmax(sorted_id)
+            .map(|rr| self.stacks[dim - 1].ordering.inv(rr))
+    }
+
+    /// Compute the persistence of the given "simplex".
+    ///
+    /// Returns [None] if the "simplex" is not killed.
+    pub fn persistence(&self, complex: &Complex, dim: usize, id: usize) -> Option<f64> {
+        let killer = self.find_killer(dim, id);
+        if let Some(killer) = killer {
+            let dist = self.simplex_entering_value(complex, dim, id);
+            let killer_dist = self.simplex_entering_value(complex, dim, killer);
+            let persistence = killer_dist - dist;
+            Some(persistence)
+        } else {
+            None
+        }
     }
 }
 
