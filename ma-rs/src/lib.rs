@@ -156,28 +156,12 @@ impl Swaps {
             can_id: usize,
             reduction: &Reduction,
             distances: &[Vec<f64>],
-            complex: &Complex,
         ) -> Option<f64> {
             let killer = find_killer(dim, can_id, reduction);
             if let Some(killer) = killer {
                 let dist = distances[dim][can_id];
                 let killer_dist = distances[dim + 1][killer];
                 let persistence = killer_dist - dist;
-                // if dim == 1 {
-                //     let killer_simplex = &complex.simplices_per_dim[dim + 1][killer];
-                //     assert!(
-                //         killer_simplex.boundary.contains(&can_id),
-                //         "A killer should be a co-face of it's victim"
-                //     );
-
-                //     assert!(
-                //         persistence < 0.00001,
-                //         "Persistence should always be 0.0 or inf, was {} ({} - {})",
-                //         persistence,
-                //         killer_dist,
-                //         dist
-                //     );
-                // }
                 Some(persistence)
             } else {
                 None
@@ -185,19 +169,18 @@ impl Swaps {
         }
 
         self.v.retain(|swap| {
-            if let Some(p) = persistence(swap.dim, swap.i, reduction_from, &distances_from, complex)
-            {
-                if p < lifetime {
-                    return false;
+            let persistence_i = persistence(swap.dim, swap.i, reduction_from, &distances_from);
+            let persistence_j = persistence(swap.dim, swap.j, reduction_to, &distances_to);
+            match (persistence_i, persistence_j) {
+                (Some(p), Some(q)) => {
+                    if p < lifetime && q < lifetime {
+                        false
+                    } else {
+                        true
+                    }
                 }
+                _ => true,
             }
-            if let Some(p) = persistence(swap.dim, swap.j, reduction_to, &distances_to, complex) {
-                if p < lifetime {
-                    return false;
-                }
-            }
-
-            true
         });
     }
 
@@ -520,91 +503,28 @@ pub fn vineyards_123(
 
     let mut faustian_swap_simplices = Vec::new();
 
-    // NOTE: we need the permutation from cannonical to sorted, so that we can
-    // get the permutation that takes us from the `b` point to the `a` point, so
-    // that, in turn, we can bubble sort from `a` to `b`.
-    v_perm.reverse();
+    if 0 < t_perm.len() {
+        t_perm.reverse();
+        let vine_ordering2 = Permutation::from_to(&stack2.ordering, &t_perm);
+        let (swap_is2, simplices_that_got_swapped2) =
+            compute_transpositions(vine_ordering2.clone().into_forwards());
+        for (swap_i, &i) in swap_is2.iter().enumerate() {
+            let res = perform_one_swap_top_dim(i, &mut stack2);
+            stack2.D.swap_cols(i, i + 1);
+            if let Some(true) = res {
+                let (i, j) = simplices_that_got_swapped2[swap_i];
+                let cann_i = t_perm.inv(i);
+                let cann_j = t_perm.inv(j);
 
-    // v_perm[0] = 12          this is the column at which v0 is at in the ordering.
-    // stack0.ordering[0] = 14 this is the column at which v0 is at in the stack0 ordering.
-    // if vine_ordering0[12] == 14, then
-    // vine_ordering0[v_perm[0]] == stack0.ordering[0]  means that
-    // v0 is column 12 at this ordering, and column 14 at the old ordering.
-    // Which means that vine_ordering0 takes a new column index and produces an old column index.
-
-    // This should map old to new indices.
-    let vine_ordering0 = Permutation::from_to(&stack0.ordering, &v_perm);
-
-    //  0 . 1 . 2 . 3 . 4 ...   <--- old indices
-    // [0,  3,  1,  4,  2, ...] <------- new indices
-
-    // First swap:
-    //      1,  3
-    // This was at index i=1, and corresponds to simplices at (3) and (1).
-
-    // swap_is0 has to contain ordered indices from the OLD ordering.
-    let (swap_is0, simplices_that_got_swapped0) =
-        compute_transpositions(vine_ordering0.clone().into_forwards());
-
-    for (swap_i, &i) in swap_is0.iter().enumerate() {
-        let res = perform_one_swap(i, &mut stack0, &mut stack1);
-        stack0.D.swap_cols(i, i + 1);
-        stack1.D.swap_rows(i, i + 1);
-
-        // {
-        //     let (i, j) = simplices_that_got_swapped0[swap_i];
-        //     let cann_i = stack0.ordering.inv(i);
-        //     let cann_j = stack0.ordering.inv(j);
-        //     seen_swaps.insert((cann_i.min(cann_j), cann_i.max(cann_j)));
-        // }
-
-        if let Some(true) = res {
-            // These are indices of simplices that we said were the 0,1,2... order
-            // in the bubble sort (compute_transpositions).  This is the order
-            // of the simplices at `a`.
-            let (i, j) = simplices_that_got_swapped0[swap_i];
-            let cann_i = v_perm.inv(i);
-            let cann_j = v_perm.inv(j);
-
-            faustian_swap_simplices.push(Swap {
-                dim: 0,
-                i: cann_i,
-                j: cann_j,
-            });
+                faustian_swap_simplices.push(Swap {
+                    dim: 2,
+                    i: cann_i,
+                    j: cann_j,
+                });
+            }
         }
+        stack2.ordering = t_perm;
     }
-
-    // Check that all pairs we've seen swapped actually has their ordering changed
-    // wrt. the two key points.  In addition, check that the ones we have NOT seen
-    // has their ordering the same.
-    // for i in 0..complex.simplices_per_dim[0].len() {
-    //     for j in 0..i {
-    //         let p_i = complex.simplices_per_dim[0][i].coords.unwrap();
-    //         let p_j = complex.simplices_per_dim[0][j].coords.unwrap();
-
-    //         let a = reduction.key_point;
-    //         let b = key_point;
-
-    //         let cmp_at_a = a.dist(&p_i).total_cmp(&a.dist(&p_j));
-    //         let cmp_at_b = b.dist(&p_i).total_cmp(&b.dist(&p_j));
-
-    //         if seen_swaps.contains(&(j, i)) {
-    //             assert!(
-    //                 (cmp_at_a.is_eq() && cmp_at_b.is_eq()) || (cmp_at_a != cmp_at_b),
-    //                 "Swapped, so ordering should have too: {:?} {:?}",
-    //                 cmp_at_a,
-    //                 cmp_at_b
-    //             );
-    //         } else {
-    //             assert!(
-    //                 cmp_at_a.is_eq() || cmp_at_b.is_eq() || cmp_at_a == cmp_at_b,
-    //                 "Ordering should be the same since they didn't swap: {:?} {:?}",
-    //                 cmp_at_a,
-    //                 cmp_at_b
-    //             );
-    //         }
-    //     }
-    // }
 
     if 0 < e_perm.len() {
         static EDGE_DEBUG: bool = false;
@@ -616,7 +536,16 @@ pub fn vineyards_123(
         let (swap_is1, simplices_that_got_swapped1) =
             compute_transpositions(vine_ordering1.clone().into_forwards());
         for (swap_i, &i) in swap_is1.iter().enumerate() {
-            let res = perform_one_swap(i, &mut stack1, &mut stack2);
+            let res = perform_one_swap(
+                i,
+                &mut stack1,
+                &mut stack2,
+                &reduction.stacks[1],
+                &reduction.stacks[2],
+                complex,
+                1,
+                key_point,
+            );
             stack1.D.swap_cols(i, i + 1);
             stack2.D.swap_rows(i, i + 1);
             if EDGE_DEBUG {
@@ -681,33 +610,105 @@ pub fn vineyards_123(
                 }
             }
         }
+        stack1.ordering = e_perm;
     }
 
-    if 0 < t_perm.len() {
-        t_perm.reverse();
-        let vine_ordering2 = Permutation::from_to(&stack2.ordering, &t_perm);
-        let (swap_is2, simplices_that_got_swapped2) =
-            compute_transpositions(vine_ordering2.clone().into_forwards());
-        for (swap_i, &i) in swap_is2.iter().enumerate() {
-            let res = perform_one_swap_top_dim(i, &mut stack2);
-            stack2.D.swap_cols(i, i + 1);
-            if let Some(true) = res {
-                let (i, j) = simplices_that_got_swapped2[swap_i];
-                let cann_i = t_perm.inv(i);
-                let cann_j = t_perm.inv(j);
+    // NOTE: we need the permutation from cannonical to sorted, so that we can
+    // get the permutation that takes us from the `b` point to the `a` point, so
+    // that, in turn, we can bubble sort from `a` to `b`.
+    v_perm.reverse();
 
-                faustian_swap_simplices.push(Swap {
-                    dim: 2,
-                    i: cann_i,
-                    j: cann_j,
-                });
-            }
+    // v_perm[0] = 12          this is the column at which v0 is at in the ordering.
+    // stack0.ordering[0] = 14 this is the column at which v0 is at in the stack0 ordering.
+    // if vine_ordering0[12] == 14, then
+    // vine_ordering0[v_perm[0]] == stack0.ordering[0]  means that
+    // v0 is column 12 at this ordering, and column 14 at the old ordering.
+    // Which means that vine_ordering0 takes a new column index and produces an old column index.
+
+    // This should map old to new indices.
+    let vine_ordering0 = Permutation::from_to(&stack0.ordering, &v_perm);
+
+    //  0 . 1 . 2 . 3 . 4 ...   <--- old indices
+    // [0,  3,  1,  4,  2, ...] <------- new indices
+
+    // First swap:
+    //      1,  3
+    // This was at index i=1, and corresponds to simplices at (3) and (1).
+
+    // swap_is0 has to contain ordered indices from the OLD ordering.
+    let (swap_is0, simplices_that_got_swapped0) =
+        compute_transpositions(vine_ordering0.clone().into_forwards());
+
+    for (swap_i, &i) in swap_is0.iter().enumerate() {
+        let res = perform_one_swap(
+            i,
+            &mut stack0,
+            &mut stack1,
+            &reduction.stacks[0],
+            &reduction.stacks[1],
+            complex,
+            0,
+            key_point,
+        );
+        stack0.D.swap_cols(i, i + 1);
+        stack1.D.swap_rows(i, i + 1);
+
+        // {
+        //     let (i, j) = simplices_that_got_swapped0[swap_i];
+        //     let cann_i = stack0.ordering.inv(i);
+        //     let cann_j = stack0.ordering.inv(j);
+        //     seen_swaps.insert((cann_i.min(cann_j), cann_i.max(cann_j)));
+        // }
+
+        if let Some(true) = res {
+            // These are indices of simplices that we said were the 0,1,2... order
+            // in the bubble sort (compute_transpositions).  This is the order
+            // of the simplices at `a`.
+            let (i, j) = simplices_that_got_swapped0[swap_i];
+            let cann_i = v_perm.inv(i);
+            let cann_j = v_perm.inv(j);
+
+            faustian_swap_simplices.push(Swap {
+                dim: 0,
+                i: cann_i,
+                j: cann_j,
+            });
         }
     }
 
+    // Check that all pairs we've seen swapped actually has their ordering changed
+    // wrt. the two key points.  In addition, check that the ones we have NOT seen
+    // has their ordering the same.
+    // for i in 0..complex.simplices_per_dim[0].len() {
+    //     for j in 0..i {
+    //         let p_i = complex.simplices_per_dim[0][i].coords.unwrap();
+    //         let p_j = complex.simplices_per_dim[0][j].coords.unwrap();
+
+    //         let a = reduction.key_point;
+    //         let b = key_point;
+
+    //         let cmp_at_a = a.dist(&p_i).total_cmp(&a.dist(&p_j));
+    //         let cmp_at_b = b.dist(&p_i).total_cmp(&b.dist(&p_j));
+
+    //         if seen_swaps.contains(&(j, i)) {
+    //             assert!(
+    //                 (cmp_at_a.is_eq() && cmp_at_b.is_eq()) || (cmp_at_a != cmp_at_b),
+    //                 "Swapped, so ordering should have too: {:?} {:?}",
+    //                 cmp_at_a,
+    //                 cmp_at_b
+    //             );
+    //         } else {
+    //             assert!(
+    //                 cmp_at_a.is_eq() || cmp_at_b.is_eq() || cmp_at_a == cmp_at_b,
+    //                 "Ordering should be the same since they didn't swap: {:?} {:?}",
+    //                 cmp_at_a,
+    //                 cmp_at_b
+    //             );
+    //         }
+    //     }
+    // }
+
     stack0.ordering = v_perm;
-    stack1.ordering = e_perm;
-    stack2.ordering = t_perm;
 
     // println!("vineyards_123");
     // dbg!(&vine_ordering0);
@@ -829,7 +830,16 @@ pub fn reduce_from_scratch(complex: &Complex, key_point: Pos) -> Reduction {
 }
 
 #[allow(non_snake_case)]
-fn perform_one_swap(i: usize, stack: &mut Stack, up_stack: &mut Stack) -> Option<bool> {
+fn perform_one_swap(
+    i: usize,
+    stack: &mut Stack,
+    up_stack: &mut Stack,
+    old_stack: &Stack,
+    old_stack_above: &Stack,
+    complex: &Complex,
+    dim: usize,
+    key_point: Pos,
+) -> Option<bool> {
     #[allow(non_snake_case)]
     fn gives_death(R: &SneakyMatrix, c: usize) -> bool {
         R.col_is_not_empty(c)
@@ -966,11 +976,52 @@ fn perform_one_swap(i: usize, stack: &mut Stack, up_stack: &mut Stack) -> Option
 
             // NOTE: We also need to check that the swapped simplices
             // corresponpds to the first birth in this dim.
-            for k in 0..i {
-                if stack.R.col_is_empty(k) {
-                    // return Some(false);
+
+            let EPS = 0.01;
+            let our_old_persistence = {
+                // NOTE: the stored order of these matrices is actually ALSO the canonical ordering.
+                let can_index = stack.D.col_perm.map(i + 1);
+                let old_stack_index = old_stack.ordering.map(can_index);
+                if let Some(old_stack_tri) = old_stack_above.R.col_with_low(old_stack_index) {
+                    let can_tri = old_stack_above.ordering.inv(old_stack_tri);
+                    let killed_at = complex.simplex_entering_value(dim + 1, can_tri, key_point);
+                    let born_at = complex.simplex_entering_value(dim, can_index, key_point);
+                    Some(killed_at - born_at)
+                } else {
+                    None
                 }
+            };
+
+            let our_new_persistence = {
+                let can_index = stack.D.col_perm.map(i);
+                if let Some(up_stack_tri) = up_stack.R.col_with_low(i) {
+                    let can_tri = up_stack.D.row_perm.map(up_stack_tri);
+                    let killed_at = complex.simplex_entering_value(dim + 1, can_tri, key_point);
+                    let born_at = complex.simplex_entering_value(dim, can_index, key_point);
+                    Some(killed_at - born_at)
+                } else {
+                    None
+                }
+            };
+
+            if our_old_persistence.is_some_and(|p| p < EPS)
+                && our_new_persistence.is_some_and(|p| p < EPS)
+            {
+                // return Some(false);
             }
+
+            // for k in 0..i {
+            //     if stack.R.col_is_empty(k) {
+            //         // we have swapped i, i+1
+            //         let old_persistence = { 0.0 };
+
+            //         let new_perstence = { 0.0 };
+
+            //         if old_persistence < EPS && new_perstence < EPS {
+            //             return Some(false);
+            //         }
+            //     }
+            // }
 
             return Some(true);
         // else:

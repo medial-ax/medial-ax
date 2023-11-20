@@ -373,6 +373,20 @@ impl Complex {
 
         (vertex_distances, edge_distances, triangle_distances)
     }
+
+    /// Computes the entering value of the given simplex from the given key point.
+    pub fn simplex_entering_value(&self, dim: usize, id: usize, key_point: Pos) -> f64 {
+        let simplex = &self.simplices_per_dim[dim][id];
+        if dim == 0 {
+            return simplex.coords.unwrap().dist2(&key_point);
+        }
+        simplex
+            .boundary
+            .iter()
+            .map(|&b| self.simplex_entering_value(dim - 1, b, key_point))
+            .max_by(|a, b| a.partial_cmp(b).unwrap())
+            .unwrap()
+    }
 }
 
 #[cfg(test)]
