@@ -207,6 +207,7 @@ impl SneakyMatrix {
         let cc = self.col_perm.map(c);
         let col = &self.columns[cc];
         col.max_under(&self.row_perm)
+            .map(|rr| self.row_perm.inv(rr))
     }
 
     /// Search for the column which lowest one is the given `r`.

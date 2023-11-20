@@ -279,12 +279,18 @@ impl Reduction {
     }
 
     /// Find the "simplex" that is killed by the given simplex, if any.
+    ///
+    /// `id` is a canonical index.
     fn find_victim(&self, dim: usize, id: usize) -> Option<usize> {
         if dim == 0 {
+            // Pretend that the empty set doesn't exist, since we don't represent it explicitly.
             return None;
         }
         let sorted_id = self.stacks[dim].ordering.map(id);
-        self.stacks[dim].R.colmax(sorted_id)
+        self.stacks[dim]
+            .R
+            .colmax(sorted_id)
+            .map(|sorted_r| self.stacks[dim - 1].ordering.inv(sorted_r))
     }
 
     /// Compute the persistence of the given "simplex".
@@ -474,8 +480,8 @@ fn compute_permutations(
     let edge_distances = complex.simplices_per_dim[1]
         .iter()
         .map(|e| {
-            let dist_a = vertex_distances[e.boundary[0] as usize];
-            let dist_b = vertex_distances[e.boundary[1] as usize];
+            let dist_a = vertex_distances[e.boundary[0]];
+            let dist_b = vertex_distances[e.boundary[1]];
             dist_a.max(dist_b)
         })
         .collect::<Vec<_>>();
@@ -483,9 +489,9 @@ fn compute_permutations(
     let triangle_distances = complex.simplices_per_dim[2]
         .iter()
         .map(|f| {
-            let dist_a = edge_distances[f.boundary[0] as usize];
-            let dist_b = edge_distances[f.boundary[1] as usize];
-            let dist_c = edge_distances[f.boundary[2] as usize];
+            let dist_a = edge_distances[f.boundary[0]];
+            let dist_b = edge_distances[f.boundary[1]];
+            let dist_c = edge_distances[f.boundary[2]];
             dist_a.max(dist_b).max(dist_c)
         })
         .collect::<Vec<_>>();
@@ -707,6 +713,23 @@ pub fn vineyards_123(
 #[pyfunction]
 pub fn reduce_from_scratch(complex: &Complex, key_point: Pos) -> Reduction {
     let (mut v_perm, mut e_perm, mut t_perm) = compute_permutations(complex, key_point);
+    // dbg!(&key_point);
+    // println!(
+    //     "Position of the closest vertex is {:?} (dist={})",
+    //     complex.simplices_per_dim[0][v_perm.map(0)].coords.unwrap(),
+    //     complex.simplices_per_dim[0][v_perm.map(0)]
+    //         .coords
+    //         .unwrap()
+    //         .dist(&key_point)
+    // );
+    // println!(
+    //     "INV Position of the closest vertex is {:?} dist({})",
+    //     complex.simplices_per_dim[0][v_perm.inv(0)].coords.unwrap(),
+    //     complex.simplices_per_dim[0][v_perm.inv(0)]
+    //         .coords
+    //         .unwrap()
+    //         .dist(&key_point)
+    // );
 
     let mut boundary_0 = complex.boundary_matrix(0);
     boundary_0.col_perm = v_perm.clone();
