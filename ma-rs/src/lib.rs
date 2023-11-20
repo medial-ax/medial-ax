@@ -524,7 +524,25 @@ pub fn vineyards_123(
     // get the permutation that takes us from the `b` point to the `a` point, so
     // that, in turn, we can bubble sort from `a` to `b`.
     v_perm.reverse();
-    let vine_ordering0 = Permutation::from_to(&v_perm, &stack0.ordering);
+
+    // v_perm[0] = 12          this is the column at which v0 is at in the ordering.
+    // stack0.ordering[0] = 14 this is the column at which v0 is at in the stack0 ordering.
+    // if vine_ordering0[12] == 14, then
+    // vine_ordering0[v_perm[0]] == stack0.ordering[0]  means that
+    // v0 is column 12 at this ordering, and column 14 at the old ordering.
+    // Which means that vine_ordering0 takes a new column index and produces an old column index.
+
+    // This should map old to new indices.
+    let vine_ordering0 = Permutation::from_to(&stack0.ordering, &v_perm);
+
+    //  0 . 1 . 2 . 3 . 4 ...   <--- old indices
+    // [0,  3,  1,  4,  2, ...] <------- new indices
+
+    // First swap:
+    //      1,  3
+    // This was at index i=1, and corresponds to simplices at (3) and (1).
+
+    // swap_is0 has to contain ordered indices from the OLD ordering.
     let (swap_is0, simplices_that_got_swapped0) =
         compute_transpositions(vine_ordering0.clone().into_forwards());
 
@@ -545,8 +563,8 @@ pub fn vineyards_123(
             // in the bubble sort (compute_transpositions).  This is the order
             // of the simplices at `a`.
             let (i, j) = simplices_that_got_swapped0[swap_i];
-            let cann_i = stack0.ordering.inv(i);
-            let cann_j = stack0.ordering.inv(j);
+            let cann_i = v_perm.inv(i);
+            let cann_j = v_perm.inv(j);
 
             faustian_swap_simplices.push(Swap {
                 dim: 0,
@@ -594,7 +612,7 @@ pub fn vineyards_123(
         let mut seen_swaps = HashSet::new();
 
         e_perm.reverse();
-        let vine_ordering1 = Permutation::from_to(&e_perm, &stack1.ordering);
+        let vine_ordering1 = Permutation::from_to(&stack1.ordering, &e_perm);
         let (swap_is1, simplices_that_got_swapped1) =
             compute_transpositions(vine_ordering1.clone().into_forwards());
         for (swap_i, &i) in swap_is1.iter().enumerate() {
@@ -609,8 +627,8 @@ pub fn vineyards_123(
             }
             if let Some(true) = res {
                 let (i, j) = simplices_that_got_swapped1[swap_i];
-                let cann_i = stack1.ordering.inv(i);
-                let cann_j = stack1.ordering.inv(j);
+                let cann_i = e_perm.inv(i);
+                let cann_j = e_perm.inv(j);
 
                 faustian_swap_simplices.push(Swap {
                     dim: 1,
@@ -667,7 +685,7 @@ pub fn vineyards_123(
 
     if 0 < t_perm.len() {
         t_perm.reverse();
-        let vine_ordering2 = Permutation::from_to(&t_perm, &stack2.ordering);
+        let vine_ordering2 = Permutation::from_to(&stack2.ordering, &t_perm);
         let (swap_is2, simplices_that_got_swapped2) =
             compute_transpositions(vine_ordering2.clone().into_forwards());
         for (swap_i, &i) in swap_is2.iter().enumerate() {
@@ -675,8 +693,8 @@ pub fn vineyards_123(
             stack2.D.swap_cols(i, i + 1);
             if let Some(true) = res {
                 let (i, j) = simplices_that_got_swapped2[swap_i];
-                let cann_i = stack2.ordering.inv(i);
-                let cann_j = stack2.ordering.inv(j);
+                let cann_i = t_perm.inv(i);
+                let cann_j = t_perm.inv(j);
 
                 faustian_swap_simplices.push(Swap {
                     dim: 2,
@@ -950,7 +968,7 @@ fn perform_one_swap(i: usize, stack: &mut Stack, up_stack: &mut Stack) -> Option
             // corresponpds to the first birth in this dim.
             for k in 0..i {
                 if stack.R.col_is_empty(k) {
-                    return Some(false);
+                    // return Some(false);
                 }
             }
 
