@@ -783,18 +783,9 @@ pub fn reduce_from_scratch(complex: &Complex, key_point: Pos) -> Reduction {
         V2.add_cols(target, other);
     }
 
-    let t0 = std::time::Instant::now();
     let U_t0 = inverse_zz2(&V0).expect("inverse_zz2 failed");
     let U_t1 = inverse_zz2(&V1).expect("inverse_zz2 failed");
     let U_t2 = inverse_zz2(&V2).expect("inverse_zz2 failed");
-    let t1 = std::time::Instant::now();
-    let dt = t1 - t0;
-    let dt = dt.as_secs() as f64 + dt.subsec_nanos() as f64 * 1e-9;
-    eprintln!(
-        "t{:02} inverse_zz2: {} seconds",
-        rayon::current_thread_index().unwrap_or(9999),
-        dt,
-    );
 
     let R0 = boundary_0;
     let R1 = boundary_1;
