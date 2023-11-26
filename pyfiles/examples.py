@@ -413,3 +413,23 @@ two_d_rect = Example(
     # medial_axis=0,
     # prune_dist = 0.4
 )
+
+two_d_rect_atangle = Example(
+    filename="input/2Drect_atangle.obj",
+    grid_size=0.1,
+    grid_buffer=0.1,
+    camera_opt=CameraOpt(azim=20, elev=30),
+    # prune_eps=0,
+    # medial_axis=0,
+    # prune_dist = 0.4
+)
+
+weirdshape = Example(
+    filename="input/weirdshape.obj",
+    grid_size=0.1,
+    grid_buffer=0.1,
+    camera_opt=CameraOpt(azim=20, elev=30),
+    # prune_eps=0,
+    # medial_axis=0,
+    # prune_dist = 0.4
+)
