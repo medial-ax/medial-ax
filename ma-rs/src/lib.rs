@@ -977,38 +977,38 @@ fn perform_one_swap(
             // NOTE: We also need to check that the swapped simplices
             // corresponpds to the first birth in this dim.
 
-            let EPS = 0.01;
-            let our_old_persistence = {
-                // NOTE: the stored order of these matrices is actually ALSO the canonical ordering.
-                let can_index = stack.D.col_perm.map(i + 1);
-                let old_stack_index = old_stack.ordering.map(can_index);
-                if let Some(old_stack_tri) = old_stack_above.R.col_with_low(old_stack_index) {
-                    let can_tri = old_stack_above.ordering.inv(old_stack_tri);
-                    let killed_at = complex.simplex_entering_value(dim + 1, can_tri, key_point);
-                    let born_at = complex.simplex_entering_value(dim, can_index, key_point);
-                    Some(killed_at - born_at)
-                } else {
-                    None
-                }
-            };
+            // let EPS = 0.01;
+            // let our_old_persistence = {
+            //     // NOTE: the stored order of these matrices is actually ALSO the canonical ordering.
+            //     let can_index = stack.D.col_perm.map(i + 1);
+            //     let old_stack_index = old_stack.ordering.map(can_index);
+            //     if let Some(old_stack_tri) = old_stack_above.R.col_with_low(old_stack_index) {
+            //         let can_tri = old_stack_above.ordering.inv(old_stack_tri);
+            //         let killed_at = complex.simplex_entering_value(dim + 1, can_tri, key_point);
+            //         let born_at = complex.simplex_entering_value(dim, can_index, key_point);
+            //         Some(killed_at - born_at)
+            //     } else {
+            //         None
+            //     }
+            // };
 
-            let our_new_persistence = {
-                let can_index = stack.D.col_perm.map(i);
-                if let Some(up_stack_tri) = up_stack.R.col_with_low(i) {
-                    let can_tri = up_stack.D.row_perm.map(up_stack_tri);
-                    let killed_at = complex.simplex_entering_value(dim + 1, can_tri, key_point);
-                    let born_at = complex.simplex_entering_value(dim, can_index, key_point);
-                    Some(killed_at - born_at)
-                } else {
-                    None
-                }
-            };
+            // let our_new_persistence = {
+            //     let can_index = stack.D.col_perm.map(i);
+            //     if let Some(up_stack_tri) = up_stack.R.col_with_low(i) {
+            //         let can_tri = up_stack.D.row_perm.map(up_stack_tri);
+            //         let killed_at = complex.simplex_entering_value(dim + 1, can_tri, key_point);
+            //         let born_at = complex.simplex_entering_value(dim, can_index, key_point);
+            //         Some(killed_at - born_at)
+            //     } else {
+            //         None
+            //     }
+            // };
 
-            if our_old_persistence.is_some_and(|p| p < EPS)
-                && our_new_persistence.is_some_and(|p| p < EPS)
-            {
-                // return Some(false);
-            }
+            // if our_old_persistence.is_some_and(|p| p < EPS)
+            //     && our_new_persistence.is_some_and(|p| p < EPS)
+            // {
+            //     // return Some(false);
+            // }
 
             // for k in 0..i {
             //     if stack.R.col_is_empty(k) {
