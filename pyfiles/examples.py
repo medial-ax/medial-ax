@@ -8,7 +8,7 @@ class Example:
     filename: str
     grid_size: float
     grid_buffer: float
-    camera_opt: "CameraOpt" = None
+    camera_opt: "CameraOpt" = None  # type: ignore
     medial_axis: int = 0
     prune_eps: Optional[float] = None
     prune_dist: Optional[float] = None
@@ -415,7 +415,19 @@ two_d_rect = Example(
 )
 
 two_d_rect_atangle = Example(
-    filename="input/2Drect_atangle.obj",
+    # filename="input/2Drect_atangle.obj",
+    filename="input/2Drect_4verts.obj",
+    grid_size=0.1,
+    grid_buffer=0.1,
+    camera_opt=CameraOpt(azim=20, elev=50),
+    # prune_eps=0,
+    # medial_axis=0,
+    # prune_dist = 0.4
+)
+
+# this makes a tet if you do 3d vor
+weirdshape = Example(
+    filename="input/windmill.obj",
     grid_size=0.1,
     grid_buffer=0.1,
     camera_opt=CameraOpt(azim=20, elev=30),
@@ -423,13 +435,17 @@ two_d_rect_atangle = Example(
     # medial_axis=0,
     # prune_dist = 0.4
 )
-
-weirdshape = Example(
-    filename="input/weirdshape.obj",
+# this also has a pretty nice med ax with 3d vor
+martinsloop = Example(
+    filename="input/weird-loop.obj",
     grid_size=0.1,
     grid_buffer=0.1,
     camera_opt=CameraOpt(azim=20, elev=30),
-    # prune_eps=0,
-    # medial_axis=0,
-    # prune_dist = 0.4
+)
+
+anothercyl = Example(
+    filename="input/squishedcyl_nov29.obj",
+    grid_size=0.1,
+    grid_buffer=0.1,
+    camera_opt=CameraOpt(azim=20, elev=30),
 )
