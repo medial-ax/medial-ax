@@ -200,7 +200,13 @@ impl Grid {
         (hm, all_swaps)
     }
 
-    fn run_state(&mut self, max_volume: isize, complex: &Complex) -> Vec<(Index, Index, Swaps)> {
+    /// Divide up the grid, and when the volume of each subgrid is small enough,
+    /// run vineyards on each subgrid in parallel.
+    fn run_state(
+        &mut self,
+        max_volume: isize,
+        complex: &Complex,
+    ) -> (HashMap<Index, Reduction>, Vec<(Index, Index, Swaps)>) {
         let mut ready = Vec::new();
         let mut queue = VecDeque::new();
         queue.push_back((self.clone(), Index([0; 3])));
@@ -224,14 +230,17 @@ impl Grid {
             (t1 - t0).as_secs() as f64 + (t1 - t0).subsec_nanos() as f64 * 1e-9
         );
 
-        let mut swaps = Vec::<Vec<(Index, Index, Swaps)>>::new();
+        let mut swaps = Vec::<(HashMap<Index, Reduction>, Vec<(Index, Index, Swaps)>)>::new();
         swaps.par_extend(ready.into_par_iter().map(|(grid, state, offset)| {
             let (states, mut swaps) = grid.run_vineyards_in_grid(complex, state);
             for (i, j, _) in swaps.iter_mut() {
                 *i = *i + offset;
                 *j = *j + offset;
             }
-            swaps
+
+            let states = states.into_iter().map(|(i, s)| (i + offset, s)).collect();
+
+            (states, swaps)
         }));
 
         let t2 = std::time::Instant::now();
@@ -240,42 +249,14 @@ impl Grid {
             (t2 - t1).as_secs() as f64 + (t2 - t1).subsec_nanos() as f64 * 1e-9
         );
 
-        return swaps.into_iter().flatten().collect();
+        let mut all_swaps = Vec::new();
+        let mut all_states = HashMap::new();
+        for (states, swaps) in swaps.into_iter() {
+            all_states.extend(states);
+            all_swaps.extend(swaps);
+        }
 
-        // fn inner(
-        //     grid: &mut Grid,
-        //     max_volume: isize,
-        //     complex: &Complex,
-        // ) -> Vec<(Index, Index, Swaps)> {
-        //     if grid.volume() <= max_volume {
-        //         let t0 = std::time::Instant::now();
-        //         let (_, swaps) = grid.run_vineyards_in_grid(complex);
-        //         let t1 = std::time::Instant::now();
-        //         let dt = t1 - t0;
-        //         let dt = dt.as_secs() as f64 + dt.subsec_nanos() as f64 * 1e-9;
-        //         eprintln!(
-        //             "t{:02} run_vineyards_in_grid: {} seconds",
-        //             rayon::current_thread_index().unwrap(),
-        //             dt,
-        //         );
-        //         return swaps;
-        //     } else {
-        //         let (mut left, mut right, offset_index) = grid.split_with_overlap();
-        //         let (mut left_swaps, right_swaps) = rayon::join(
-        //             || left.run_state(max_volume, complex),
-        //             || right.run_state(max_volume, complex),
-        //         );
-
-        //         left_swaps.reserve(right_swaps.len());
-        //         for s in right_swaps {
-        //             left_swaps.push((s.0 + offset_index, s.1 + offset_index, s.2));
-        //         }
-
-        //         return left_swaps;
-        //     }
-        // }
-
-        // pyo3::Python::with_gil(|py| py.allow_threads(|| inner(self, max_volume, complex)))
+        (all_states, all_swaps)
     }
 }
 
