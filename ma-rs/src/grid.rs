@@ -171,20 +171,7 @@ impl Grid {
         let mut hm = HashMap::new();
         let mut all_swaps = Vec::new();
 
-        let mut edges_visited = 0;
-        let total_edges = self.number_of_grid_edges();
-
         self.visit_edges(Index([0; 3]), |new_cell, old_cell| {
-            let last_percent = (100.0 * edges_visited as f64 / total_edges as f64).floor();
-            edges_visited += 1;
-            let this_percent = (100.0 * edges_visited as f64 / total_edges as f64).floor();
-            // if last_percent != this_percent {
-            //     eprint!(
-            //         "Progress: {}/{} ({}%)\r",
-            //         edges_visited, total_edges, this_percent
-            //     );
-            // }
-
             if let Some(old_cell) = old_cell {
                 let old_state = hm
                     .get(&old_cell)
