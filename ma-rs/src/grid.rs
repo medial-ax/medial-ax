@@ -77,6 +77,39 @@ impl Grid {
         }
     }
 
+    #[staticmethod]
+    /// Construct a new [Grid] around the given [Complex]. The grid cells are of
+    /// size `size`, and `buffer` is the smallest distance from the grid
+    /// boundary to the complex.  This is tight at the min corner of the grid,
+    /// and is up to `buffer + size` as the max corner of the grid.
+    pub fn around_complex(complex: &Complex, size: f64, buffer: f64) -> Self {
+        let (xmin, ymin, zmin) = complex.simplices_per_dim[0].iter().fold(
+            (f64::MAX, f64::MAX, f64::MAX),
+            |acc, simplex| {
+                let [x, y, z] = simplex.coords.unwrap().0;
+                (acc.0.min(x), acc.1.min(y), acc.2.min(z))
+            },
+        );
+
+        let (xmax, ymax, zmax) = complex.simplices_per_dim[0].iter().fold(
+            (f64::MIN, f64::MIN, f64::MIN),
+            |acc, simplex| {
+                let [x, y, z] = simplex.coords.unwrap().0;
+                (acc.0.max(x), acc.1.max(y), acc.2.max(z))
+            },
+        );
+
+        let corner = Pos([xmin - buffer, ymin - buffer, zmin - buffer]);
+
+        let shape = [
+            ((xmax - xmin + 2.0 * buffer) / size).ceil() as isize,
+            ((ymax - ymin + 2.0 * buffer) / size).ceil() as isize,
+            ((zmax - zmin + 2.0 * buffer) / size).ceil() as isize,
+        ];
+
+        Self::new(corner, size, shape)
+    }
+
     pub fn center(&self, i: Index) -> Pos {
         let mut arr = [0.0; 3];
         for j in 0..3 {
@@ -112,6 +145,37 @@ impl Grid {
 
     pub fn volume(&self) -> isize {
         self.shape.0[0] * self.shape.0[1] * self.shape.0[2]
+    }
+
+    /// Return the dual face in between the two indices. The output is the four
+    /// coordinates of the quad.
+    pub fn dual_face(&self, a: Index, b: Index) -> [Pos; 4] {
+        let middle = (self.coordinate(a) + self.coordinate(b)) / 2.0;
+
+        if a.0[0] != b.0[0] {
+            [
+                middle + Pos([0.0, -self.size, -self.size]) / 2.0,
+                middle + Pos([0.0, -self.size, self.size]) / 2.0,
+                middle + Pos([0.0, self.size, self.size]) / 2.0,
+                middle + Pos([0.0, self.size, -self.size]) / 2.0,
+            ]
+        } else if a.0[1] != b.0[1] {
+            [
+                middle + Pos([-self.size, 0.0, -self.size]) / 2.0,
+                middle + Pos([-self.size, 0.0, self.size]) / 2.0,
+                middle + Pos([self.size, 0.0, self.size]) / 2.0,
+                middle + Pos([self.size, 0.0, -self.size]) / 2.0,
+            ]
+        } else if a.0[2] != b.0[2] {
+            [
+                middle + Pos([-self.size, -self.size, 0.0]) / 2.0,
+                middle + Pos([-self.size, self.size, 0.0]) / 2.0,
+                middle + Pos([self.size, self.size, 0.0]) / 2.0,
+                middle + Pos([self.size, -self.size, 0.0]) / 2.0,
+            ]
+        } else {
+            panic!("a == b");
+        }
     }
 
     /// Splits the grid into two along the longest axis.
