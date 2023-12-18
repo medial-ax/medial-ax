@@ -279,16 +279,36 @@ impl Reduction {
     /// Compute the persistence of the given "simplex".
     ///
     /// Returns [None] if the "simplex" is not killed.
-    pub fn persistence(&self, complex: &Complex, dim: usize, id: usize) -> Option<f64> {
+    pub fn persistence(&self, complex: &Complex, dim: usize, id: usize) -> Option<(f64, f64)> {
         let killer = self.find_killer(dim, id);
         if let Some(killer) = killer {
             let dist = self.simplex_entering_value(complex, dim, id);
             let killer_dist = self.simplex_entering_value(complex, dim, killer);
-            let persistence = killer_dist - dist;
-            Some(persistence)
+            Some((dist, killer_dist))
         } else {
             None
         }
+    }
+
+    pub fn barcode(&self, complex: &Complex, dim: usize) -> Vec<(f64, f64)> {
+        let mut ret = Vec::new();
+
+        let ordering = &self.stacks[dim].ordering;
+        #[allow(non_snake_case)]
+        let R = &self.stacks[dim].R;
+
+        for simplex in &complex.simplices_per_dim[dim] {
+            let id = ordering.map(simplex.id);
+            if !R.gives_birth(id) {
+                continue;
+            }
+            if let Some((birth, death)) = self.persistence(complex, dim, id) {
+                ret.push((birth, death));
+            } else {
+                ret.push((self.simplex_entering_value(complex, dim, id), f64::INFINITY));
+            }
+        }
+        ret
     }
 }
 

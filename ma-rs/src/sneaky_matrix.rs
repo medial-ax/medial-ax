@@ -286,6 +286,11 @@ impl SneakyMatrix {
         }
         adds
     }
+
+    /// Returns `true` if the column `c` gives birth to a new homology class.
+    pub fn gives_birth(&self, c: usize) -> bool {
+        self.col_is_empty(c)
+    }
 }
 
 #[cfg(test)]
