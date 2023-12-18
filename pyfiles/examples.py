@@ -449,3 +449,10 @@ anothercyl = Example(
     grid_buffer=0.1,
     camera_opt=CameraOpt(azim=20, elev=30),
 )
+
+anothercube2 = Example(
+    filename="input/cubeagain.obj",
+    grid_size=0.1,
+    grid_buffer=0.1,
+    camera_opt=CameraOpt(azim=20, elev=30),
+)
