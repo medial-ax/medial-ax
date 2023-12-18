@@ -76,11 +76,11 @@ def maze_ma0():
     print(f"  grid_size: {grid_size}")
     print(f"  grid_buffer: {grid_buffer}")
 
-    states, swaps = grid.run_state(5000, complex)
+    states, swaps = grid.run_state(5000, complex, False)
+    print(f"  #swaps: {len(swaps)}")
 
     faces = []
     for old_cell, new_cell, swaps in swaps:
-        swaps = swaps.pyclone()
         swaps.prune_coboundary(complex)
         swaps.prune_euclidian(complex, 0.3**2)
         swaps = list(filter(lambda t: t.dim == 0, swaps.v))
@@ -91,5 +91,35 @@ def maze_ma0():
     export_obj(f"maze-ma0", complex, faces)
 
 
+def TEST_theta():
+    """The 1st medial axis for the Theta."""
+    ex = examples.theta_coarse
+    grid_size = 0.05
+    grid_buffer = 0.05
+    complex = mars.read_from_obj(ex.filename)
+    grid = mars.Grid.around_complex(complex, grid_size, grid_buffer)
+
+    print(f"demo: maze")
+    print(f"  medial axis: 0")
+    print(f"  input file: {ex.filename}")
+    print(f"  grid_size: {grid_size}")
+    print(f"  grid_buffer: {grid_buffer}")
+
+    states, swaps = grid.run_state(10_000, complex, True)
+    print(f"  #swaps: {len(swaps)}")
+
+    faces = []
+    for old_cell, new_cell, swaps in swaps:
+        swaps.prune_coboundary(complex)
+        swaps.prune_euclidian(complex, 0.3**2)
+        swaps = list(filter(lambda t: t.dim == 0, swaps.v))
+        if 0 < len(swaps):
+            faces.append(grid.dual_face(list(old_cell), list(new_cell)))
+    print(f"  Faces found: {len(faces)}")
+
+    export_obj(f"theta-coarse-ma0", complex, faces)
+
+
 if __name__ == "__main__":
-    maze_ma0()
+    # maze_ma0()
+    TEST_theta()

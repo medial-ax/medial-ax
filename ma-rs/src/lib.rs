@@ -730,7 +730,7 @@ pub fn vineyards_123(
 
 #[allow(non_snake_case)]
 #[pyfunction]
-pub fn reduce_from_scratch(complex: &Complex, key_point: Pos) -> Reduction {
+pub fn reduce_from_scratch(complex: &Complex, key_point: Pos, noisy: bool) -> Reduction {
     let (mut v_perm, mut e_perm, mut t_perm) = compute_permutations(complex, key_point);
     // dbg!(&key_point);
     // println!(
@@ -764,9 +764,21 @@ pub fn reduce_from_scratch(complex: &Complex, key_point: Pos) -> Reduction {
     boundary_2.row_perm = e_perm.clone();
     let D2 = boundary_2.clone();
 
+    if noisy {
+        print!("Reduce dim0 ... ");
+    }
     let adds0 = boundary_0.reduce();
+    if noisy {
+        print!("done\nReduce dim1 ... ");
+    }
     let adds1 = boundary_1.reduce();
+    if noisy {
+        print!("done\nReduce dim2 ... ");
+    }
     let adds2 = boundary_2.reduce();
+    if noisy {
+        println!("done");
+    }
 
     let mut V0 = SneakyMatrix::eye(boundary_0.cols);
     for (target, other) in adds0 {
@@ -783,9 +795,21 @@ pub fn reduce_from_scratch(complex: &Complex, key_point: Pos) -> Reduction {
         V2.add_cols(target, other);
     }
 
+    if noisy {
+        print!("Invert V0 ... ");
+    }
     let U_t0 = inverse_zz2(&V0).expect("inverse_zz2 failed");
+    if noisy {
+        print!("done\nInvert V1 ... ");
+    }
     let U_t1 = inverse_zz2(&V1).expect("inverse_zz2 failed");
+    if noisy {
+        print!("done\nInvert V2 ... ");
+    }
     let U_t2 = inverse_zz2(&V2).expect("inverse_zz2 failed");
+    if noisy {
+        println!("done");
+    }
 
     let R0 = boundary_0;
     let R1 = boundary_1;
@@ -1229,7 +1253,7 @@ fn test_three_points() {
     let point_a = Pos([0.3, 0.1, 0.0]);
     {
         let mut point = point_a;
-        let mut state = reduce_from_scratch(&complex, point);
+        let mut state = reduce_from_scratch(&complex, point, false);
         for _ in 0..10 {
             let pt = point + Pos([0.1, 0.0, 0.0]);
             let (next_state, swaps) = vineyards_123(&complex, &state, pt);
@@ -1243,7 +1267,7 @@ fn test_three_points() {
     let point_b = Pos([0.8, 0.75, 0.0]);
     {
         let mut point = point_b;
-        let mut state = reduce_from_scratch(&complex, point);
+        let mut state = reduce_from_scratch(&complex, point, false);
         for k in 0..10 {
             let pt = point - Pos([0.0, 0.1, 0.0]);
             println!("between {:?} and {:?}", point, pt);
@@ -1271,7 +1295,7 @@ fn test_three_points_test1() {
     let pt_a = Pos([0.8, 0.45, 0.0]);
     let pt_b = Pos([0.8, 0.35, 0.0]);
 
-    let state = reduce_from_scratch(&complex, pt_a);
+    let state = reduce_from_scratch(&complex, pt_a, false);
     let (_next_state, swaps) = vineyards_123(&complex, &state, pt_b);
     assert_eq!(swaps.v.len(), 0);
 }

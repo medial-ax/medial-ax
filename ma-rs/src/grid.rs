@@ -257,16 +257,22 @@ impl Grid {
         &mut self,
         max_volume: isize,
         complex: &Complex,
+        noisy: bool,
     ) -> (HashMap<Index, Reduction>, Vec<(Index, Index, Swaps)>) {
         let mut ready = Vec::new();
         let mut queue = VecDeque::new();
         queue.push_back((self.clone(), Index([0; 3])));
+        println!(
+            "Reduce around {} states from scratch ...",
+            self.volume().div_euclid(max_volume)
+        );
 
         let t0 = std::time::Instant::now();
         while let Some((grid, offset)) = queue.pop_front() {
+            println!("pop grid volume {}", grid.volume());
             if grid.volume() <= max_volume {
                 let p = grid.center(Index([0; 3]));
-                let state = reduce_from_scratch(complex, p);
+                let state = reduce_from_scratch(complex, p, noisy);
                 ready.push((grid, state, offset));
             } else {
                 let (left, right, rel_offset) = grid.split_with_overlap();
@@ -274,8 +280,9 @@ impl Grid {
                 queue.push_back((right, offset + rel_offset));
             }
         }
+        println!();
         let t1 = std::time::Instant::now();
-        eprintln!(
+        println!(
             "Split grids and compute {} states: {}s",
             ready.len(),
             (t1 - t0).as_secs() as f64 + (t1 - t0).subsec_nanos() as f64 * 1e-9

@@ -403,3 +403,23 @@ ellipse2d_extrude_noface_2 = Example(
     # medial_axis=0,
     # prune_dist = 0.4
 )
+
+theta = Example(
+    filename="input/theta.obj",
+    grid_size=0.1,
+    grid_buffer=0.1,
+    camera_opt=CameraOpt(azim=20, elev=30),
+    # prune_eps=0,
+    # medial_axis=0,
+    # prune_dist = 0.4
+)
+
+theta_coarse = Example(
+    filename="input/theta-coarse.obj",
+    grid_size=0.1,
+    grid_buffer=0.1,
+    camera_opt=CameraOpt(azim=20, elev=30),
+    # prune_eps=0,
+    # medial_axis=0,
+    # prune_dist = 0.4
+)
