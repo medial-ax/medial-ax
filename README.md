@@ -18,12 +18,10 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 source "$HOME/.cargo/env"
 ```
 
-See the README in `ma-rs/` for how to build the Rust component.
-This can be installed by the python component by running
+To both build the rust component and install it, run
 
 ```bash
-# Exact naming of the `.whl` can vary.
-pip install ma-rs/target/wheels/mars-0.1.1-cp310-cp310-macosx_11_0_arm64.whl --force-reinstall
+./update-rust.sh
 ```
 
 ## VS Code
