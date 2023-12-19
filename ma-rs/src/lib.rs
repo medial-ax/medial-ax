@@ -232,6 +232,8 @@ impl Reduction {
     /// Compute the entering value of the given simplex.
     ///
     /// Uses squared Euclidian distance.
+    ///
+    /// The `id` is a canonical index.
     pub fn simplex_entering_value(&self, complex: &Complex, dim: usize, id: usize) -> f64 {
         let simplex = &complex.simplices_per_dim[dim][id];
         if dim == 0 {
@@ -246,6 +248,7 @@ impl Reduction {
     }
 
     /// Find the killer of the given "simplex", if any.
+    /// The `id` is a canonical index.
     fn find_killer(&self, dim: usize, id: usize) -> Option<usize> {
         if self.stacks.len() <= dim + 1 {
             return None;
@@ -277,14 +280,25 @@ impl Reduction {
     }
 
     /// Compute the persistence of the given "simplex".
+    /// `id` is the canonical index.
     ///
     /// Returns [None] if the "simplex" is not killed.
     pub fn persistence(&self, complex: &Complex, dim: usize, id: usize) -> Option<(f64, f64)> {
         let killer = self.find_killer(dim, id);
         if let Some(killer) = killer {
             let dist = self.simplex_entering_value(complex, dim, id);
-            let killer_dist = self.simplex_entering_value(complex, dim, killer);
+            let killer_dist = self.simplex_entering_value(complex, dim + 1, killer);
             Some((dist, killer_dist))
+        } else if dim == self.stacks.len() - 1 {
+            // If we're the top dimension we will never be killed, but we might
+            // have births. Check if column is zero.
+            let ord_i = self.stacks[dim].ordering.map(id);
+            if self.stacks[dim].R.col_is_empty(ord_i) {
+                let dist = self.simplex_entering_value(complex, dim, id);
+                Some((dist, f64::INFINITY))
+            } else {
+                None
+            }
         } else {
             None
         }
@@ -298,14 +312,16 @@ impl Reduction {
         let R = &self.stacks[dim].R;
 
         for simplex in &complex.simplices_per_dim[dim] {
-            let id = ordering.map(simplex.id);
-            if !R.gives_birth(id) {
+            if !R.gives_birth(ordering.map(simplex.id)) {
                 continue;
             }
-            if let Some((birth, death)) = self.persistence(complex, dim, id) {
+            if let Some((birth, death)) = self.persistence(complex, dim, simplex.id) {
                 ret.push((birth, death));
             } else {
-                ret.push((self.simplex_entering_value(complex, dim, id), f64::INFINITY));
+                ret.push((
+                    self.simplex_entering_value(complex, dim, simplex.id),
+                    f64::INFINITY,
+                ));
             }
         }
         ret

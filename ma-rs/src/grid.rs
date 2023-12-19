@@ -135,6 +135,14 @@ impl Grid {
         Index(arr)
     }
 
+    pub fn closest_index_of(&self, p: Pos) -> Index {
+        let mut arr = [0; 3];
+        for j in 0..3 {
+            arr[j] = ((p.0[j] - self.corner.0[j]) / self.size).round() as isize;
+        }
+        Index(arr)
+    }
+
     fn coordinate(&self, i: Index) -> Pos {
         let mut arr = [0.0; 3];
         for j in 0..3 {
