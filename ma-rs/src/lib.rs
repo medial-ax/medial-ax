@@ -205,6 +205,17 @@ pub struct Stack {
 
 #[pyo3::pyclass(get_all)]
 #[derive(Clone, Debug)]
+pub struct Barcode {
+    /// Dimension of the homology class.
+    pub dim: isize,
+    /// Birth time and canonical index of the simplex giving birth to the homology class.
+    pub birth: Option<(f64, usize)>,
+    /// Birth time and canonical index of the simplex giving birth to the homology class.
+    pub death: Option<(f64, usize)>,
+}
+
+#[pyo3::pyclass(get_all)]
+#[derive(Clone, Debug)]
 pub struct Reduction {
     /// Key point around which the reduction is done.
     pub key_point: Pos,
@@ -283,45 +294,58 @@ impl Reduction {
     /// `id` is the canonical index.
     ///
     /// Returns [None] if the "simplex" is not killed.
-    pub fn persistence(&self, complex: &Complex, dim: usize, id: usize) -> Option<(f64, f64)> {
+    pub fn persistence(&self, complex: &Complex, dim: usize, id: usize) -> Option<Barcode> {
         let killer = self.find_killer(dim, id);
         if let Some(killer) = killer {
             let dist = self.simplex_entering_value(complex, dim, id);
             let killer_dist = self.simplex_entering_value(complex, dim + 1, killer);
-            Some((dist, killer_dist))
-        } else if dim == self.stacks.len() - 1 {
+            Some(Barcode {
+                dim: dim as isize,
+                birth: Some((dist, id)),
+                death: Some((killer_dist, killer)),
+            })
+        } else {
             // If we're the top dimension we will never be killed, but we might
             // have births. Check if column is zero.
             let ord_i = self.stacks[dim].ordering.map(id);
             if self.stacks[dim].R.col_is_empty(ord_i) {
                 let dist = self.simplex_entering_value(complex, dim, id);
-                Some((dist, f64::INFINITY))
+                Some(Barcode {
+                    dim: dim as isize,
+                    birth: Some((dist, id)),
+                    death: None,
+                })
             } else {
                 None
             }
-        } else {
-            None
         }
     }
 
-    pub fn barcode(&self, complex: &Complex, dim: usize) -> Vec<(f64, f64)> {
+    pub fn barcode(&self, complex: &Complex, dim: isize) -> Vec<Barcode> {
         let mut ret = Vec::new();
 
-        let ordering = &self.stacks[dim].ordering;
-        #[allow(non_snake_case)]
-        let R = &self.stacks[dim].R;
+        if dim == -1 {
+            if 0 < complex.simplices_per_dim[0].len() {
+                let first = self.stacks[0].ordering.inv(0);
+                ret.push(Barcode {
+                    dim: -1,
+                    birth: None,
+                    death: Some((self.simplex_entering_value(complex, 0, first), first)),
+                });
+            }
+            return ret;
+        }
 
-        for simplex in &complex.simplices_per_dim[dim] {
+        let ordering = &self.stacks[dim as usize].ordering;
+        #[allow(non_snake_case)]
+        let R = &self.stacks[dim as usize].R;
+
+        for simplex in &complex.simplices_per_dim[dim as usize] {
             if !R.gives_birth(ordering.map(simplex.id)) {
                 continue;
             }
-            if let Some((birth, death)) = self.persistence(complex, dim, simplex.id) {
-                ret.push((birth, death));
-            } else {
-                ret.push((
-                    self.simplex_entering_value(complex, dim, simplex.id),
-                    f64::INFINITY,
-                ));
+            if let Some(persistence) = self.persistence(complex, dim as usize, simplex.id) {
+                ret.push(persistence);
             }
         }
         ret
