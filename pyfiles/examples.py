@@ -476,3 +476,17 @@ anothercube2 = Example(
     grid_buffer=0.1,
     camera_opt=CameraOpt(azim=20, elev=30),
 )
+
+figure8 = Example(
+    filename="input/figure8.obj",
+    grid_size=0.1,
+    grid_buffer=0.1,
+    camera_opt=CameraOpt(azim=20, elev=30),
+)
+
+extruded_ellipse = Example(
+    filename="input/extruded_ellipse.obj",
+    grid_size=0.1,
+    grid_buffer=0.1,
+    camera_opt=CameraOpt(azim=20, elev=30),
+)
