@@ -490,3 +490,12 @@ extruded_ellipse = Example(
     grid_buffer=0.1,
     camera_opt=CameraOpt(azim=20, elev=30),
 )
+
+ellipse_a_b = Example(
+    filename="input/ellipse_a2_b3.obj",
+    # filename="input/ellipse_a2_b4.obj",
+    # filename="input/ellipse_a2_b5.obj",
+    grid_size=0.1,
+    grid_buffer=0.1,
+    camera_opt=CameraOpt(azim=20, elev=30),
+)
