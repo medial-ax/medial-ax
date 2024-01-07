@@ -1,4 +1,4 @@
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 #[pyo3::pyclass]
 pub struct Permutation {
     forwards: Vec<usize>,

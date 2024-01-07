@@ -5,7 +5,9 @@ import { Environment, OrbitControls, Wireframe } from "@react-three/drei";
 import {
   Dispatch,
   SetStateAction,
+  useCallback,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -36,12 +38,37 @@ const MenuContainer = styled.div`
     padding: 1rem;
     cursor: pointer;
   }
+
+  label.file {
+    flex-direction: column;
+    align-items: start;
+  }
 `;
+
+const UploadFileButton = ({ onJson }: { onJson: (j: Json) => void }) => {
+  return (
+    <label className="file" htmlFor="file-upload">
+      <p>Upload JSON:</p>
+      <input
+        type="file"
+        id="file-upload"
+        onChange={(e) => {
+          e.target.files?.[0]?.text().then((text) => {
+            const j = JSON.parse(text) as Json;
+            onJson(j);
+          });
+        }}
+      />
+    </label>
+  );
+};
 
 const Menu = ({
   setWireframe,
+  onJson,
 }: {
   setWireframe: Dispatch<SetStateAction<boolean>>;
+  onJson: (j: Json) => void;
 }) => {
   return (
     <MenuContainer>
@@ -54,6 +81,8 @@ const Menu = ({
           onChange={(e) => setWireframe(e.target.checked)}
         />
       </label>
+
+      <UploadFileButton onJson={onJson} />
     </MenuContainer>
   );
 };
@@ -106,6 +135,40 @@ const RedEdge = ({
   );
 };
 
+type Simplex = {
+  id: number;
+  coords: number[];
+  boundary: number[];
+};
+
+type Permutation = {
+  forwards: number[];
+  backwards: number[];
+};
+
+type BirthDeathPair = {
+  dim: number;
+  birth: [number, number];
+  death: [number, number];
+};
+
+type Json = {
+  vertices: Simplex[];
+  edges: Simplex[];
+  triangles: Simplex[];
+
+  key_point: number[];
+
+  vertex_ordering: Permutation;
+  edge_ordering: Permutation;
+  triangle_ordering: Permutation;
+
+  empty_barcode: BirthDeathPair[];
+  vertex_barcode: BirthDeathPair[];
+  edge_barcode: BirthDeathPair[];
+  triangle_barcode: BirthDeathPair[];
+};
+
 const RedTriangle = ({ points }: { points: THREE.Vector3[] }) => {
   const ref = useRef<THREE.BufferAttribute>(null);
 
@@ -139,6 +202,52 @@ const RedTriangle = ({ points }: { points: THREE.Vector3[] }) => {
   );
 };
 
+const RenderComplex = ({ json }: { json: Json }) => {
+  const ref = useRef<THREE.BufferAttribute>(null);
+
+  const getCoords = useCallback(() => {
+    return json.triangles.flatMap((t) => {
+      const vertices = new Set<number>();
+      for (const edge_i of t.boundary)
+        for (const vert_i of json.edges[edge_i].boundary) vertices.add(vert_i);
+
+      const coords = Array.from(vertices).flatMap(
+        (i: number) => json.vertices[i].coords
+      );
+      return coords;
+    });
+  }, [json]);
+
+  const coords = useMemo(() => new Float32Array(getCoords()), [getCoords]);
+
+  useLayoutEffect(() => {
+    if (!ref.current) return;
+    ref.current.array = new Float32Array(getCoords());
+    ref.current.needsUpdate = true;
+  }, [getCoords]);
+
+  return (
+    <mesh>
+      <bufferGeometry attach="geometry">
+        <bufferAttribute
+          ref={ref}
+          attach="attributes-position"
+          count={coords.length / 3}
+          array={coords}
+          itemSize={3}
+        />
+      </bufferGeometry>
+      <meshBasicMaterial
+        side={THREE.DoubleSide}
+        attach="material"
+        color="#ff0000"
+        transparent
+        opacity={0.5}
+      />
+    </mesh>
+  );
+};
+
 function App() {
   const [wireframe, setWireframe] = useState(false);
   const [triangle, setTriangle] = useState<THREE.Vector3[] | undefined>(
@@ -147,9 +256,15 @@ function App() {
 
   const torus = useRef<THREE.Mesh>(null);
 
+  const [json, setJson] = useState<Json | undefined>(undefined);
+
+  const onJson = useCallback((json: Json) => {
+    setJson(json);
+  }, []);
+
   return (
     <>
-      <Menu setWireframe={setWireframe} />
+      <Menu setWireframe={setWireframe} onJson={onJson} />
       <CanvasContainer id="canvas-container">
         <Canvas
           onPointerMissed={() => {
@@ -173,7 +288,7 @@ function App() {
           <mesh
             ref={torus}
             onClick={(e) => {
-              if (e.delta === 0) {
+              if (e.delta < 3) {
                 const { a, b, c } = e.face ?? {};
                 const vertexBuffer =
                   torus.current?.geometry.getAttribute("position");
@@ -213,6 +328,8 @@ function App() {
               />
             );
           })} */}
+
+          {json && <RenderComplex json={json} />}
 
           {triangle && (
             <>

@@ -9,8 +9,11 @@ use permutation::Permutation;
 use pyo3::{exceptions::PyValueError, prelude::*};
 use sneaky_matrix::{Col, SneakyMatrix};
 
+use crate::json::json_output;
+
 pub mod complex;
 pub mod grid;
+pub mod json;
 pub mod permutation;
 pub mod sneaky_matrix;
 
@@ -204,8 +207,8 @@ pub struct Stack {
 }
 
 #[pyo3::pyclass(get_all)]
-#[derive(Clone, Debug)]
-pub struct Barcode {
+#[derive(Clone, Debug, serde::Serialize)]
+pub struct BirthDeathPair {
     /// Dimension of the homology class.
     pub dim: isize,
     /// Birth time and canonical index of the simplex giving birth to the homology class.
@@ -294,12 +297,12 @@ impl Reduction {
     /// `id` is the canonical index.
     ///
     /// Returns [None] if the "simplex" is not killed.
-    pub fn persistence(&self, complex: &Complex, dim: usize, id: usize) -> Option<Barcode> {
+    pub fn persistence(&self, complex: &Complex, dim: usize, id: usize) -> Option<BirthDeathPair> {
         let killer = self.find_killer(dim, id);
         if let Some(killer) = killer {
             let dist = self.simplex_entering_value(complex, dim, id);
             let killer_dist = self.simplex_entering_value(complex, dim + 1, killer);
-            Some(Barcode {
+            Some(BirthDeathPair {
                 dim: dim as isize,
                 birth: Some((dist, id)),
                 death: Some((killer_dist, killer)),
@@ -310,7 +313,7 @@ impl Reduction {
             let ord_i = self.stacks[dim].ordering.map(id);
             if self.stacks[dim].R.col_is_empty(ord_i) {
                 let dist = self.simplex_entering_value(complex, dim, id);
-                Some(Barcode {
+                Some(BirthDeathPair {
                     dim: dim as isize,
                     birth: Some((dist, id)),
                     death: None,
@@ -321,13 +324,13 @@ impl Reduction {
         }
     }
 
-    pub fn barcode(&self, complex: &Complex, dim: isize) -> Vec<Barcode> {
+    pub fn barcode(&self, complex: &Complex, dim: isize) -> Vec<BirthDeathPair> {
         let mut ret = Vec::new();
 
         if dim == -1 {
             if 0 < complex.simplices_per_dim[0].len() {
                 let first = self.stacks[0].ordering.inv(0);
-                ret.push(Barcode {
+                ret.push(BirthDeathPair {
                     dim: -1,
                     birth: None,
                     death: Some((self.simplex_entering_value(complex, 0, first), first)),
@@ -1368,6 +1371,7 @@ fn mars(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(vineyards_123, m)?)?;
     m.add_function(wrap_pyfunction!(test_three_points, m)?)?;
     m.add_function(wrap_pyfunction!(test_three_points_test1, m)?)?;
+    m.add_function(wrap_pyfunction!(json_output, m)?)?;
     m.add_class::<SneakyMatrix>()?;
     m.add_class::<Permutation>()?;
     m.add_class::<Col>()?;

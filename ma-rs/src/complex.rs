@@ -1,10 +1,11 @@
 use std::collections::{HashMap, HashSet};
 
 use pyo3::FromPyObject;
+use serde::Serialize;
 
 use crate::SneakyMatrix;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Serialize)]
 pub struct Pos(pub [f64; 3]);
 
 impl pyo3::IntoPy<pyo3::PyObject> for Pos {
@@ -103,7 +104,7 @@ impl std::ops::Div<f64> for Pos {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 #[pyo3::pyclass(get_all)]
 pub struct Simplex {
     /// Unique identifier of the simplex.  This is only unique within the dimension for the complex it is in.
