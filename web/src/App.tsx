@@ -13,11 +13,15 @@ import {
 } from "react";
 import * as THREE from "three";
 import { atom, useAtom, useAtomValue } from "jotai";
+import { Barcode } from "./Barcode";
 
 const keypointRadiusAtom = atom(0.02);
 
+const menuOpenAtom = atom(true);
+
 const CanvasContainer = styled.div`
-  width: 100%;
+  display: flex;
+  flex: 1;
 `;
 
 const MenuContainer = styled.div`
@@ -48,6 +52,25 @@ const MenuContainer = styled.div`
   }
 `;
 
+const Row = styled.div`
+  display: flex;
+  gap: 1rem;
+  flex-direction: row;
+  align-items: center;
+`;
+
+const Divider = () => {
+  return (
+    <div
+      style={{
+        width: "1px",
+        height: "100%",
+        background: "#ccc",
+      }}
+    />
+  );
+};
+
 const UploadFileButton = ({ onJson }: { onJson: (j: Json) => void }) => {
   return (
     <label className="file" htmlFor="file-upload">
@@ -74,10 +97,35 @@ const Menu = ({
   onJson: (j: Json) => void;
 }) => {
   const [keypointRadius, setKeypointRadius] = useAtom(keypointRadiusAtom);
+  const [open, setOpen] = useAtom(menuOpenAtom);
+
+  if (!open) {
+    return (
+      <div style={{ position: "absolute", top: 0, left: 0, zIndex: 123 }}>
+        <button
+          onClick={() => {
+            setOpen(true);
+          }}
+        >
+          Open menu
+        </button>
+      </div>
+    );
+  }
 
   return (
     <MenuContainer>
-      <h3>Controls</h3>
+      <Row style={{ padding: "0 1rem" }}>
+        <h3 style={{ flex: 1 }}>Controls</h3>
+        <button
+          style={{ justifySelf: "end" }}
+          onClick={() => {
+            setOpen(false);
+          }}
+        >
+          Close
+        </button>
+      </Row>
       <label>
         <p>Wireframe</p>
         <input
@@ -163,13 +211,13 @@ type Permutation = {
   backwards: number[];
 };
 
-type BirthDeathPair = {
+export type BirthDeathPair = {
   dim: number;
-  birth: [number, number];
-  death: [number, number];
+  birth: [number, number] | null;
+  death: [number, number] | null;
 };
 
-type Json = {
+export type Json = {
   vertices: Simplex[];
   edges: Simplex[];
   triangles: Simplex[];
@@ -294,7 +342,7 @@ function App() {
   }, []);
 
   return (
-    <>
+    <Row style={{ width: "100%", alignItems: "stretch", gap: 0 }}>
       <Menu setWireframe={setWireframe} onJson={onJson} />
       <CanvasContainer id="canvas-container">
         <Canvas
@@ -388,7 +436,12 @@ function App() {
           </TorusKnot> */}
         </Canvas>
       </CanvasContainer>
-    </>
+      <Divider />
+
+      <div style={{ display: "flex", flex: 1, background: "#e5e5e5" }}>
+        <Barcode json={json} />
+      </div>
+    </Row>
   );
 }
 
