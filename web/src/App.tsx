@@ -1,6 +1,6 @@
 import styled from "styled-components";
 import "./App.css";
-import { Canvas } from "@react-three/fiber";
+import { Canvas, MeshProps } from "@react-three/fiber";
 import { Environment, OrbitControls, Wireframe } from "@react-three/drei";
 import {
   Dispatch,
@@ -12,6 +12,9 @@ import {
   useState,
 } from "react";
 import * as THREE from "three";
+import { atom, useAtom, useAtomValue } from "jotai";
+
+const keypointRadiusAtom = atom(0.02);
 
 const CanvasContainer = styled.div`
   width: 100%;
@@ -70,6 +73,8 @@ const Menu = ({
   setWireframe: Dispatch<SetStateAction<boolean>>;
   onJson: (j: Json) => void;
 }) => {
+  const [keypointRadius, setKeypointRadius] = useAtom(keypointRadiusAtom);
+
   return (
     <MenuContainer>
       <h3>Controls</h3>
@@ -79,6 +84,18 @@ const Menu = ({
           type="checkbox"
           id="menu-toggle"
           onChange={(e) => setWireframe(e.target.checked)}
+        />
+      </label>
+
+      <label>
+        <p>Keypoint radius</p>
+        <input
+          type="range"
+          min={0.01}
+          max={0.5}
+          step={0.001}
+          value={keypointRadius}
+          onChange={(e) => setKeypointRadius(Number(e.target.value))}
         />
       </label>
 
@@ -202,7 +219,15 @@ const RedTriangle = ({ points }: { points: THREE.Vector3[] }) => {
   );
 };
 
-const RenderComplex = ({ json }: { json: Json }) => {
+const RenderComplex = ({
+  json,
+  wireframe,
+  onClick,
+}: {
+  json: Json;
+  wireframe?: boolean;
+  onClick: MeshProps["onClick"];
+}) => {
   const ref = useRef<THREE.BufferAttribute>(null);
 
   const getCoords = useCallback(() => {
@@ -227,7 +252,7 @@ const RenderComplex = ({ json }: { json: Json }) => {
   }, [getCoords]);
 
   return (
-    <mesh>
+    <mesh onClick={onClick}>
       <bufferGeometry attach="geometry">
         <bufferAttribute
           ref={ref}
@@ -244,17 +269,23 @@ const RenderComplex = ({ json }: { json: Json }) => {
         transparent
         opacity={0.5}
       />
+      <meshLambertMaterial
+        color="#f3f3f3"
+        flatShading
+        side={THREE.DoubleSide}
+      />
+      {wireframe && <Wireframe />}
     </mesh>
   );
 };
 
 function App() {
+  const keypointRadius = useAtomValue(keypointRadiusAtom);
+
   const [wireframe, setWireframe] = useState(false);
   const [triangle, setTriangle] = useState<THREE.Vector3[] | undefined>(
     undefined
   );
-
-  const torus = useRef<THREE.Mesh>(null);
 
   const [json, setJson] = useState<Json | undefined>(undefined);
 
@@ -285,39 +316,14 @@ function App() {
             intensity={3.0}
           />
 
-          <mesh
+          {/* <mesh
             ref={torus}
-            onClick={(e) => {
-              if (e.delta < 3) {
-                const { a, b, c } = e.face ?? {};
-                const vertexBuffer =
-                  torus.current?.geometry.getAttribute("position");
-                if (vertexBuffer && a && b && c) {
-                  setTriangle([
-                    new THREE.Vector3(
-                      vertexBuffer.array[3 * a + 0],
-                      vertexBuffer.array[3 * a + 1],
-                      vertexBuffer.array[3 * a + 2]
-                    ),
-                    new THREE.Vector3(
-                      vertexBuffer.array[3 * b + 0],
-                      vertexBuffer.array[3 * b + 1],
-                      vertexBuffer.array[3 * b + 2]
-                    ),
-                    new THREE.Vector3(
-                      vertexBuffer.array[3 * c + 0],
-                      vertexBuffer.array[3 * c + 1],
-                      vertexBuffer.array[3 * c + 2]
-                    ),
-                  ]);
-                }
-              }
-            }}
+            onClick={(e) => }
           >
             <torusKnotGeometry args={[1, 0.3]} />
             <meshLambertMaterial color="#f3f3f3" flatShading />
             {wireframe && <Wireframe />}
-          </mesh>
+          </mesh> */}
           {/* 
           {(new Array(10).fill(0) as number[]).map((_, i) => {
             const f = (Math.PI * 2 * i) / 10;
@@ -329,7 +335,39 @@ function App() {
             );
           })} */}
 
-          {json && <RenderComplex json={json} />}
+          {json && (
+            <>
+              <RenderComplex
+                json={json}
+                wireframe={wireframe}
+                onClick={(e) => {
+                  if (e.delta < 3) {
+                    const faceIndex = e.faceIndex;
+                    if (faceIndex === undefined) return;
+                    const face = json.triangles[faceIndex];
+                    const vertexIndices = [
+                      ...new Set(
+                        face.boundary.flatMap((ei) => json.edges[ei].boundary)
+                      ),
+                    ];
+
+                    if (vertexIndices) {
+                      setTriangle(
+                        vertexIndices.map(
+                          (v) => new THREE.Vector3(...json.vertices[v].coords)
+                        )
+                      );
+                    }
+                  }
+                }}
+              />
+
+              <RedSphere
+                pos={new THREE.Vector3(...json.key_point)}
+                radius={keypointRadius}
+              />
+            </>
+          )}
 
           {triangle && (
             <>
