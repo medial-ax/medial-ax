@@ -171,23 +171,14 @@ const BarcodeLabels = styled.div`
 const BarcodeDim = ({
   pairs,
   dim,
+  xmin,
+  xmax,
 }: {
   pairs: BirthDeathPair[];
   dim: number;
+  xmin: number;
+  xmax: number;
 }) => {
-  const xmin = min(
-    pairs.flatMap((x) => {
-      if (x.birth == null) return [];
-      return [x.birth[0]];
-    })
-  );
-  const xmax = max(
-    pairs.flatMap((x) => {
-      if (x.death == null) return [];
-      return [x.death[0]];
-    })
-  );
-
   const trivials = [];
   const nontrivials = [];
   for (const pair of pairs) {
@@ -238,6 +229,24 @@ const BarcodeDim = ({
 export const Barcode = ({ json }: { json: Json | undefined }) => {
   if (!json) return <div>hello</div>;
 
+  const allPairs = json.empty_barcode
+    .concat(json.vertex_barcode)
+    .concat(json.edge_barcode)
+    .concat(json.triangle_barcode);
+
+  const xmin = min(
+    allPairs.flatMap((x) => {
+      if (x.birth == null) return [];
+      return [x.birth[0]];
+    })
+  );
+  const xmax = max(
+    allPairs.flatMap((x) => {
+      if (x.death == null) return [];
+      return [x.death[0]];
+    })
+  );
+
   return (
     <div
       style={{
@@ -247,10 +256,15 @@ export const Barcode = ({ json }: { json: Json | undefined }) => {
         flex: 1,
       }}
     >
-      <BarcodeDim pairs={json.triangle_barcode} dim={2} />
-      <BarcodeDim pairs={json.edge_barcode} dim={1} />
-      <BarcodeDim pairs={json.vertex_barcode} dim={0} />
-      <BarcodeDim pairs={json.empty_barcode} dim={-1} />
+      <BarcodeDim
+        xmin={xmin}
+        xmax={xmax}
+        pairs={json.triangle_barcode}
+        dim={2}
+      />
+      <BarcodeDim xmin={xmin} xmax={xmax} pairs={json.edge_barcode} dim={1} />
+      <BarcodeDim xmin={xmin} xmax={xmax} pairs={json.vertex_barcode} dim={0} />
+      <BarcodeDim xmin={xmin} xmax={xmax} pairs={json.empty_barcode} dim={-1} />
     </div>
   );
 };
