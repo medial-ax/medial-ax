@@ -1,6 +1,13 @@
 import styled from "styled-components";
 import { BirthDeathPair, Json, selectedBirthDeathPair } from "./App";
-import { useSetAtom } from "jotai";
+import { atom, useAtomValue, useSetAtom } from "jotai";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 
 const min = (array: number[]): number => {
   let min = Infinity;
@@ -15,9 +22,9 @@ const max = (array: number[]): number => {
 };
 // const xrangeAtom = atom<undefined | number[]>(undefined);
 
-const _width = 8;
+const _width = 4;
 const barSpacing = 20;
-const bufferSpaceFactor = 0.1;
+const barcodePaddingPx = 20;
 
 const dim2label: Record<number, string> = {
   "-1": "ø",
@@ -40,17 +47,20 @@ const HoverPopup = styled.div`
 `;
 
 const BarDiv = styled.div<{ color: string }>`
-  box-sizing: border-box;
   position: absolute;
-  border-radius: ${_width}px;
+  border-radius: ${_width * 2}px;
 
   & > ${HoverPopup} {
     opacity: 0;
   }
 
-  border: 2px solid ${(p) => p.color};
+  margin: 0px;
+  &:not(:hover) {
+    margin: 1px;
+    border: none;
+  }
   &:hover {
-    border: 2px solid color-mix(in srgb, ${(p) => p.color} 80%, red);
+    border: 1px solid color-mix(in srgb, ${(p) => p.color} 80%, red);
     cursor: pointer;
     & > ${HoverPopup} {
       opacity: 1;
@@ -59,8 +69,13 @@ const BarDiv = styled.div<{ color: string }>`
   }
 `;
 
+const time2px = (time: number, xmax: number, width: number): number =>
+  (time / xmax) * width;
+const px2time = (px: number, xmax: number, width: number): number =>
+  (px / width) * xmax;
+
 const Bar = ({
-  xmin,
+  width,
   xmax,
   pair,
   top,
@@ -68,6 +83,7 @@ const Bar = ({
   label,
   dim,
 }: {
+  width: number;
   xmin: number;
   xmax: number;
   pair: BirthDeathPair;
@@ -76,35 +92,37 @@ const Bar = ({
   label: string;
   dim: number;
 }) => {
-  const padding = (xmax - xmin) * bufferSpaceFactor;
-  const xrange = xmax - xmin + 2 * padding;
-
-  const leftEnd = xmin - padding;
-  const rightEnd = xmax + padding;
-
-  const left = pair.birth == null ? leftEnd : pair.birth[0];
-  const right = pair.death == null ? rightEnd : pair.death[0];
-  const width = right - left;
-
-  const leftPercent = ((left - leftEnd) / xrange) * 100;
+  const left = time2px(pair.birth == null ? 0 : pair.birth[0], xmax, width);
+  const right =
+    width - time2px(pair.death == null ? xmax : pair.death[0], xmax, width);
 
   const isTrivial =
     pair.birth != null && pair.death != null && pair.birth[0] == pair.death[0];
-
   const topPx = isTrivial ? 0 : top * barSpacing;
+  // const watWidth = isTrivial ? `${_width}px` : `${(ourWidth / xrange) * 100}%`;
 
-  const width2 = isTrivial ? `${_width}px` : `${(width / xrange) * 100}%`;
+  const style = isTrivial
+    ? {
+        left: `calc(${left}px - ${_width / 2}px)`,
+        width: `${_width}px`,
+        height: `${_width}px`,
+      }
+    : {
+        left: `${left}px`,
+        right: `${right}px`,
+        height: `${2 * _width}px`,
+      };
 
   const setSelectedBDPair = useSetAtom(selectedBirthDeathPair);
 
   return (
     <BarDiv
       color={dim2color[dim]}
-      onClick={() => setSelectedBDPair(pair)}
+      onClick={() => {
+        setSelectedBDPair(pair);
+      }}
       style={{
-        left: `${leftPercent}%`,
-        width: width2,
-        height: `${_width}px`,
+        ...style,
         top: `${topPx}px`,
         background: color,
       }}
@@ -154,7 +172,7 @@ const BarcodeDimDiv = styled.div`
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding: 2rem;
+  padding: 20px ${barcodePaddingPx}px;
   font-family: monospace;
 
   h4 {
@@ -178,11 +196,13 @@ const BarcodeDim = ({
   dim,
   xmin,
   xmax,
+  width,
 }: {
   pairs: BirthDeathPair[];
   dim: number;
   xmin: number;
   xmax: number;
+  width: number;
 }) => {
   const trivials = [];
   const nontrivials = [];
@@ -205,6 +225,7 @@ const BarcodeDim = ({
         {trivials.map((x, i) => (
           <Bar
             key={i}
+            width={width}
             xmin={xmin}
             xmax={xmax}
             pair={x}
@@ -216,6 +237,7 @@ const BarcodeDim = ({
         ))}
         {nontrivials.map((x, i) => (
           <Bar
+            width={width}
             key={i}
             xmin={xmin}
             xmax={xmax}
@@ -231,7 +253,96 @@ const BarcodeDim = ({
   );
 };
 
+const TimelineBarDiv = styled.div`
+  position: absolute;
+  height: 100%;
+  background: black;
+  width: 2px;
+  opacity: 0.5;
+
+  cursor: ew-resize;
+`;
+
+const timelinePositionAtom = atom<number>(0);
+
+const TimelineBar = ({ xmax }: { xmin: number; xmax: number }) => {
+  const setTimelinePosition = useSetAtom(timelinePositionAtom);
+  const [x, setX] = useState<number>(20);
+
+  const ref = useRef<HTMLDivElement>(null);
+  const onMouseUp = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+
+  const [isDragging, setIsDragging] = useState(false);
+
+  const onMoveCallback = useCallback(
+    (e: MouseEvent) => {
+      if (e.target === ref.current) return;
+      if (isDragging) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { layerX } = e as any;
+        setX(layerX);
+        const bounds = (e.target as HTMLDivElement).getBoundingClientRect();
+        const width = bounds.width;
+        const widthMinusPadding = width - 2 * barcodePaddingPx;
+        setTimelinePosition(
+          px2time(layerX - barcodePaddingPx, xmax, widthMinusPadding)
+        );
+      }
+    },
+    [isDragging, setTimelinePosition, xmax]
+  );
+
+  useEffect(() => {
+    if (!isDragging) return;
+    window.addEventListener("mousemove", onMoveCallback);
+    window.addEventListener("mouseup", onMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", onMoveCallback);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+  }, [isDragging, onMouseUp, onMoveCallback]);
+
+  return (
+    <>
+      <div
+        style={{
+          position: "absolute",
+          zIndex: isDragging ? 99 : -99,
+          width: "100%",
+          height: "100%",
+          cursor: "ew-resize",
+        }}
+      />
+      <TimelineBarDiv
+        ref={ref}
+        style={{ left: x, zIndex: 100 }}
+        onMouseDown={(e) => {
+          setIsDragging(true);
+          e.preventDefault();
+        }}
+        onMouseUp={() => {
+          console.log("timeline mouse up");
+          setIsDragging(false);
+        }}
+      />
+    </>
+  );
+};
+
 export const Barcode = ({ json }: { json: Json | undefined }) => {
+  const ref = useRef<HTMLDivElement>(null);
+  const timelinePosition = useAtomValue(timelinePositionAtom);
+
+  const [width, setWidth] = useState<number>(0);
+
+  // TODO: listen to resize somehow here
+  useLayoutEffect(() => {
+    if (!ref.current) return;
+    setWidth(ref.current.getBoundingClientRect().width - 2 * barcodePaddingPx);
+  }, []);
+
   if (!json) return <div>hello</div>;
 
   const allPairs = json.empty_barcode
@@ -245,31 +356,58 @@ export const Barcode = ({ json }: { json: Json | undefined }) => {
       return [x.birth[0]];
     })
   );
-  const xmax = max(
-    allPairs.flatMap((x) => {
-      if (x.death == null) return [];
-      return [x.death[0]];
-    })
-  );
+  const xmax =
+    max(
+      allPairs.flatMap((x) => {
+        if (x.death == null) return [];
+        return [x.death[0]];
+      })
+    ) * 1.2;
 
   return (
     <div
+      ref={ref}
       style={{
         display: "flex",
         flexDirection: "column",
         justifyContent: "center",
         flex: 1,
+        position: "relative",
       }}
     >
       <BarcodeDim
+        width={width}
         xmin={xmin}
         xmax={xmax}
         pairs={json.triangle_barcode}
         dim={2}
       />
-      <BarcodeDim xmin={xmin} xmax={xmax} pairs={json.edge_barcode} dim={1} />
-      <BarcodeDim xmin={xmin} xmax={xmax} pairs={json.vertex_barcode} dim={0} />
-      <BarcodeDim xmin={xmin} xmax={xmax} pairs={json.empty_barcode} dim={-1} />
+      <BarcodeDim
+        width={width}
+        xmin={xmin}
+        xmax={xmax}
+        pairs={json.edge_barcode}
+        dim={1}
+      />
+      <BarcodeDim
+        width={width}
+        xmin={xmin}
+        xmax={xmax}
+        pairs={json.vertex_barcode}
+        dim={0}
+      />
+      <BarcodeDim
+        width={width}
+        xmin={xmin}
+        xmax={xmax}
+        pairs={json.empty_barcode}
+        dim={-1}
+      />
+
+      <div style={{ textAlign: "center", width: "100%" }}>
+        {timelinePosition.toFixed(3)}
+      </div>
+      <TimelineBar xmin={xmin} xmax={xmax} />
     </div>
   );
 };
