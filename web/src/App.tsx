@@ -12,13 +12,11 @@ import {
   useState,
 } from "react";
 import * as THREE from "three";
-import { atom, useAtom, useAtomValue } from "jotai";
+import { useAtom, useAtomValue } from "jotai";
 import { Barcode } from "./Barcode";
 import { timelinePositionAtom } from "./state";
-
-const keypointRadiusAtom = atom(0.02);
-
-const menuOpenAtom = atom(true);
+import { selectedBirthDeathPair } from "./state";
+import { keypointRadiusAtom, menuOpenAtom } from "./state";
 
 const CanvasContainer = styled.div`
   display: flex;
@@ -243,10 +241,6 @@ export type BirthDeathPair = {
   birth: [number, number] | null;
   death: [number, number] | null;
 };
-
-export const selectedBirthDeathPair = atom<BirthDeathPair | undefined>(
-  undefined
-);
 
 export type Json = {
   vertices: Simplex[];

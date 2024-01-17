@@ -1,5 +1,6 @@
 import styled from "styled-components";
-import { BirthDeathPair, Json, selectedBirthDeathPair } from "./App";
+import { BirthDeathPair, Json } from "./App";
+import { selectedBirthDeathPair } from "./state";
 import { useAtomValue, useSetAtom } from "jotai";
 import {
   useCallback,
@@ -9,19 +10,7 @@ import {
   useState,
 } from "react";
 import { timelinePositionAtom } from "./state";
-
-const min = (array: number[]): number => {
-  let min = Infinity;
-  for (const x of array) if (x < min) min = x;
-  return min;
-};
-
-const max = (array: number[]): number => {
-  let max = -Infinity;
-  for (const x of array) if (max < x) max = x;
-  return max;
-};
-// const xrangeAtom = atom<undefined | number[]>(undefined);
+import { max } from "./utils";
 
 const _width = 4;
 const barSpacing = 20;
@@ -85,7 +74,6 @@ const Bar = ({
   dim,
 }: {
   width: number;
-  xmin: number;
   xmax: number;
   pair: BirthDeathPair;
   top: number;
@@ -195,13 +183,11 @@ const BarcodeLabels = styled.div`
 const BarcodeDim = ({
   pairs,
   dim,
-  xmin,
   xmax,
   width,
 }: {
   pairs: BirthDeathPair[];
   dim: number;
-  xmin: number;
   xmax: number;
   width: number;
 }) => {
@@ -227,7 +213,6 @@ const BarcodeDim = ({
           <Bar
             key={i}
             width={width}
-            xmin={xmin}
             xmax={xmax}
             pair={x}
             top={0}
@@ -240,7 +225,6 @@ const BarcodeDim = ({
           <Bar
             width={width}
             key={i}
-            xmin={xmin}
             xmax={xmax}
             pair={x}
             top={i + 1}
@@ -264,7 +248,7 @@ const TimelineBarDiv = styled.div`
   cursor: ew-resize;
 `;
 
-const TimelineBar = ({ xmax }: { xmin: number; xmax: number }) => {
+const TimelineBar = ({ xmax }: { xmax: number }) => {
   const setTimelinePosition = useSetAtom(timelinePositionAtom);
   const [x, setX] = useState<number>(20);
 
@@ -349,12 +333,6 @@ export const Barcode = ({ json }: { json: Json | undefined }) => {
     .concat(json.edge_barcode)
     .concat(json.triangle_barcode);
 
-  const xmin = min(
-    allPairs.flatMap((x) => {
-      if (x.birth == null) return [];
-      return [x.birth[0]];
-    })
-  );
   const xmax =
     max(
       allPairs.flatMap((x) => {
@@ -376,28 +354,19 @@ export const Barcode = ({ json }: { json: Json | undefined }) => {
     >
       <BarcodeDim
         width={width}
-        xmin={xmin}
         xmax={xmax}
         pairs={json.triangle_barcode}
         dim={2}
       />
+      <BarcodeDim width={width} xmax={xmax} pairs={json.edge_barcode} dim={1} />
       <BarcodeDim
         width={width}
-        xmin={xmin}
-        xmax={xmax}
-        pairs={json.edge_barcode}
-        dim={1}
-      />
-      <BarcodeDim
-        width={width}
-        xmin={xmin}
         xmax={xmax}
         pairs={json.vertex_barcode}
         dim={0}
       />
       <BarcodeDim
         width={width}
-        xmin={xmin}
         xmax={xmax}
         pairs={json.empty_barcode}
         dim={-1}
@@ -406,7 +375,7 @@ export const Barcode = ({ json }: { json: Json | undefined }) => {
       <div style={{ textAlign: "center", width: "100%" }}>
         {timelinePosition.toFixed(3)}
       </div>
-      <TimelineBar xmin={xmin} xmax={xmax} />
+      <TimelineBar xmax={xmax} />
     </div>
   );
 };
