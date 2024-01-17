@@ -1,6 +1,6 @@
 import styled from "styled-components";
 import { BirthDeathPair, Json, selectedBirthDeathPair } from "./App";
-import { atom, useAtomValue, useSetAtom } from "jotai";
+import { useAtomValue, useSetAtom } from "jotai";
 import {
   useCallback,
   useEffect,
@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { timelinePositionAtom } from "./state";
 
 const min = (array: number[]): number => {
   let min = Infinity;
@@ -262,8 +263,6 @@ const TimelineBarDiv = styled.div`
 
   cursor: ew-resize;
 `;
-
-const timelinePositionAtom = atom<number>(0);
 
 const TimelineBar = ({ xmax }: { xmin: number; xmax: number }) => {
   const setTimelinePosition = useSetAtom(timelinePositionAtom);

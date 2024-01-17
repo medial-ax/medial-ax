@@ -14,6 +14,7 @@ import {
 import * as THREE from "three";
 import { atom, useAtom, useAtomValue } from "jotai";
 import { Barcode } from "./Barcode";
+import { timelinePositionAtom } from "./state";
 
 const keypointRadiusAtom = atom(0.02);
 
@@ -228,7 +229,7 @@ const RedEdge = ({
 
 type Simplex = {
   id: number;
-  coords: number[];
+  coords: number[] | null;
   boundary: number[];
 };
 
@@ -315,7 +316,7 @@ const RenderComplex = ({
         for (const vert_i of json.edges[edge_i].boundary) vertices.add(vert_i);
 
       const coords = Array.from(vertices).flatMap(
-        (i: number) => json.vertices[i].coords
+        (i: number) => json.vertices[i].coords!
       );
       return coords;
     });
@@ -1974,6 +1975,7 @@ function App() {
   }, []);
 
   const bdPair = useAtomValue(selectedBirthDeathPair);
+  const timelinePosition = useAtomValue(timelinePositionAtom);
 
   return (
     <Row style={{ width: "100%", alignItems: "stretch", gap: 0 }}>
@@ -2036,7 +2038,7 @@ function App() {
                     if (vertexIndices) {
                       setTriangle(
                         vertexIndices.map(
-                          (v) => new THREE.Vector3(...json.vertices[v].coords)
+                          (v) => new THREE.Vector3(...json.vertices[v].coords!)
                         )
                       );
                     }
@@ -2067,6 +2069,14 @@ function App() {
                     />
                   )}
                 </>
+              )}
+
+              {timelinePosition && (
+                <RedTransparentSphere
+                  pos={new THREE.Vector3(...json.key_point)}
+                  radius={Math.sqrt(timelinePosition)}
+                  opacity={0.2}
+                />
               )}
             </>
           )}
