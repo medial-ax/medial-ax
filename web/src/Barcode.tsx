@@ -1,5 +1,6 @@
 import styled from "styled-components";
-import { BirthDeathPair, Json } from "./App";
+import { BirthDeathPair, Json, selectedBirthDeathPair } from "./App";
+import { useSetAtom } from "jotai";
 
 const min = (array: number[]): number => {
   let min = Infinity;
@@ -47,6 +48,7 @@ const BarDiv = styled.div<{ color: string }>`
     opacity: 0;
   }
 
+  border: 2px solid ${(p) => p.color};
   &:hover {
     border: 2px solid color-mix(in srgb, ${(p) => p.color} 80%, red);
     cursor: pointer;
@@ -93,9 +95,12 @@ const Bar = ({
 
   const width2 = isTrivial ? `${_width}px` : `${(width / xrange) * 100}%`;
 
+  const setSelectedBDPair = useSetAtom(selectedBirthDeathPair);
+
   return (
     <BarDiv
       color={dim2color[dim]}
+      onClick={() => setSelectedBDPair(pair)}
       style={{
         left: `${leftPercent}%`,
         width: width2,

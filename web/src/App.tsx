@@ -169,6 +169,32 @@ const RedSphere = ({
   );
 };
 
+const RedTransparentSphere = ({
+  pos,
+  radius = 0.05,
+  opacity = 1,
+  color = "#ff0000",
+}: {
+  pos: THREE.Vector3;
+  radius?: number;
+  opacity?: number;
+  color?: string;
+}) => {
+  return (
+    <mesh position={pos}>
+      {/* SphereGeometry(radius : Float, widthSegments : Integer, heightSegments : Integer, phiStart : Float, phiLength : Float, thetaStart : Float, thetaLength : Float) */}
+      <sphereGeometry args={[radius, 64, 32]} />
+      {/* <pointsMaterial color="#ff0000" /> */}
+      <meshBasicMaterial
+        attach="material"
+        color={color}
+        transparent
+        opacity={opacity}
+      />
+    </mesh>
+  );
+};
+
 const RedEdge = ({
   from,
   to,
@@ -216,6 +242,10 @@ export type BirthDeathPair = {
   birth: [number, number] | null;
   death: [number, number] | null;
 };
+
+export const selectedBirthDeathPair = atom<BirthDeathPair | undefined>(
+  undefined
+);
 
 export type Json = {
   vertices: Simplex[];
@@ -341,6 +371,8 @@ function App() {
     setJson(json);
   }, []);
 
+  const bdPair = useAtomValue(selectedBirthDeathPair);
+
   return (
     <Row style={{ width: "100%", alignItems: "stretch", gap: 0 }}>
       <Menu setWireframe={setWireframe} onJson={onJson} />
@@ -414,6 +446,26 @@ function App() {
                 pos={new THREE.Vector3(...json.key_point)}
                 radius={keypointRadius}
               />
+
+              {bdPair && (
+                <>
+                  {bdPair.birth && (
+                    <RedTransparentSphere
+                      pos={new THREE.Vector3(...json.key_point)}
+                      radius={Math.sqrt(bdPair.birth[0])}
+                      color={"#00ff00"}
+                      opacity={0.2}
+                    />
+                  )}
+                  {bdPair.death && (
+                    <RedTransparentSphere
+                      pos={new THREE.Vector3(...json.key_point)}
+                      radius={Math.sqrt(bdPair.death[0])}
+                      opacity={0.2}
+                    />
+                  )}
+                </>
+              )}
             </>
           )}
 
