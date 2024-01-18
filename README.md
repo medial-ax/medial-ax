@@ -53,3 +53,20 @@ Ran 2 tests in 0.000s
 
 OK
 ```
+
+## Web App
+
+To install the things needed to run the web app you first need to install `node`. With `brew`, this is 
+```sh
+brew install node
+```
+
+Then go to the `web/` directory and run
+```sh
+npm i # install the things. Only needd the first time.
+npm run dev # start the server
+```
+
+It'll tell you to which URL to go to to open the page;
+probably it's `http://localhost:5173`.
+While the server is running you get live edit of all the files.
