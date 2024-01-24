@@ -9,3 +9,6 @@ export const max = (array: number[]): number => {
   for (const x of array) if (max < x) max = x;
   return max;
 };
+
+export const clamp = (x: number, min: number, max: number): number =>
+  Math.max(min, Math.min(x, max));

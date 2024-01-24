@@ -18,6 +18,11 @@ import { timelinePositionAtom } from "./state";
 import { selectedBirthDeathPair } from "./state";
 import { keypointRadiusAtom, menuOpenAtom } from "./state";
 
+const colors = {
+  blue: "#0000ff",
+  red: "#ff0000",
+};
+
 const CanvasContainer = styled.div`
   display: flex;
   flex: 1;
@@ -168,7 +173,7 @@ const RedSphere = ({
   );
 };
 
-const RedTransparentSphere = ({
+const TransparentSphere = ({
   pos,
   radius = 0.05,
   opacity = 1,
@@ -189,6 +194,7 @@ const RedTransparentSphere = ({
         color={color}
         transparent
         opacity={opacity}
+        depthWrite={false}
       />
     </mesh>
   );
@@ -2048,17 +2054,18 @@ function App() {
               {bdPair && (
                 <>
                   {bdPair.birth && (
-                    <RedTransparentSphere
+                    <TransparentSphere
                       pos={new THREE.Vector3(...json.key_point)}
                       radius={Math.sqrt(bdPair.birth[0])}
-                      color={"#00ff00"}
+                      color={colors.blue}
                       opacity={0.2}
                     />
                   )}
                   {bdPair.death && (
-                    <RedTransparentSphere
+                    <TransparentSphere
                       pos={new THREE.Vector3(...json.key_point)}
                       radius={Math.sqrt(bdPair.death[0])}
+                      color={colors.blue}
                       opacity={0.2}
                     />
                   )}
@@ -2066,10 +2073,11 @@ function App() {
               )}
 
               {timelinePosition && (
-                <RedTransparentSphere
+                <TransparentSphere
                   pos={new THREE.Vector3(...json.key_point)}
                   radius={Math.sqrt(timelinePosition)}
                   opacity={0.2}
+                  color={colors.red}
                 />
               )}
             </>

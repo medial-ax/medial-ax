@@ -3,6 +3,7 @@ import { BirthDeathPair, Json } from "./App";
 import { selectedBirthDeathPair } from "./state";
 import { useAtomValue, useSetAtom } from "jotai";
 import {
+  Fragment,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -10,7 +11,7 @@ import {
   useState,
 } from "react";
 import { timelinePositionAtom } from "./state";
-import { max } from "./utils";
+import { clamp, max } from "./utils";
 
 const _width = 4;
 const barSpacing = 20;
@@ -107,8 +108,9 @@ const Bar = ({
   return (
     <BarDiv
       color={dim2color[dim]}
-      onClick={() => {
+      onClick={(e) => {
         setSelectedBDPair(pair);
+        e.stopPropagation();
       }}
       style={{
         ...style,
@@ -238,6 +240,65 @@ const BarcodeDim = ({
   );
 };
 
+const BarcodeXAxis = ({ xmax, width }: { xmax: number; width: number }) => {
+  const left = time2px(0, xmax, width);
+  const right = width - time2px(xmax, xmax, width);
+
+  // Compute the number of ticks so that we have at least 10px between each tick
+  // and the ticks is either an integer, or 1/ an integer:
+
+  const numTicks = 10;
+  const tickFloat = xmax / numTicks;
+  let tickRounded = Math.round(tickFloat);
+  if (tickRounded === 0) tickRounded = 1 / Math.round(numTicks / xmax);
+
+  return (
+    <div
+      style={{
+        position: "relative",
+        margin: `0 ${barcodePaddingPx}px`,
+        height: "10px",
+        marginBottom: "20px",
+      }}
+    >
+      <div
+        style={{
+          position: "absolute",
+          height: "1px",
+          background: "black",
+          left: `${left}px`,
+          right: `${right}px`,
+        }}
+      />
+      {new Array(numTicks).fill(0).map((_, i) => {
+        const left = time2px(i * tickRounded, xmax, width);
+        return (
+          <Fragment key={i}>
+            <div
+              style={{
+                position: "absolute",
+                left: `${left}px`,
+                transform: `translateX(-50%) translateY(25%) rotate(30deg)`,
+              }}
+            >
+              {i * tickRounded}
+            </div>
+            <div
+              style={{
+                position: "absolute",
+                left: `${left}px`,
+                height: "100%",
+                width: "2px",
+                background: "black",
+              }}
+            />
+          </Fragment>
+        );
+      })}
+    </div>
+  );
+};
+
 const TimelineBarDiv = styled.div`
   position: absolute;
   height: 100%;
@@ -252,6 +313,7 @@ const TimelineBar = ({ xmax }: { xmax: number }) => {
   const setTimelinePosition = useSetAtom(timelinePositionAtom);
   const [x, setX] = useState<number>(20);
 
+  const redRef = useRef<HTMLDivElement>(null);
   const ref = useRef<HTMLDivElement>(null);
   const onMouseUp = useCallback(() => {
     setIsDragging(false);
@@ -261,17 +323,23 @@ const TimelineBar = ({ xmax }: { xmax: number }) => {
 
   const onMoveCallback = useCallback(
     (e: MouseEvent) => {
-      if (e.target === ref.current) return;
+      if (e.target !== redRef.current) return;
       if (isDragging) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { layerX } = e as any;
-        setX(layerX);
         const bounds = (e.target as HTMLDivElement).getBoundingClientRect();
         const width = bounds.width;
         const widthMinusPadding = width - 2 * barcodePaddingPx;
-        setTimelinePosition(
-          px2time(layerX - barcodePaddingPx, xmax, widthMinusPadding)
+        const pos = px2time(layerX - barcodePaddingPx, xmax, widthMinusPadding);
+
+        const clampedX = clamp(
+          layerX,
+          barcodePaddingPx,
+          width - barcodePaddingPx
         );
+        setX(clampedX);
+
+        setTimelinePosition(clamp(pos, 0, xmax));
       }
     },
     [isDragging, setTimelinePosition, xmax]
@@ -290,6 +358,7 @@ const TimelineBar = ({ xmax }: { xmax: number }) => {
   return (
     <>
       <div
+        ref={redRef}
         style={{
           position: "absolute",
           zIndex: isDragging ? 99 : -99,
@@ -317,6 +386,7 @@ const TimelineBar = ({ xmax }: { xmax: number }) => {
 export const Barcode = ({ json }: { json: Json | undefined }) => {
   const ref = useRef<HTMLDivElement>(null);
   const timelinePosition = useAtomValue(timelinePositionAtom);
+  const setSelectedBDPair = useSetAtom(selectedBirthDeathPair);
 
   const [width, setWidth] = useState<number>(0);
 
@@ -343,6 +413,9 @@ export const Barcode = ({ json }: { json: Json | undefined }) => {
 
   return (
     <div
+      onClick={() => {
+        setSelectedBDPair(undefined);
+      }}
       ref={ref}
       style={{
         display: "flex",
@@ -371,6 +444,8 @@ export const Barcode = ({ json }: { json: Json | undefined }) => {
         pairs={json.empty_barcode}
         dim={-1}
       />
+
+      <BarcodeXAxis width={width} xmax={xmax} />
 
       <div style={{ textAlign: "center", width: "100%" }}>
         {timelinePosition.toFixed(3)}
