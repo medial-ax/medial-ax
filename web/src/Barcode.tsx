@@ -1,7 +1,7 @@
-import styled from "styled-components";
+import styled, { CSSProperties } from "styled-components";
 import { BirthDeathPair, Json } from "./App";
 import { selectedBirthDeathPair } from "./state";
-import { useAtomValue, useSetAtom } from "jotai";
+import { useAtom, useSetAtom } from "jotai";
 import {
   Fragment,
   useCallback,
@@ -12,10 +12,11 @@ import {
 } from "react";
 import { timelinePositionAtom } from "./state";
 import { clamp, max } from "./utils";
+import { colors } from "./constants";
 
 const _width = 4;
 const barSpacing = 20;
-const barcodePaddingPx = 20;
+const barcodePaddingPx = 40;
 
 const dim2label: Record<number, string> = {
   "-1": "ø",
@@ -91,7 +92,7 @@ const Bar = ({
   const topPx = isTrivial ? 0 : top * barSpacing;
   // const watWidth = isTrivial ? `${_width}px` : `${(ourWidth / xrange) * 100}%`;
 
-  const style = isTrivial
+  const style: CSSProperties = isTrivial
     ? {
         left: `calc(${left}px - ${_width / 2}px)`,
         width: `${_width}px`,
@@ -102,6 +103,18 @@ const Bar = ({
         right: `${right}px`,
         height: `${2 * _width}px`,
       };
+
+  if (pair.birth == null) {
+    style.borderTopLeftRadius = "initial";
+    style.borderBottomLeftRadius = "initial";
+    style.marginLeft = "0";
+  }
+
+  if (pair.death == null) {
+    style.borderTopRightRadius = "initial";
+    style.borderBottomRightRadius = "initial";
+    style.marginRight = "0";
+  }
 
   const setSelectedBDPair = useSetAtom(selectedBirthDeathPair);
 
@@ -152,6 +165,18 @@ const Bar = ({
   );
 };
 
+const BarcodePlot = styled.div`
+  margin: 0 ${barcodePaddingPx}px;
+  border-left: 1px solid black;
+
+  hr {
+    background: black;
+    opacity: 0.2;
+    height: 1px;
+    border: none;
+  }
+`;
+
 const dim2color: Record<number, string> = {
   "-1": "gray",
   0: "orange",
@@ -163,10 +188,11 @@ const BarcodeDimDiv = styled.div`
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding: 20px ${barcodePaddingPx}px;
   font-family: monospace;
 
   h4 {
+    position: fixed;
+    transform: translateX(-150%);
     padding: 0;
     margin: 0;
   }
@@ -321,17 +347,36 @@ const TimelineBarDiv = styled.div<{ dragging: boolean }>`
   cursor: ew-resize;
 `;
 
+const TimelinePositionLabel = styled.div`
+  position: absolute;
+  display: flex;
+  width: auto;
+
+  bottom: 0;
+  margin-bottom: 200px;
+  padding: 2px 8px;
+
+  color: #333;
+  background: ${colors.sliderBackground};
+  border: 1px solid #aaa;
+
+  transform: translateX(-50%);
+  z-index: 2;
+  pointer-events: none;
+`;
+
 const TimelineBar = ({ xmax }: { xmax: number }) => {
-  const setTimelinePosition = useSetAtom(timelinePositionAtom);
-  const [x, setX] = useState<number>(20);
+  const [timelinePosition, setTimelinePosition] = useAtom(timelinePositionAtom);
+  const [x, setX] = useState<number>(barcodePaddingPx);
 
   const redRef = useRef<HTMLDivElement>(null);
   const ref = useRef<HTMLDivElement>(null);
+
+  const [isDragging, setIsDragging] = useState(false);
+
   const onMouseUp = useCallback(() => {
     setIsDragging(false);
   }, []);
-
-  const [isDragging, setIsDragging] = useState(false);
 
   const onMoveCallback = useCallback(
     (e: MouseEvent) => {
@@ -369,6 +414,15 @@ const TimelineBar = ({ xmax }: { xmax: number }) => {
 
   return (
     <>
+      <TimelinePositionLabel
+        style={{
+          left: x,
+          opacity: isDragging ? 1 : 0,
+        }}
+      >
+        {timelinePosition.toFixed(3)}
+      </TimelinePositionLabel>
+
       <TimelineBarDiv
         dragging={isDragging}
         ref={ref}
@@ -400,7 +454,6 @@ const TimelineBar = ({ xmax }: { xmax: number }) => {
 
 export const Barcode = ({ json }: { json: Json | undefined }) => {
   const ref = useRef<HTMLDivElement>(null);
-  const timelinePosition = useAtomValue(timelinePositionAtom);
   const setSelectedBDPair = useSetAtom(selectedBirthDeathPair);
 
   const [width, setWidth] = useState<number>(0);
@@ -440,31 +493,37 @@ export const Barcode = ({ json }: { json: Json | undefined }) => {
         position: "relative",
       }}
     >
-      <BarcodeDim
-        width={width}
-        xmax={xmax}
-        pairs={json.triangle_barcode}
-        dim={2}
-      />
-      <BarcodeDim width={width} xmax={xmax} pairs={json.edge_barcode} dim={1} />
-      <BarcodeDim
-        width={width}
-        xmax={xmax}
-        pairs={json.vertex_barcode}
-        dim={0}
-      />
-      <BarcodeDim
-        width={width}
-        xmax={xmax}
-        pairs={json.empty_barcode}
-        dim={-1}
-      />
-
+      <BarcodePlot>
+        <BarcodeDim
+          width={width}
+          xmax={xmax}
+          pairs={json.triangle_barcode}
+          dim={2}
+        />
+        <hr />
+        <BarcodeDim
+          width={width}
+          xmax={xmax}
+          pairs={json.edge_barcode}
+          dim={1}
+        />
+        <hr />
+        <BarcodeDim
+          width={width}
+          xmax={xmax}
+          pairs={json.vertex_barcode}
+          dim={0}
+        />
+        <hr />
+        <BarcodeDim
+          width={width}
+          xmax={xmax}
+          pairs={json.empty_barcode}
+          dim={-1}
+        />
+      </BarcodePlot>
       <BarcodeXAxis width={width} xmax={xmax} />
 
-      <div style={{ textAlign: "center", width: "100%" }}>
-        {timelinePosition.toFixed(3)}
-      </div>
       <TimelineBar xmax={xmax} />
     </div>
   );

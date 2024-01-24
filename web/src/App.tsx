@@ -17,11 +17,7 @@ import { Barcode } from "./Barcode";
 import { timelinePositionAtom } from "./state";
 import { selectedBirthDeathPair } from "./state";
 import { keypointRadiusAtom, menuOpenAtom } from "./state";
-
-const colors = {
-  blue: "#0000ff",
-  red: "#ff0000",
-};
+import { colors } from "./constants";
 
 const CanvasContainer = styled.div`
   display: flex;
