@@ -252,13 +252,15 @@ const BarcodeXAxis = ({ xmax, width }: { xmax: number; width: number }) => {
   let tickRounded = Math.round(tickFloat);
   if (tickRounded === 0) tickRounded = 1 / Math.round(numTicks / xmax);
 
+  const actualNumberOfTicks = Math.floor(xmax / tickRounded) + 1;
+
   return (
     <div
       style={{
         position: "relative",
         margin: `0 ${barcodePaddingPx}px`,
         height: "10px",
-        marginBottom: "20px",
+        marginBottom: "30px",
       }}
     >
       <div
@@ -270,7 +272,7 @@ const BarcodeXAxis = ({ xmax, width }: { xmax: number; width: number }) => {
           right: `${right}px`,
         }}
       />
-      {new Array(numTicks).fill(0).map((_, i) => {
+      {new Array(actualNumberOfTicks).fill(0).map((_, i) => {
         const left = time2px(i * tickRounded, xmax, width);
         return (
           <Fragment key={i}>
@@ -278,10 +280,10 @@ const BarcodeXAxis = ({ xmax, width }: { xmax: number; width: number }) => {
               style={{
                 position: "absolute",
                 left: `${left}px`,
-                transform: `translateX(-50%) translateY(25%) rotate(30deg)`,
+                transform: `translateX(-50%) translateY(50%) rotate(30deg)`,
               }}
             >
-              {i * tickRounded}
+              {(i * tickRounded).toFixed(2)}
             </div>
             <div
               style={{
@@ -299,12 +301,22 @@ const BarcodeXAxis = ({ xmax, width }: { xmax: number; width: number }) => {
   );
 };
 
-const TimelineBarDiv = styled.div`
+const TimelineBarDiv = styled.div<{ dragging: boolean }>`
   position: absolute;
   height: 100%;
-  background: black;
   width: 2px;
-  opacity: 0.5;
+  margin-left: -4px;
+  padding: 4px;
+  z-index: 1;
+
+  & > div {
+    height: 100%;
+    width: 2px;
+    background: black;
+  }
+
+  transition: opacity 0.2s ease-in-out;
+  opacity: ${(p) => (p.dragging ? 0.75 : 0.3)};
 
   cursor: ew-resize;
 `;
@@ -357,6 +369,21 @@ const TimelineBar = ({ xmax }: { xmax: number }) => {
 
   return (
     <>
+      <TimelineBarDiv
+        dragging={isDragging}
+        ref={ref}
+        style={{ left: x }}
+        onMouseDown={(e) => {
+          setIsDragging(true);
+          e.preventDefault();
+        }}
+        onMouseUp={() => {
+          setIsDragging(false);
+        }}
+      >
+        <div />
+      </TimelineBarDiv>
+
       <div
         ref={redRef}
         style={{
@@ -365,18 +392,6 @@ const TimelineBar = ({ xmax }: { xmax: number }) => {
           width: "100%",
           height: "100%",
           cursor: "ew-resize",
-        }}
-      />
-      <TimelineBarDiv
-        ref={ref}
-        style={{ left: x, zIndex: 100 }}
-        onMouseDown={(e) => {
-          setIsDragging(true);
-          e.preventDefault();
-        }}
-        onMouseUp={() => {
-          console.log("timeline mouse up");
-          setIsDragging(false);
         }}
       />
     </>
