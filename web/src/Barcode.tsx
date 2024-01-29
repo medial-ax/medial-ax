@@ -1,5 +1,5 @@
 import styled, { CSSProperties } from "styled-components";
-import { BirthDeathPair, Json } from "./App";
+import { BirthDeathPair, Json } from "./types";
 import { selectedBirthDeathPair } from "./state";
 import { useAtom, useSetAtom } from "jotai";
 import {

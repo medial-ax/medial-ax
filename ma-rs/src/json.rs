@@ -3,8 +3,9 @@ use serde::Serialize;
 
 use crate::{
     complex::{Complex, Pos, Simplex},
+    grid::{Grid, Index},
     permutation::Permutation,
-    BirthDeathPair, Reduction,
+    BirthDeathPair, Reduction, Swaps,
 };
 
 #[derive(Debug, Serialize)]
@@ -23,10 +24,18 @@ pub struct JsonOuput {
     pub vertex_barcode: Vec<BirthDeathPair>,
     pub edge_barcode: Vec<BirthDeathPair>,
     pub triangle_barcode: Vec<BirthDeathPair>,
+
+    grid: Grid,
+    swaps: Vec<(Index, Index, Swaps)>,
 }
 
 #[pyfunction]
-pub fn json_output(complex: &Complex, reduction: &Reduction) -> String {
+pub fn json_output(
+    complex: &Complex,
+    reduction: &Reduction,
+    grid: &Grid,
+    swapssssss: Vec<(Index, Index, Swaps)>,
+) -> String {
     let vertices = complex.simplices_per_dim[0].clone();
     let edges = complex.simplices_per_dim[1].clone();
     let triangles = complex.simplices_per_dim[2].clone();
@@ -52,6 +61,9 @@ pub fn json_output(complex: &Complex, reduction: &Reduction) -> String {
         vertex_barcode,
         edge_barcode,
         triangle_barcode,
+
+        grid: grid.clone(),
+        swaps: swapssssss.clone(),
     };
 
     serde_json::to_string(&json_output).unwrap()

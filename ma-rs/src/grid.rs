@@ -7,7 +7,7 @@ use crate::{
     reduce_from_scratch, vineyards_123, Reduction, Swaps,
 };
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize)]
 pub struct Index(pub [isize; 3]);
 
 impl std::ops::Add<Index> for Index {
@@ -55,7 +55,7 @@ impl std::fmt::Debug for Index {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, serde::Serialize)]
 #[pyo3::pyclass(get_all)]
 pub struct Grid {
     pub corner: Pos,

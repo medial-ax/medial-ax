@@ -18,7 +18,7 @@ pub mod permutation;
 pub mod sneaky_matrix;
 
 #[pyo3::pyclass(get_all)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize)]
 pub struct Swap {
     /// Dimension in which the swap happened.
     dim: usize,
@@ -29,13 +29,18 @@ pub struct Swap {
 }
 
 #[pyo3::pyclass(get_all)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize)]
 pub struct Swaps {
     pub v: Vec<Swap>,
 }
 
 #[pyo3::pymethods]
 impl Swaps {
+    #[new]
+    pub fn new(v: Vec<Swap>) -> Self {
+        Self { v }
+    }
+
     /// Remove all swaps that were done between simplices that are closer than
     /// `min_dist`.
     ///
@@ -1378,6 +1383,7 @@ fn mars(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<Simplex>()?;
     m.add_class::<Complex>()?;
     m.add_class::<Grid>()?;
+    m.add_class::<Swaps>()?;
     Ok(())
 }
 
