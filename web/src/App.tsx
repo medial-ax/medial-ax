@@ -21,7 +21,7 @@ import { colors } from "./constants";
 
 const CanvasContainer = styled.div`
   display: flex;
-  flex: 1;
+  width: 50%;
 `;
 
 const MenuContainer = styled.div`
@@ -2100,7 +2100,7 @@ function App() {
       </CanvasContainer>
       <Divider />
 
-      <div style={{ display: "flex", flex: 1, background: "#e5e5e5" }}>
+      <div style={{ display: "flex", width: "50%", background: "#e5e5e5" }}>
         <Barcode json={json} />
       </div>
     </Row>

@@ -458,10 +458,15 @@ export const Barcode = ({ json }: { json: Json | undefined }) => {
 
   const [width, setWidth] = useState<number>(0);
 
-  // TODO: listen to resize somehow here
   useLayoutEffect(() => {
     if (!ref.current) return;
-    setWidth(ref.current.getBoundingClientRect().width - 2 * barcodePaddingPx);
+    const observer = new ResizeObserver((entries) => {
+      setWidth(entries[0].contentRect.width - 2 * barcodePaddingPx);
+    });
+    observer.observe(ref.current);
+    return () => {
+      observer.disconnect();
+    };
   }, []);
 
   if (!json) return <div>hello</div>;
