@@ -24,6 +24,16 @@ impl Permutation {
         }
     }
 
+    pub fn push_n(&mut self, n: usize) {
+        let off = self.forwards.len();
+        self.forwards.reserve(n);
+        self.backwards.reserve(n);
+        for i in 0..n {
+            self.forwards.push(off + i);
+            self.backwards.push(off + i);
+        }
+    }
+
     pub fn from_forwards(forwards: Vec<usize>) -> Self {
         let mut backwards = vec![0; forwards.len()];
         for (i, &f) in forwards.iter().enumerate() {

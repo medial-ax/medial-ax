@@ -104,6 +104,88 @@ pub struct SneakyMatrix {
     pub row_perm: Permutation,
 }
 
+impl SneakyMatrix {
+    /// Returns all entries that are set as `(row, col)` pairs.
+    pub fn to_pairs(&self) -> Vec<(usize, usize)> {
+        let mut pairs = Vec::new();
+        for c in 0..self.cols {
+            let cc = self.col_perm.map(c);
+            for r in 0..self.rows {
+                let rr = self.row_perm.map(r);
+                if self.columns[cc].has(rr) {
+                    pairs.push((r, c));
+                }
+            }
+        }
+        pairs
+    }
+
+    pub fn from_pairs(pairs: Vec<(usize, usize)>, rows: usize, cols: usize) -> Self {
+        let mut sm = Self::zeros(rows, cols);
+        for (r, c) in pairs {
+            sm.set(r, c, true);
+        }
+        sm
+    }
+
+    pub fn transpose(&self) -> Self {
+        let mut pairs = self.to_pairs();
+        for (r, c) in pairs.iter_mut() {
+            std::mem::swap(r, c);
+        }
+        Self::from_pairs(pairs, self.rows, self.cols)
+    }
+
+    pub fn bottom_pad_with_identity(&mut self) {
+        let rows = self.rows;
+        self.rows *= 2;
+        self.row_perm.push_n(rows);
+        for i in 0..rows {
+            self.set(rows + i, i, true);
+        }
+    }
+
+    pub fn gauss_jordan(&mut self) {
+        for k in 0..self.cols {
+            // Step 1: ensure that (k, k) = 1
+            if !self.get(k, k) {
+                let c = (k + 1..self.cols).find(|&kk| self.get(k, kk));
+                if let Some(c) = c {
+                    self.swap_cols(k, c);
+                } else {
+                    panic!("Matrix is not full rank");
+                }
+            }
+
+            // Step 2: ensure all other columns are zero in the k-th row
+            for c in 0..self.cols {
+                if c == k {
+                    continue;
+                }
+                if self.get(k, c) {
+                    self.add_cols(c, k);
+                }
+            }
+        }
+    }
+
+    pub fn extract_bottom_block_transpose(&self) -> Self {
+        let mut pairs = Vec::new();
+
+        let r0 = self.rows / 2;
+        for c in 0..self.cols {
+            let cc = self.col_perm.map(c);
+            for r in r0..self.rows {
+                let rr = self.row_perm.map(r);
+                if self.columns[cc].has(rr) {
+                    pairs.push((c, r - r0));
+                }
+            }
+        }
+        Self::from_pairs(pairs, r0, self.cols)
+    }
+}
+
 #[pyo3::pymethods]
 impl SneakyMatrix {
     #[staticmethod]
@@ -248,7 +330,7 @@ impl SneakyMatrix {
         }
     }
 
-    pub fn get(&mut self, r: usize, c: usize) -> bool {
+    pub fn get(&self, r: usize, c: usize) -> bool {
         let cc = self.col_perm.map(c);
         let rr = self.row_perm.map(r);
         self.columns[cc].has(rr)
@@ -362,5 +444,97 @@ mod tests {
         assert!(sm.get(0, 0));
         sm.swap_rows(0, 4);
         assert!(sm.get(4, 0));
+    }
+
+    #[test]
+    fn gaussian_elimination() {
+        let mut sm = SneakyMatrix::zeros(3, 3);
+        sm.set(0, 0, false);
+        sm.set(0, 1, true);
+        sm.set(0, 2, true);
+
+        sm.set(1, 0, true);
+        sm.set(1, 1, true);
+        sm.set(1, 2, false);
+
+        sm.set(2, 0, false);
+        sm.set(2, 1, true);
+        sm.set(2, 2, false);
+
+        let answer = SneakyMatrix::from_pairs(vec![(0, 1), (0, 2), (1, 2), (2, 0), (2, 2)], 3, 3);
+
+        println!("matrix:");
+        println!("{}\n", sm.__str__());
+
+        let mut sm_t = sm.transpose();
+        println!("matrix T:");
+        println!("{}\n", sm_t.__str__());
+
+        sm_t.bottom_pad_with_identity();
+        println!("with identity:");
+        println!("{}\n", sm_t.__str__());
+
+        sm_t.gauss_jordan();
+        println!("after GJ:");
+        println!("{}\n", sm_t.__str__());
+
+        let result = sm_t.extract_bottom_block_transpose();
+        println!("result:");
+        println!("{}\n", result.__str__());
+
+        println!("answer:");
+        println!("{}\n", answer.__str__());
+    }
+
+    #[test]
+    fn gaussian_elimination2() {
+        let mut sm = SneakyMatrix::zeros(4, 4);
+        sm.set(0, 0, true);
+        sm.set(0, 1, true);
+        sm.set(0, 2, false);
+        sm.set(0, 3, true);
+        sm.set(1, 0, true);
+        sm.set(1, 1, true);
+        sm.set(1, 2, true);
+        sm.set(1, 3, false);
+        sm.set(2, 0, false);
+        sm.set(2, 1, true);
+        sm.set(2, 2, true);
+        sm.set(2, 3, false);
+        sm.set(3, 0, true);
+        sm.set(3, 1, false);
+        sm.set(3, 2, false);
+        sm.set(3, 3, true);
+
+        let mut answer = SneakyMatrix::zeros(4, 4);
+        answer.set(0, 0, false);
+        answer.set(0, 1, true);
+        answer.set(0, 2, true);
+        answer.set(0, 3, false);
+        answer.set(1, 0, true);
+        answer.set(1, 1, false);
+        answer.set(1, 2, false);
+        answer.set(1, 3, true);
+        answer.set(2, 0, true);
+        answer.set(2, 1, false);
+        answer.set(2, 2, true);
+        answer.set(2, 3, true);
+        answer.set(3, 0, false);
+        answer.set(3, 1, true);
+        answer.set(3, 2, true);
+        answer.set(3, 3, true);
+
+        println!("sm:");
+        println!("{}\n", sm.__str__());
+
+        let mut sm_t = sm.transpose();
+        sm_t.bottom_pad_with_identity();
+        sm_t.gauss_jordan();
+        let result = sm_t.extract_bottom_block_transpose();
+        println!("result:");
+        println!("{}\n", result.__str__());
+
+        println!("answer:");
+        println!("{}\n", answer.__str__());
     }
 }
