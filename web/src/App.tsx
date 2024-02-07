@@ -20,6 +20,7 @@ import { keypointRadiusAtom, menuOpenAtom } from "./state";
 import { colors } from "./constants";
 import { Grid, Json } from "./types";
 import { dualFaceQuad, gridCoordinate } from "./medialaxes";
+import { hello_from_rust } from "ma-rs";
 
 const CanvasContainer = styled.div`
   display: flex;
@@ -417,6 +418,8 @@ const RenderMedialAxis = ({
 
 function App() {
   const keypointRadius = useAtomValue(keypointRadiusAtom);
+
+  console.log(hello_from_rust());
 
   const [wireframe, setWireframe] = useState(false);
   const [triangle, setTriangle] = useState<THREE.Vector3[] | undefined>(

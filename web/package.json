@@ -13,10 +13,12 @@
     "@react-three/drei": "^9.92.7",
     "@react-three/fiber": "^8.15.13",
     "jotai": "^2.6.1",
+    "ma-rs": "file:../ma-rs/pkg",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "styled-components": "^6.1.6",
-    "three": "^0.160.0"
+    "three": "^0.160.0",
+    "vite-plugin-wasm": "^3.3.0"
   },
   "devDependencies": {
     "@types/react": "^18.2.43",
@@ -28,6 +30,7 @@
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.5",
     "typescript": "^5.2.2",
-    "vite": "^5.0.8"
+    "vite": "^5.0.8",
+    "vite-plugin-top-level-await": "^1.4.1"
   }
 }
