@@ -1,11 +1,11 @@
 #[derive(Debug, Clone, serde::Serialize)]
-#[pyo3::pyclass]
+#[cfg_attr(feature = "python", pyo3::pyclass)]
 pub struct Permutation {
     forwards: Vec<usize>,
     backwards: Vec<usize>,
 }
 
-#[pyo3::pymethods]
+#[cfg_attr(feature = "python", pyo3::pymethods)]
 impl Permutation {
     pub fn map(&self, a: usize) -> usize {
         self.forwards[a]

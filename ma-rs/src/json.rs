@@ -1,3 +1,4 @@
+#[cfg(feature = "python")]
 use pyo3::pyfunction;
 use serde::Serialize;
 
@@ -29,7 +30,7 @@ pub struct JsonOuput {
     swaps: Vec<(Index, Index, Swaps)>,
 }
 
-#[pyfunction]
+#[cfg_attr(feature = "python", pyfunction)]
 pub fn json_output(
     complex: &Complex,
     reduction: &Reduction,

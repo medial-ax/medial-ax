@@ -1,13 +1,14 @@
 use crate::permutation::Permutation;
+#[cfg(feature = "python")]
 use pyo3::prelude::PyObject;
 
 #[derive(PartialEq, Eq, Debug, Clone)]
-#[pyo3::pyclass]
+#[cfg_attr(feature = "python", pyo3::pyclass)]
 pub struct Col(Vec<usize>);
 
-#[pyo3::pymethods]
+#[cfg_attr(feature = "python", pyo3::pymethods)]
 impl Col {
-    #[staticmethod]
+    #[cfg_attr(feature = "python", pyo3::staticmethod)]
     fn new() -> Self {
         Col(Vec::new())
     }
@@ -92,7 +93,7 @@ impl From<Vec<usize>> for Col {
 }
 
 #[derive(Debug, Clone)]
-#[pyo3::pyclass(get_all)]
+#[cfg_attr(feature = "python", pyo3::pyclass(get_all))]
 pub struct SneakyMatrix {
     columns: Vec<Col>,
     pub rows: usize,
@@ -176,6 +177,7 @@ impl SneakyMatrix {
         for c in 0..self.cols {
             let cc = self.col_perm.map(c);
             for r in r0..self.rows {
+                // NOTE: This is pretty inefficient. Better to loop through the ones that are there and skip the early rows.
                 let rr = self.row_perm.map(r);
                 if self.columns[cc].has(rr) {
                     pairs.push((c, r - r0));
@@ -184,11 +186,19 @@ impl SneakyMatrix {
         }
         Self::from_pairs(pairs, r0, self.cols)
     }
+
+    pub fn inverse_gauss_jordan(&mut self) -> Self {
+        let mut sm_t = self.transpose();
+        sm_t.bottom_pad_with_identity();
+        sm_t.gauss_jordan();
+        let result = sm_t.extract_bottom_block_transpose();
+        return result;
+    }
 }
 
-#[pyo3::pymethods]
+#[cfg_attr(feature = "python", pyo3::pymethods)]
 impl SneakyMatrix {
-    #[staticmethod]
+    #[cfg_attr(feature = "python", pyo3::staticmethod)]
     pub fn zeros(rows: usize, cols: usize) -> Self {
         let mut columns = Vec::with_capacity(cols);
         for _ in 0..cols {
@@ -204,7 +214,7 @@ impl SneakyMatrix {
         }
     }
 
-    #[staticmethod]
+    #[cfg_attr(feature = "python", pyo3::staticmethod)]
     pub fn eye(n: usize) -> Self {
         let mut columns = Vec::with_capacity(n);
         for i in 0..n {
@@ -224,7 +234,7 @@ impl SneakyMatrix {
 
     /// Assume that we can call `.cols` and `.rows` and index into the matrix,
     /// as well as a `.column(c)` method that returns a list of set rows.
-    #[staticmethod]
+    #[cfg(feature = "python")]
     pub fn from_py_sneakymatrix(p: PyObject) -> Self {
         pyo3::Python::with_gil(|py| {
             let cols: usize = p.getattr(py, "cols").unwrap().extract(py).unwrap();

@@ -21,12 +21,14 @@ impl std::ops::Add<Index> for Index {
     }
 }
 
+#[cfg(feature = "python")]
 impl pyo3::IntoPy<pyo3::PyObject> for Index {
     fn into_py(self, py: pyo3::Python<'_>) -> pyo3::PyObject {
         pyo3::types::PyTuple::new(py, &self.0).into()
     }
 }
 
+#[cfg(feature = "python")]
 impl<'source> pyo3::FromPyObject<'source> for Index {
     fn extract(ob: &'source pyo3::PyAny) -> pyo3::PyResult<Self> {
         ob.downcast::<pyo3::types::PyList>()
@@ -56,7 +58,7 @@ impl std::fmt::Debug for Index {
 }
 
 #[derive(Clone, Debug, serde::Serialize)]
-#[pyo3::pyclass(get_all)]
+#[cfg_attr(feature = "python", pyo3::pyclass(get_all))]
 pub struct Grid {
     pub corner: Pos,
     pub size: f64,
@@ -65,9 +67,9 @@ pub struct Grid {
     pub cell_states: std::collections::HashMap<Index, String>,
 }
 
-#[pyo3::pymethods]
+#[cfg_attr(feature = "python", pymethods)]
 impl Grid {
-    #[staticmethod]
+    #[cfg_attr(feature = "python", staticmethod)]
     pub fn new(corner: Pos, size: f64, shape: [isize; 3]) -> Self {
         Grid {
             corner,
@@ -77,7 +79,7 @@ impl Grid {
         }
     }
 
-    #[staticmethod]
+    #[cfg_attr(feature = "python", staticmethod)]
     /// Construct a new [Grid] around the given [Complex]. The grid cells are of
     /// size `size`, and `buffer` is the smallest distance from the grid
     /// boundary to the complex.  This is tight at the min corner of the grid,

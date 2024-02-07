@@ -6,8 +6,13 @@ use std::{
 use complex::{Complex, Pos, Simplex};
 use grid::Grid;
 use permutation::Permutation;
-use pyo3::{exceptions::PyValueError, prelude::*};
 use sneaky_matrix::{Col, SneakyMatrix};
+
+#[cfg(feature = "python")]
+use pyo3::{exceptions::PyValueError, prelude::*};
+
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::*;
 
 use crate::json::json_output;
 
@@ -17,7 +22,12 @@ pub mod json;
 pub mod permutation;
 pub mod sneaky_matrix;
 
-#[pyo3::pyclass(get_all)]
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub fn hello_from_rust() -> String {
+    "Hello from Rust!".to_string()
+}
+
+#[cfg_attr(feature = "python", pyo3::pyclass(get_all))]
 #[derive(Clone, Debug, serde::Serialize)]
 pub struct Swap {
     /// Dimension in which the swap happened.
@@ -28,15 +38,15 @@ pub struct Swap {
     j: usize,
 }
 
-#[pyo3::pyclass(get_all)]
+#[cfg_attr(feature = "python", pyo3::pyclass(get_all))]
 #[derive(Clone, Debug, serde::Serialize)]
 pub struct Swaps {
     pub v: Vec<Swap>,
 }
 
-#[pyo3::pymethods]
+#[cfg_attr(feature = "python", pymethods)]
 impl Swaps {
-    #[new]
+    #[cfg_attr(feature = "python", new)]
     pub fn new(v: Vec<Swap>) -> Self {
         Self { v }
     }
@@ -197,7 +207,7 @@ impl Swaps {
     }
 }
 
-#[pyo3::pyclass(get_all)]
+#[cfg_attr(feature = "python", pyo3::pyclass(get_all))]
 #[derive(Clone, Debug)]
 #[allow(non_snake_case)]
 pub struct Stack {
@@ -211,7 +221,7 @@ pub struct Stack {
     pub ordering: Permutation,
 }
 
-#[pyo3::pyclass(get_all)]
+#[cfg_attr(feature = "python", pyo3::pyclass(get_all))]
 #[derive(Clone, Debug, serde::Serialize)]
 pub struct BirthDeathPair {
     /// Dimension of the homology class.
@@ -222,7 +232,7 @@ pub struct BirthDeathPair {
     pub death: Option<(f64, usize)>,
 }
 
-#[pyo3::pyclass(get_all)]
+#[cfg_attr(feature = "python", pyo3::pyclass(get_all))]
 #[derive(Clone, Debug)]
 pub struct Reduction {
     /// Key point around which the reduction is done.
@@ -230,7 +240,7 @@ pub struct Reduction {
     pub stacks: [Stack; 3],
 }
 
-#[pymethods]
+#[cfg_attr(feature = "python", pymethods)]
 impl Reduction {
     /// Returns the Betti numbers for dimensions 0, 1, and 2.
     pub fn betti_numbers(&self) -> Vec<i8> {
@@ -462,6 +472,7 @@ impl Reduction {
     }
 }
 
+#[cfg(feature = "python")]
 pub fn inverse_zz2(mat: &SneakyMatrix) -> Result<SneakyMatrix, String> {
     let res: PyResult<SneakyMatrix> = Python::with_gil(|py| {
         // println!("set up module");
@@ -554,7 +565,7 @@ fn compute_permutations(
     (v_perm, e_perm, t_perm)
 }
 
-#[pyfunction]
+#[cfg_attr(feature = "python", pyfunction)]
 /// Returns a [Vec] with one element per faustian swap. The elements are `(dim,
 /// (i, j))` where `dim` is the dimension of the simplices that were swapped,
 /// and `i` and `j` are the canonical indices of the swapped simplices.
@@ -797,7 +808,7 @@ pub fn vineyards_123(
 }
 
 #[allow(non_snake_case)]
-#[pyfunction]
+#[cfg_attr(feature = "python", pyfunction)]
 pub fn reduce_from_scratch(complex: &Complex, key_point: Pos, noisy: bool) -> Reduction {
     let (mut v_perm, mut e_perm, mut t_perm) = compute_permutations(complex, key_point);
     // dbg!(&key_point);
@@ -866,15 +877,15 @@ pub fn reduce_from_scratch(complex: &Complex, key_point: Pos, noisy: bool) -> Re
     if noisy {
         print!("Invert V0 ... ");
     }
-    let U_t0 = inverse_zz2(&V0).expect("inverse_zz2 failed");
+    let U_t0 = V0.inverse_gauss_jordan();
     if noisy {
         print!("done\nInvert V1 ... ");
     }
-    let U_t1 = inverse_zz2(&V1).expect("inverse_zz2 failed");
+    let U_t1 = V1.inverse_gauss_jordan();
     if noisy {
         print!("done\nInvert V2 ... ");
     }
-    let U_t2 = inverse_zz2(&V2).expect("inverse_zz2 failed");
+    let U_t2 = V2.inverse_gauss_jordan();
     if noisy {
         println!("done");
     }
@@ -1271,7 +1282,7 @@ fn perform_one_swap_top_dim(i: usize, stack: &mut Stack) -> Option<bool> {
 /// `(i, i+1)` taking place.
 /// Also return the "column value" of the simplices that were swapped. This is
 /// used to figure out which simplices the swap consisted of.
-#[pyfunction]
+#[cfg_attr(feature = "python", pyfunction)]
 pub fn compute_transpositions(mut b: Vec<usize>) -> (Vec<usize>, Vec<(usize, usize)>) {
     // NOTE: The `this` ordering is implicitly `0..n`.
     let n = b.len();
@@ -1296,12 +1307,13 @@ pub fn compute_transpositions(mut b: Vec<usize>) -> (Vec<usize>, Vec<(usize, usi
     (ret, swapped_indices)
 }
 
+#[cfg(feature = "python")]
 #[pyfunction]
 pub fn read_from_obj(p: &str) -> PyResult<Complex> {
     Complex::read_from_obj(p).map_err(PyValueError::new_err)
 }
 
-#[pyfunction]
+#[cfg(feature = "python")]
 fn test_three_points() {
     // This mesh has three vertices: (1, 0), (1, 1), and (0, 1).
     // The first MA thus consists of three lines:
@@ -1357,7 +1369,7 @@ fn test_three_points() {
     }
 }
 
-#[pyfunction]
+#[cfg(feature = "python")]
 fn test_three_points_test1() {
     let complex = read_from_obj("input/three-points.obj").unwrap();
     let pt_a = Pos([0.8, 0.45, 0.0]);
@@ -1368,6 +1380,7 @@ fn test_three_points_test1() {
     assert_eq!(swaps.v.len(), 0);
 }
 
+#[cfg(feature = "python")]
 #[pymodule]
 fn mars(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(compute_transpositions, m)?)?;

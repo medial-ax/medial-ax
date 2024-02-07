@@ -1,5 +1,5 @@
 import { atom } from "jotai";
-import { BirthDeathPair } from "./App";
+import { BirthDeathPair } from "./types";
 
 export const timelinePositionAtom = atom<number>(0);
 export const selectedBirthDeathPair = atom<BirthDeathPair | undefined>(
