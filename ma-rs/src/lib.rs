@@ -13,6 +13,10 @@ use pyo3::{exceptions::PyValueError, prelude::*};
 
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
+#[cfg(feature = "wasm")]
+mod wasm;
+#[cfg(feature = "wasm")]
+pub use wasm::*;
 
 use crate::json::json_output;
 

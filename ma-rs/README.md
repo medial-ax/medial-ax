@@ -2,7 +2,16 @@
 
 Setup is in the README in the dir above.
 
-# Building
+# Building for Wasm
+
+```shell
+wasm-pack build --target web --features wasm --release
+```
+
+# Building for Python
+
+> [!Warning]
+> This has not been tested since we added wasm support.
 
 To build with optimizations, run
 

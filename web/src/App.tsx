@@ -20,7 +20,9 @@ import { keypointRadiusAtom, menuOpenAtom } from "./state";
 import { colors } from "./constants";
 import { Grid, Json } from "./types";
 import { dualFaceQuad, gridCoordinate } from "./medialaxes";
-import { hello_from_rust } from "ma-rs";
+import init, { make_complex_from_obj } from "ma-rs";
+
+await init();
 
 const CanvasContainer = styled.div`
   display: flex;
@@ -92,6 +94,24 @@ const UploadFileButton = ({ onJson }: { onJson: (j: Json) => void }) => {
   );
 };
 
+const UploadObjFilePicker = () => {
+  return (
+    <label className="file" htmlFor="file-upload">
+      <p>Upload OBJ:</p>
+      <input
+        type="file"
+        id="file-upload"
+        onChange={(e) => {
+          e.target.files?.[0]?.text().then((text) => {
+            const value = make_complex_from_obj(text);
+            console.log(value);
+          });
+        }}
+      />
+    </label>
+  );
+};
+
 const Menu = ({
   setWireframe,
   onJson,
@@ -151,6 +171,7 @@ const Menu = ({
       </label>
 
       <UploadFileButton onJson={onJson} />
+      <UploadObjFilePicker />
     </MenuContainer>
   );
 };
@@ -418,8 +439,6 @@ const RenderMedialAxis = ({
 
 function App() {
   const keypointRadius = useAtomValue(keypointRadiusAtom);
-
-  console.log(hello_from_rust());
 
   const [wireframe, setWireframe] = useState(false);
   const [triangle, setTriangle] = useState<THREE.Vector3[] | undefined>(

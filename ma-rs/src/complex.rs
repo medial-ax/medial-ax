@@ -159,7 +159,7 @@ impl Simplex {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 #[cfg_attr(feature = "python", pyo3::pyclass(get_all))]
 pub struct Complex {
     pub simplices_per_dim: Vec<Vec<Simplex>>,
@@ -212,7 +212,10 @@ impl Complex {
     pub fn read_from_obj<P: AsRef<std::path::Path>>(p: P) -> Result<Self, String> {
         let input_str =
             std::fs::read_to_string(p).map_err(|e| format!("Error reading file: {}", e))?;
+        Self::read_from_obj_string(&input_str)
+    }
 
+    pub fn read_from_obj_string(input_str: &str) -> Result<Self, String> {
         let mut vertices: Vec<Simplex> = Vec::new();
         let mut edges: Vec<Simplex> = Vec::new();
         let mut triangles: Vec<Simplex> = Vec::new();
