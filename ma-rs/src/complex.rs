@@ -314,15 +314,15 @@ impl Complex {
         // Check that no two vertices are actually the same vertex
         for i in 0..vertices.len() {
             for j in (i + 1)..vertices.len() {
-                let p = vertices[i].coords.unwrap();
-                let q = vertices[j].coords.unwrap();
+                let p = vertices[i].coords.expect("Vertex should have coordinates");
+                let q = vertices[j].coords.expect("Vertex should have coordinates");
                 let dist = p.dist(&q);
-                assert!(
-                    1e-5 < dist,
-                    "Two vertices are too close together: {} and {}",
-                    i,
-                    j
-                );
+                if dist < 1e-5 {
+                    return Err(format!(
+                        "Two vertices are too close together: {} and {}",
+                        i, j
+                    ));
+                }
             }
         }
 

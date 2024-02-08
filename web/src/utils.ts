@@ -12,3 +12,5 @@ export const max = (array: number[]): number => {
 
 export const clamp = (x: number, min: number, max: number): number =>
   Math.max(min, Math.min(x, max));
+
+export const dedup = <T>(array: T[]): T[] => Array.from(new Set(array));

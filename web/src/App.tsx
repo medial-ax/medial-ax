@@ -12,17 +12,25 @@ import {
   useState,
 } from "react";
 import * as THREE from "three";
-import { useAtom, useAtomValue } from "jotai";
+import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { Barcode } from "./Barcode";
-import { timelinePositionAtom } from "./state";
+import { complex, timelinePositionAtom } from "./state";
 import { selectedBirthDeathPair } from "./state";
 import { keypointRadiusAtom, menuOpenAtom } from "./state";
 import { colors } from "./constants";
-import { Grid, Json } from "./types";
+import { Grid } from "./types";
 import { dualFaceQuad, gridCoordinate } from "./medialaxes";
-import init, { make_complex_from_obj } from "ma-rs";
+import init, {
+  hello_from_rust,
+  make_complex_from_obj,
+  my_init_function,
+  test_fn_1,
+} from "ma-rs";
+import { dedup } from "./utils";
 
-await init();
+await init().then(() => {
+  my_init_function();
+});
 
 const CanvasContainer = styled.div`
   display: flex;
@@ -76,25 +84,8 @@ const Divider = () => {
   );
 };
 
-const UploadFileButton = ({ onJson }: { onJson: (j: Json) => void }) => {
-  return (
-    <label className="file" htmlFor="file-upload">
-      <p>Upload JSON:</p>
-      <input
-        type="file"
-        id="file-upload"
-        onChange={(e) => {
-          e.target.files?.[0]?.text().then((text) => {
-            const j = JSON.parse(text) as Json;
-            onJson(j);
-          });
-        }}
-      />
-    </label>
-  );
-};
-
 const UploadObjFilePicker = () => {
+  const setComplex = useSetAtom(complex);
   return (
     <label className="file" htmlFor="file-upload">
       <p>Upload OBJ:</p>
@@ -102,9 +93,11 @@ const UploadObjFilePicker = () => {
         type="file"
         id="file-upload"
         onChange={(e) => {
-          e.target.files?.[0]?.text().then((text) => {
+          const f = e.target.files?.[0];
+          if (!f) return;
+          f.text().then((text) => {
             const value = make_complex_from_obj(text);
-            console.log(value);
+            setComplex({ complex: value, filename: f.name });
           });
         }}
       />
@@ -114,10 +107,8 @@ const UploadObjFilePicker = () => {
 
 const Menu = ({
   setWireframe,
-  onJson,
 }: {
   setWireframe: Dispatch<SetStateAction<boolean>>;
-  onJson: (j: Json) => void;
 }) => {
   const [keypointRadius, setKeypointRadius] = useAtom(keypointRadiusAtom);
   const [open, setOpen] = useAtom(menuOpenAtom);
@@ -170,7 +161,6 @@ const Menu = ({
         />
       </label>
 
-      <UploadFileButton onJson={onJson} />
       <UploadObjFilePicker />
     </MenuContainer>
   );
@@ -285,30 +275,29 @@ const RedTriangle = ({ points }: { points: THREE.Vector3[] }) => {
 };
 
 const RenderComplex = ({
-  json,
+  cplx,
   wireframe,
   onClick,
 }: {
-  json: Json;
+  cplx: any;
   wireframe?: boolean;
   onClick: MeshProps["onClick"];
 }) => {
   const ref = useRef<THREE.BufferAttribute>(null);
 
   const getCoords = useCallback(() => {
-    return json.triangles.flatMap((t) => {
-      const vertices = new Set<number>();
-      for (const edge_i of t.boundary)
-        for (const vert_i of json.edges[edge_i].boundary) vertices.add(vert_i);
-
-      const coords = Array.from(vertices).flatMap(
-        (i: number) => json.vertices[i].coords!
+    const [vertices, edges, triangles] = cplx["simplices_per_dim"];
+    const out = triangles.flatMap((t: any) => {
+      const vis: number[] = dedup(
+        t["boundary"].map((ei: number) => edges[ei].boundary).flat()
       );
+      const coords = vis.flatMap((i: number) => vertices[i].coords);
       return coords;
     });
-  }, [json]);
+    return new Float32Array(out);
+  }, [cplx]);
 
-  const coords = useMemo(() => new Float32Array(getCoords()), [getCoords]);
+  const coords = useMemo(() => getCoords(), [getCoords]);
 
   useLayoutEffect(() => {
     if (!ref.current) return;
@@ -384,60 +373,57 @@ const RenderGrid = ({ grid, radius }: { grid: Grid; radius: number }) => {
   );
 };
 
-const RenderMedialAxis = ({
-  j,
-  wireframe,
-}: {
-  j: Json;
-  wireframe?: boolean;
-}) => {
-  const ref = useRef<THREE.BufferAttribute>(null);
+const RenderMedialAxis = ({ wireframe }: { wireframe?: boolean }) => {
+  // const ref = useRef<THREE.BufferAttribute>(null);
 
-  const [coordBuffer, numberOfVertices] = useMemo(() => {
-    let allCoords: number[] = [];
-    for (const [p, q] of j.swaps) {
-      const [a, b, c, d] = dualFaceQuad(j.grid, p, q);
-      const vertexcoords = [...a, ...b, ...c, ...a, ...c, ...d];
-      allCoords = allCoords.concat(vertexcoords);
-    }
-    return [new Float32Array(allCoords), j.swaps.length * 2 * 3];
-  }, [j.grid, j.swaps]);
+  // const [coordBuffer, numberOfVertices] = useMemo(() => {
+  //   let allCoords: number[] = [];
+  //   for (const [p, q] of j.swaps) {
+  //     const [a, b, c, d] = dualFaceQuad(j.grid, p, q);
+  //     const vertexcoords = [...a, ...b, ...c, ...a, ...c, ...d];
+  //     allCoords = allCoords.concat(vertexcoords);
+  //   }
+  //   return [new Float32Array(allCoords), j.swaps.length * 2 * 3];
+  // }, [j.grid, j.swaps]);
 
-  useLayoutEffect(() => {
-    if (!ref.current) return;
-    ref.current.array = coordBuffer;
-    ref.current.needsUpdate = true;
-  }, [coordBuffer]);
+  // useLayoutEffect(() => {
+  //   if (!ref.current) return;
+  //   ref.current.array = coordBuffer;
+  //   ref.current.needsUpdate = true;
+  // }, [coordBuffer]);
 
-  return (
-    <mesh>
-      <bufferGeometry attach="geometry">
-        <bufferAttribute
-          ref={ref}
-          attach="attributes-position"
-          count={numberOfVertices}
-          array={coordBuffer}
-          itemSize={3}
-        />
-      </bufferGeometry>
-      <meshBasicMaterial
-        side={THREE.DoubleSide}
-        attach="material"
-        color="#ff0000"
-        transparent
-        opacity={0.5}
-      />
-      <meshLambertMaterial
-        color={colors.blue}
-        flatShading
-        side={THREE.DoubleSide}
-      />
-      {wireframe && <Wireframe />}
-    </mesh>
-  );
+  return null;
+  // return (
+  //   <mesh>
+  //     <bufferGeometry attach="geometry">
+  //       <bufferAttribute
+  //         ref={ref}
+  //         attach="attributes-position"
+  //         count={numberOfVertices}
+  //         array={coordBuffer}
+  //         itemSize={3}
+  //       />
+  //     </bufferGeometry>
+  //     <meshBasicMaterial
+  //       side={THREE.DoubleSide}
+  //       attach="material"
+  //       color="#ff0000"
+  //       transparent
+  //       opacity={0.5}
+  //     />
+  //     <meshLambertMaterial
+  //       color={colors.blue}
+  //       flatShading
+  //       side={THREE.DoubleSide}
+  //     />
+  //     {wireframe && <Wireframe />}
+  //   </mesh>
+  // );
 };
 
 function App() {
+  const cplx = useAtomValue(complex);
+
   const keypointRadius = useAtomValue(keypointRadiusAtom);
 
   const [wireframe, setWireframe] = useState(false);
@@ -445,18 +431,12 @@ function App() {
     undefined
   );
 
-  const [json, setJson] = useState<Json | undefined>(undefined);
-
-  const onJson = useCallback((json: Json) => {
-    setJson(json);
-  }, []);
-
   const bdPair = useAtomValue(selectedBirthDeathPair);
   const timelinePosition = useAtomValue(timelinePositionAtom);
 
   return (
     <Row style={{ width: "100%", alignItems: "stretch", gap: 0 }}>
-      <Menu setWireframe={setWireframe} onJson={onJson} />
+      <Menu setWireframe={setWireframe} />
       <CanvasContainer id="canvas-container">
         <Canvas
           onPointerMissed={() => {
@@ -468,7 +448,6 @@ function App() {
             enableZoom={true}
             enableRotate={true}
           />
-          {/* <color attach="background" args={["#f7f9fa"]} /> */}
           <color attach="background" args={["#f6f6f6"]} />
 
           <hemisphereLight
@@ -477,28 +456,7 @@ function App() {
             intensity={3.0}
           />
 
-          {/* <mesh
-            ref={torus}
-            onClick={(e) => }
-          >
-            <torusKnotGeometry args={[1, 0.3]} />
-            <meshLambertMaterial color="#f3f3f3" flatShading />
-            {wireframe && <Wireframe />}
-          </mesh> */}
-          {/* 
-          {(new Array(10).fill(0) as number[]).map((_, i) => {
-            const f = (Math.PI * 2 * i) / 10;
-            return (
-              <RedSphere
-                key={i}
-                pos={new THREE.Vector3(Math.sin(f), 0, Math.cos(f))}
-              />
-            );
-          })} */}
-
-          {json && (
-            <>
-              {/* {json.swaps.map(([p, q]) => {
+          {/* {json.swaps.map(([p, q]) => {
                 const pa = gridCoordinate(json.grid, p);
                 const pb = gridCoordinate(json.grid, q);
                 return (
@@ -518,71 +476,66 @@ function App() {
                   </>
                 );
               })} */}
-              <RenderComplex
-                json={json}
-                wireframe={wireframe}
-                onClick={(e) => {
-                  if (e.delta < 3) {
-                    const faceIndex = e.faceIndex;
-                    if (faceIndex === undefined) return;
-                    const face = json.triangles[faceIndex];
-                    const vertexIndices = [
-                      ...new Set(
-                        face.boundary.flatMap((ei) => json.edges[ei].boundary)
-                      ),
-                    ];
+          {cplx && (
+            <RenderComplex
+              wireframe={wireframe}
+              cplx={cplx.complex}
+              key={cplx.filename}
+              onClick={(e) => {
+                // if (e.delta < 3) {
+                //   const faceIndex = e.faceIndex;
+                //   if (faceIndex === undefined) return;
+                //   const face = json.triangles[faceIndex];
+                //   const vertexIndices = [
+                //     ...new Set(
+                //       face.boundary.flatMap((ei) => json.edges[ei].boundary)
+                //     ),
+                //   ];
+                //   if (vertexIndices) {
+                //     setTriangle(
+                //       vertexIndices.map(
+                //         (v) => new THREE.Vector3(...json.vertices[v].coords!)
+                //       )
+                //     );
+                //   }
+                // }
+              }}
+            />
+          )}
 
-                    if (vertexIndices) {
-                      setTriangle(
-                        vertexIndices.map(
-                          (v) => new THREE.Vector3(...json.vertices[v].coords!)
-                        )
-                      );
-                    }
-                  }
-                }}
-              />
+          {/* <RenderMedialAxis j={json} wireframe={wireframe} />
 
-              <RenderMedialAxis j={json} wireframe={wireframe} />
+              <RenderGrid grid={} radius={0.02} /> */}
 
-              <RenderGrid grid={json.grid} radius={0.02} />
-
-              <RedSphere
-                pos={new THREE.Vector3(...json.key_point)}
-                radius={keypointRadius}
-              />
-
-              {bdPair && (
-                <>
-                  {bdPair.birth && (
-                    <TransparentSphere
-                      pos={new THREE.Vector3(...json.key_point)}
-                      radius={Math.sqrt(bdPair.birth[0])}
-                      color={colors.blue}
-                      opacity={0.2}
-                    />
-                  )}
-                  {bdPair.death && (
-                    <TransparentSphere
-                      pos={new THREE.Vector3(...json.key_point)}
-                      radius={Math.sqrt(bdPair.death[0])}
-                      color={colors.blue}
-                      opacity={0.2}
-                    />
-                  )}
-                </>
-              )}
-
-              {timelinePosition && (
+          {/* {bdPair && (
+            <>
+              {bdPair.birth && (
                 <TransparentSphere
                   pos={new THREE.Vector3(...json.key_point)}
-                  radius={Math.sqrt(timelinePosition)}
+                  radius={Math.sqrt(bdPair.birth[0])}
+                  color={colors.blue}
                   opacity={0.2}
-                  color={colors.red}
+                />
+              )}
+              {bdPair.death && (
+                <TransparentSphere
+                  pos={new THREE.Vector3(...json.key_point)}
+                  radius={Math.sqrt(bdPair.death[0])}
+                  color={colors.blue}
+                  opacity={0.2}
                 />
               )}
             </>
-          )}
+          )} */}
+
+          {/* {timelinePosition && (
+            <TransparentSphere
+              pos={new THREE.Vector3(...json.key_point)}
+              radius={Math.sqrt(timelinePosition)}
+              opacity={0.2}
+              color={colors.red}
+            />
+          )} */}
 
           {triangle && (
             <>
@@ -606,7 +559,7 @@ function App() {
       <Divider />
 
       <div style={{ display: "flex", width: "50%", background: "#e5e5e5" }}>
-        {json && <Barcode json={json} />}
+        {/*json && <Barcode json={json} /> */}
       </div>
     </Row>
   );

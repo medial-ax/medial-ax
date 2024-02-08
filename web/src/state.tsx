@@ -7,3 +7,5 @@ export const selectedBirthDeathPair = atom<BirthDeathPair | undefined>(
 );
 export const keypointRadiusAtom = atom(0.02);
 export const menuOpenAtom = atom(true);
+
+export const complex = atom<any>(undefined);
