@@ -1,21 +1,8 @@
 import styled, { createGlobalStyle } from "styled-components";
 import "./App.css";
 import { Canvas, MeshProps } from "@react-three/fiber";
-import {
-  Environment,
-  Example,
-  OrbitControls,
-  Wireframe,
-} from "@react-three/drei";
-import {
-  Dispatch,
-  SetStateAction,
-  useCallback,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { Environment, OrbitControls, Wireframe } from "@react-three/drei";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { Barcode } from "./Barcode";
@@ -24,20 +11,12 @@ import {
   grid as gridAtom,
   gridRadiusAtom,
   showGridAtom,
-  timelinePositionAtom,
   wireframeAtom,
 } from "./state";
-import { selectedBirthDeathPair } from "./state";
 import { keypointRadiusAtom, menuOpenAtom } from "./state";
 import { colors } from "./constants";
-import { Grid } from "./types";
-import { dualFaceQuad, gridCoordinate } from "./medialaxes";
-import init, {
-  hello_from_rust,
-  make_complex_from_obj,
-  my_init_function,
-  test_fn_1,
-} from "ma-rs";
+import { gridCoordinate } from "./medialaxes";
+import init, { make_complex_from_obj, my_init_function } from "ma-rs";
 import { dedup } from "./utils";
 import squished_cylinder from "../inputs/squished_cylinder.obj?raw";
 import extruded_ellipse from "../inputs/extruded_ellipse.obj?raw";
@@ -51,6 +30,70 @@ const GlobalStyle = createGlobalStyle`
   }
   body {
     overflow: hidden;
+  }
+
+  input[type=range] {
+    -webkit-appearance: none;
+    margin: 0;
+    cursor: pointer;
+    height: calc(1.2rem + 6px);
+  }
+
+  input[type=range]:focus {
+    outline: none;
+  }
+
+  input[type=range]::-webkit-slider-runnable-track {
+    width: 100%;
+    height: 0.3rem;
+    cursor: pointer;
+    background: #888;
+    border-radius: 4px;
+  }
+
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    margin-top: -0.45rem;
+    height: 1.2rem;
+    width: 0.35rem;
+    background: #ffffff;
+    border: 1px solid #888;
+    border-radius: 2px;
+    cursor: pointer;
+  }
+
+
+  input[type=range]::-moz-range-track {
+    height: 0.3rem;
+    cursor: pointer;
+    background: #888;
+    border-radius: 4px;
+  }
+
+  input[type=range]::-moz-range-thumb {
+    height: 1.2rem;
+    width: 0.35rem;
+    background: #ffffff;
+    border: 1px solid #888;
+    border-radius: 2px;
+    cursor: pointer;
+  }
+
+
+
+  input[type=range]::-ms-track {
+    height: 0.3rem;
+    cursor: pointer;
+    background: #888;
+    border-radius: 4px;
+  }
+  input[type=range]::-ms-thumb {
+    height: 1.2rem;
+    width: 0.35rem;
+    background: #ffffff;
+    border: 1px solid #888;
+    border-radius: 2px;
+    cursor: pointer;
   }
 `;
 
