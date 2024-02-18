@@ -12,3 +12,7 @@ export const complex = atom<any>(undefined);
 
 export const grid = atom<Grid | undefined>(undefined);
 export const showGridAtom = atom<boolean>(true);
+
+export const gridRadiusAtom = atom<number>(0.02);
+
+export const wireframeAtom = atom(false);

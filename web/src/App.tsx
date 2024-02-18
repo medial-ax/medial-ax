@@ -22,8 +22,10 @@ import { Barcode } from "./Barcode";
 import {
   complex,
   grid as gridAtom,
+  gridRadiusAtom,
   showGridAtom,
   timelinePositionAtom,
+  wireframeAtom,
 } from "./state";
 import { selectedBirthDeathPair } from "./state";
 import { keypointRadiusAtom, menuOpenAtom } from "./state";
@@ -47,6 +49,16 @@ const GlobalStyle = createGlobalStyle`
     margin: 0;
     padding: 0;
   }
+`;
+
+const ToggleBarcodeButton = styled.button`
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 100;
+  margin: 0.5rem;
+  text-overflow: wrap;
+  width: 4rem;
 `;
 
 const EXAMPLE_OBJS = [
@@ -82,7 +94,7 @@ await init().then(() => {
 
 const CanvasContainer = styled.div`
   display: flex;
-  width: 50%;
+  overflow-x: hidden;
 `;
 
 const MenuContainer = styled.div`
@@ -174,13 +186,12 @@ const UploadObjFilePicker = () => {
   );
 };
 
-const Menu = ({
-  setWireframe,
-}: {
-  setWireframe: Dispatch<SetStateAction<boolean>>;
-}) => {
+const Menu = () => {
   const setComplex = useSetAtom(complex);
   const [keypointRadius, setKeypointRadius] = useAtom(keypointRadiusAtom);
+  const [gridRadius, setGridRadius] = useAtom(gridRadiusAtom);
+  const [wireframe, setWireframe] = useAtom(wireframeAtom);
+
   const [open, setOpen] = useAtom(menuOpenAtom);
 
   if (!open) {
@@ -228,11 +239,29 @@ const Menu = ({
 
       <UploadObjFilePicker />
 
+      <GridControls />
+
+      <h4>Render options</h4>
+      <label>
+        <p>Grid point size</p>
+        <input
+          type="range"
+          min={0.001}
+          max={0.1}
+          step={0.001}
+          value={gridRadius}
+          onChange={(e) => {
+            setGridRadius(Number(e.target.value));
+          }}
+        />
+        {gridRadius.toFixed(3)}
+      </label>
       <label>
         <p>Wireframe</p>
         <input
           type="checkbox"
           id="menu-toggle"
+          checked={wireframe}
           onChange={(e) => setWireframe(e.target.checked)}
         />
       </label>
@@ -247,9 +276,8 @@ const Menu = ({
           value={keypointRadius}
           onChange={(e) => setKeypointRadius(Number(e.target.value))}
         />
+        {keypointRadius.toFixed(3)}
       </label>
-
-      <GridControls />
     </MenuContainer>
   );
 };
@@ -461,20 +489,23 @@ const GridControls = () => {
   const [showGrid, setShowGrid] = useAtom(showGridAtom);
 
   const cplx = useAtomValue(complex);
-  const [numDots, setNumDots] = useState(10);
+  const [numDots, setNumDots] = useState(7);
 
   if (!grid)
     return (
-      <Column>
+      <>
+        <h4>Grid controls</h4>
         <button
+          disabled={!cplx}
+          style={{ width: "fit-content", alignSelf: "center" }}
           onClick={() => {
             if (!cplx) return;
-            setGrid(defaultGrid(cplx.complex));
+            setGrid(defaultGrid(cplx.complex, 7));
           }}
         >
-          Make
+          Make grid
         </button>
-      </Column>
+      </>
     );
 
   return (
@@ -492,6 +523,7 @@ const GridControls = () => {
       </label>
       <button
         disabled={!showGrid}
+        style={{ width: "fit-content", marginLeft: "1rem" }}
         onClick={() => {
           if (!cplx) return;
           setGrid(defaultGrid(cplx.complex, 7));
@@ -513,6 +545,7 @@ const GridControls = () => {
             setGrid(defaultGrid(cplx.complex, n));
           }}
         />
+        {numDots}
       </label>
       <Column>
         <label>
@@ -529,6 +562,7 @@ const GridControls = () => {
             }}
             disabled={!showGrid}
           />
+          {grid.corner[0].toFixed(3)}
         </label>
         <label>
           <p>Grid corner y</p>
@@ -544,6 +578,7 @@ const GridControls = () => {
             }}
             disabled={!showGrid}
           />
+          {grid.corner[1].toFixed(3)}
         </label>
         <label>
           <p>Grid corner z</p>
@@ -559,6 +594,7 @@ const GridControls = () => {
             }}
             disabled={!showGrid}
           />
+          {grid.corner[2].toFixed(3)}
         </label>
       </Column>
       <label>
@@ -572,6 +608,7 @@ const GridControls = () => {
           onChange={(e) => setGrid({ ...grid, size: Number(e.target.value) })}
           disabled={!showGrid}
         />
+        {grid.size.toFixed(3)}
       </label>
 
       <Row>
@@ -623,6 +660,7 @@ const GridControls = () => {
             }}
             disabled={!showGrid}
           />
+          {grid.shape[0]}
         </label>
         <label>
           <p>Grid shape y</p>
@@ -637,6 +675,7 @@ const GridControls = () => {
             }}
             disabled={!showGrid}
           />
+          {grid.shape[1]}
         </label>
         <label>
           <p>Grid shape z</p>
@@ -651,13 +690,15 @@ const GridControls = () => {
             }}
             disabled={!showGrid}
           />
+          {grid.shape[2]}
         </label>
       </Column>
     </>
   );
 };
 
-const RenderGrid = ({ radius }: { radius: number }) => {
+const RenderGrid = () => {
+  const radius = useAtomValue(gridRadiusAtom);
   const grid = useAtomValue(gridAtom);
   const meshref = useRef<THREE.InstancedMesh>(null);
 
@@ -751,24 +792,28 @@ const RenderMedialAxis = ({ wireframe }: { wireframe?: boolean }) => {
 
 function App() {
   const cplx = useAtomValue(complex);
-
-  const keypointRadius = useAtomValue(keypointRadiusAtom);
-
-  const [wireframe, setWireframe] = useState(false);
+  const wireframe = useAtomValue(wireframeAtom);
   const [triangle, setTriangle] = useState<THREE.Vector3[] | undefined>(
     undefined
   );
-
-  const bdPair = useAtomValue(selectedBirthDeathPair);
-  const timelinePosition = useAtomValue(timelinePositionAtom);
   const showGrid = useAtomValue(showGridAtom);
+  const [show, setShow] = useState(false);
 
   return (
     <>
       <GlobalStyle />
-      <Row style={{ width: "100%", alignItems: "stretch", gap: 0 }}>
-        <Menu setWireframe={setWireframe} />
-        <CanvasContainer id="canvas-container">
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1px 1fr",
+          width: "100%",
+        }}
+      >
+        <Menu />
+        <CanvasContainer
+          id="canvas-container"
+          style={show ? {} : { gridColumn: "span 3" }}
+        >
           <Canvas
             onPointerMissed={() => {
               setTriangle(undefined);
@@ -834,7 +879,7 @@ function App() {
               />
             )}
 
-            {showGrid && <RenderGrid radius={0.02} />}
+            {showGrid && <RenderGrid />}
 
             {/* <RenderMedialAxis j={json} wireframe={wireframe} />
 
@@ -888,12 +933,23 @@ function App() {
           </TorusKnot> */}
           </Canvas>
         </CanvasContainer>
-        <Divider />
+        {show && (
+          <>
+            <Divider />
+            <div style={{ display: "flex", background: "#e5e5e5" }}>
+              {/* json && <Barcode json={json} /> */}
+            </div>
+          </>
+        )}
+      </div>
 
-        <div style={{ display: "flex", width: "50%", background: "#e5e5e5" }}>
-          {/*json && <Barcode json={json} /> */}
-        </div>
-      </Row>
+      <ToggleBarcodeButton
+        onClick={() => {
+          setShow(!show);
+        }}
+      >
+        {show ? "Hide" : "Show"} barcode
+      </ToggleBarcodeButton>
     </>
   );
 }
