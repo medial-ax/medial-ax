@@ -37,10 +37,12 @@ const GlobalStyle = createGlobalStyle`
     margin: 0;
     cursor: pointer;
     height: calc(1.2rem + 6px);
-  }
+    background: unset;
+    width: 100%;
 
-  input[type=range]:focus {
-    outline: none;
+    &:disabled {
+      opacity: 0.5;
+    }
   }
 
   input[type=range]::-webkit-slider-runnable-track {
@@ -56,7 +58,7 @@ const GlobalStyle = createGlobalStyle`
     margin-top: -0.45rem;
     height: 1.2rem;
     width: 0.35rem;
-    background: #ffffff;
+    background: unset;
     border: 1px solid #888;
     border-radius: 2px;
     cursor: pointer;
@@ -215,6 +217,19 @@ const MenuContainer = styled.div`
   }
 `;
 
+const SliderGrid = styled.div`
+  display: grid;
+  grid-template-columns: max-content auto minmax(2rem, max-content);
+  gap: 0.5rem 1rem;
+  justify-items: end;
+
+  input[type="range"]:disabled,
+  input[type="range"]:disabled + p,
+  p:has(+ input[type="range"]:disabled) {
+    opacity: 0.5;
+  }
+`;
+
 const BarcodeContainer = styled.div<{ open: boolean }>`
   display: flex;
   overflow: hidden;
@@ -332,6 +347,15 @@ const Menu = () => {
 
         <h4>Render options</h4>
         <label>
+          <p>Wireframe</p>
+          <input
+            type="checkbox"
+            id="menu-toggle"
+            checked={wireframe}
+            onChange={(e) => setWireframe(e.target.checked)}
+          />
+        </label>
+        <SliderGrid>
           <p>Grid point size</p>
           <input
             type="range"
@@ -343,19 +367,7 @@ const Menu = () => {
               setGridRadius(Number(e.target.value));
             }}
           />
-          {gridRadius.toFixed(3)}
-        </label>
-        <label>
-          <p>Wireframe</p>
-          <input
-            type="checkbox"
-            id="menu-toggle"
-            checked={wireframe}
-            onChange={(e) => setWireframe(e.target.checked)}
-          />
-        </label>
-
-        <label>
+          <p>{gridRadius.toFixed(3)}</p>
           <p>Keypoint radius</p>
           <input
             type="range"
@@ -365,8 +377,8 @@ const Menu = () => {
             value={keypointRadius}
             onChange={(e) => setKeypointRadius(Number(e.target.value))}
           />
-          {keypointRadius.toFixed(3)}
-        </label>
+          <p>{keypointRadius.toFixed(3)}</p>
+        </SliderGrid>
       </MenuContainer>
     </>
   );
@@ -621,7 +633,8 @@ const GridControls = () => {
       >
         Reset grid
       </button>
-      <label>
+
+      <SliderGrid>
         <p>Density</p>
         <input
           disabled={!showGrid}
@@ -635,59 +648,53 @@ const GridControls = () => {
             setGrid(defaultGrid(cplx.complex, n));
           }}
         />
-        {numDots}
-      </label>
-      <Column>
-        <label>
-          <p>Grid corner x</p>
-          <input
-            type="range"
-            min={-2}
-            max={2}
-            step={0.01}
-            value={grid.corner[0]}
-            onChange={(e) => {
-              const x = Number(e.target.value);
-              setGrid({ ...grid, corner: [x, grid.corner[1], grid.corner[2]] });
-            }}
-            disabled={!showGrid}
-          />
-          {grid.corner[0].toFixed(3)}
-        </label>
-        <label>
-          <p>Grid corner y</p>
-          <input
-            type="range"
-            min={-2}
-            max={2}
-            step={0.01}
-            value={grid.corner[1]}
-            onChange={(e) => {
-              const y = Number(e.target.value);
-              setGrid({ ...grid, corner: [grid.corner[0], y, grid.corner[2]] });
-            }}
-            disabled={!showGrid}
-          />
-          {grid.corner[1].toFixed(3)}
-        </label>
-        <label>
-          <p>Grid corner z</p>
-          <input
-            type="range"
-            min={-2}
-            max={2}
-            step={0.01}
-            value={grid.corner[2]}
-            onChange={(e) => {
-              const z = Number(e.target.value);
-              setGrid({ ...grid, corner: [grid.corner[0], grid.corner[1], z] });
-            }}
-            disabled={!showGrid}
-          />
-          {grid.corner[2].toFixed(3)}
-        </label>
-      </Column>
-      <label>
+        <p>{numDots}</p>
+
+        <p>Grid corner x</p>
+        <input
+          type="range"
+          min={-2}
+          max={2}
+          step={0.01}
+          value={grid.corner[0]}
+          onChange={(e) => {
+            const x = Number(e.target.value);
+            setGrid({ ...grid, corner: [x, grid.corner[1], grid.corner[2]] });
+          }}
+          disabled={!showGrid}
+        />
+        <p>{grid.corner[0].toFixed(3)}</p>
+
+        <p>Grid corner y</p>
+        <input
+          type="range"
+          min={-2}
+          max={2}
+          step={0.01}
+          value={grid.corner[1]}
+          onChange={(e) => {
+            const y = Number(e.target.value);
+            setGrid({ ...grid, corner: [grid.corner[0], y, grid.corner[2]] });
+          }}
+          disabled={!showGrid}
+        />
+        <p>{grid.corner[1].toFixed(3)}</p>
+
+        <p>Grid corner z</p>
+        <input
+          type="range"
+          min={-2}
+          max={2}
+          step={0.01}
+          value={grid.corner[2]}
+          onChange={(e) => {
+            const z = Number(e.target.value);
+            setGrid({ ...grid, corner: [grid.corner[0], grid.corner[1], z] });
+          }}
+          disabled={!showGrid}
+        />
+        <p>{grid.corner[2].toFixed(3)}</p>
+
         <p>Grid size</p>
         <input
           type="range"
@@ -698,8 +705,8 @@ const GridControls = () => {
           onChange={(e) => setGrid({ ...grid, size: Number(e.target.value) })}
           disabled={!showGrid}
         />
-        {grid.size.toFixed(3)}
-      </label>
+        <p>{grid.size.toFixed(3)}</p>
+      </SliderGrid>
 
       <Row>
         <button
@@ -736,53 +743,51 @@ const GridControls = () => {
         </button>
       </Row>
 
-      <Column>
-        <label>
-          <p>Grid shape x</p>
-          <input
-            type="range"
-            min={1}
-            max={50}
-            value={grid.shape[0]}
-            onChange={(e) => {
-              const x = Number(e.target.value);
-              setGrid({ ...grid, shape: [x, grid.shape[1], grid.shape[2]] });
-            }}
-            disabled={!showGrid}
-          />
-          {grid.shape[0]}
-        </label>
-        <label>
-          <p>Grid shape y</p>
-          <input
-            type="range"
-            min={1}
-            max={50}
-            value={grid.shape[1]}
-            onChange={(e) => {
-              const y = Number(e.target.value);
-              setGrid({ ...grid, shape: [grid.shape[0], y, grid.shape[2]] });
-            }}
-            disabled={!showGrid}
-          />
-          {grid.shape[1]}
-        </label>
-        <label>
-          <p>Grid shape z</p>
-          <input
-            type="range"
-            min={1}
-            max={50}
-            value={grid.shape[2]}
-            onChange={(e) => {
-              const z = Number(e.target.value);
-              setGrid({ ...grid, shape: [grid.shape[0], grid.shape[1], z] });
-            }}
-            disabled={!showGrid}
-          />
-          {grid.shape[2]}
-        </label>
-      </Column>
+      <SliderGrid
+        style={{
+          alignItems: "initial | initial | right",
+        }}
+      >
+        <p>Grid shape x</p>
+        <input
+          type="range"
+          min={1}
+          max={50}
+          value={grid.shape[0]}
+          onChange={(e) => {
+            const x = Number(e.target.value);
+            setGrid({ ...grid, shape: [x, grid.shape[1], grid.shape[2]] });
+          }}
+          disabled={!showGrid}
+        />
+        <p>{grid.shape[0]}</p>
+        <p>Grid shape y</p>
+        <input
+          type="range"
+          min={1}
+          max={50}
+          value={grid.shape[1]}
+          onChange={(e) => {
+            const y = Number(e.target.value);
+            setGrid({ ...grid, shape: [grid.shape[0], y, grid.shape[2]] });
+          }}
+          disabled={!showGrid}
+        />
+        <p>{grid.shape[1]}</p>
+        <p>Grid shape z</p>
+        <input
+          type="range"
+          min={1}
+          max={50}
+          value={grid.shape[2]}
+          onChange={(e) => {
+            const z = Number(e.target.value);
+            setGrid({ ...grid, shape: [grid.shape[0], grid.shape[1], z] });
+          }}
+          disabled={!showGrid}
+        />
+        <p>{grid.shape[2]}</p>
+      </SliderGrid>
     </>
   );
 };
