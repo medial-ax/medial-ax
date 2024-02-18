@@ -1,7 +1,12 @@
-import styled from "styled-components";
+import styled, { createGlobalStyle } from "styled-components";
 import "./App.css";
 import { Canvas, MeshProps } from "@react-three/fiber";
-import { Environment, OrbitControls, Wireframe } from "@react-three/drei";
+import {
+  Environment,
+  Example,
+  OrbitControls,
+  Wireframe,
+} from "@react-three/drei";
 import {
   Dispatch,
   SetStateAction,
@@ -27,6 +32,41 @@ import init, {
   test_fn_1,
 } from "ma-rs";
 import { dedup } from "./utils";
+import squished_cylinder from "../inputs/squished_cylinder.obj?raw";
+import extruded_ellipse from "../inputs/extruded_ellipse.obj?raw";
+import cube_subdiv_2 from "../inputs/cube-subdiv-2.obj?raw";
+import maze_2 from "../inputs/maze_2.obj?raw";
+
+const GlobalStyle = createGlobalStyle`
+  h1,h2,h3,h4,h5,h6 {
+    margin: 0;
+    padding: 0;
+  }
+`;
+
+const EXAMPLE_OBJS = [
+  { name: "Squished cylinder", string: squished_cylinder },
+  { name: "Extruded ellipse", string: extruded_ellipse },
+  { name: "Cube", string: cube_subdiv_2 },
+  { name: "Maze", string: maze_2 },
+];
+
+const ExampleList = styled.ul`
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+
+  li {
+    padding: 0.2rem 0.4rem;
+
+    &:hover {
+      background: #f3f3f3;
+      cursor: pointer;
+    }
+  }
+`;
 
 await init().then(() => {
   my_init_function();
@@ -72,6 +112,12 @@ const Row = styled.div`
   align-items: center;
 `;
 
+const Column = styled.div`
+  display: flex;
+  gap: 1rem;
+  flex-direction: column;
+`;
+
 const Divider = () => {
   return (
     <div
@@ -110,6 +156,7 @@ const Menu = ({
 }: {
   setWireframe: Dispatch<SetStateAction<boolean>>;
 }) => {
+  const setComplex = useSetAtom(complex);
   const [keypointRadius, setKeypointRadius] = useAtom(keypointRadiusAtom);
   const [open, setOpen] = useAtom(menuOpenAtom);
 
@@ -162,6 +209,23 @@ const Menu = ({
       </label>
 
       <UploadObjFilePicker />
+
+      <Column>
+        <h4 style={{ paddingLeft: "1rem" }}>Example objs</h4>
+        <ExampleList style={{ paddingLeft: "0.7rem" }}>
+          {EXAMPLE_OBJS.map((obj, i) => (
+            <li
+              key={i}
+              onClick={() => {
+                const value = make_complex_from_obj(obj.string);
+                setComplex({ complex: value, filename: obj.name });
+              }}
+            >
+              {obj.name}
+            </li>
+          ))}
+        </ExampleList>
+      </Column>
     </MenuContainer>
   );
 };
@@ -316,13 +380,13 @@ const RenderComplex = ({
           itemSize={3}
         />
       </bufferGeometry>
-      <meshBasicMaterial
+      {/* <meshBasicMaterial
         side={THREE.DoubleSide}
         attach="material"
         color="#ff0000"
         transparent
         opacity={0.5}
-      />
+      /> */}
       <meshLambertMaterial
         color="#f3f3f3"
         flatShading
@@ -435,28 +499,30 @@ function App() {
   const timelinePosition = useAtomValue(timelinePositionAtom);
 
   return (
-    <Row style={{ width: "100%", alignItems: "stretch", gap: 0 }}>
-      <Menu setWireframe={setWireframe} />
-      <CanvasContainer id="canvas-container">
-        <Canvas
-          onPointerMissed={() => {
-            setTriangle(undefined);
-          }}
-        >
-          <OrbitControls
-            enablePan={true}
-            enableZoom={true}
-            enableRotate={true}
-          />
-          <color attach="background" args={["#f6f6f6"]} />
+    <>
+      <GlobalStyle />
+      <Row style={{ width: "100%", alignItems: "stretch", gap: 0 }}>
+        <Menu setWireframe={setWireframe} />
+        <CanvasContainer id="canvas-container">
+          <Canvas
+            onPointerMissed={() => {
+              setTriangle(undefined);
+            }}
+          >
+            <OrbitControls
+              enablePan={true}
+              enableZoom={true}
+              enableRotate={true}
+            />
+            <color attach="background" args={["#f6f6f6"]} />
 
-          <hemisphereLight
-            color={"#ffffff"}
-            groundColor="#333"
-            intensity={3.0}
-          />
+            <hemisphereLight
+              color={"#ffffff"}
+              groundColor="#333"
+              intensity={3.0}
+            />
 
-          {/* {json.swaps.map(([p, q]) => {
+            {/* {json.swaps.map(([p, q]) => {
                 const pa = gridCoordinate(json.grid, p);
                 const pb = gridCoordinate(json.grid, q);
                 return (
@@ -476,38 +542,38 @@ function App() {
                   </>
                 );
               })} */}
-          {cplx && (
-            <RenderComplex
-              wireframe={wireframe}
-              cplx={cplx.complex}
-              key={cplx.filename}
-              onClick={(e) => {
-                // if (e.delta < 3) {
-                //   const faceIndex = e.faceIndex;
-                //   if (faceIndex === undefined) return;
-                //   const face = json.triangles[faceIndex];
-                //   const vertexIndices = [
-                //     ...new Set(
-                //       face.boundary.flatMap((ei) => json.edges[ei].boundary)
-                //     ),
-                //   ];
-                //   if (vertexIndices) {
-                //     setTriangle(
-                //       vertexIndices.map(
-                //         (v) => new THREE.Vector3(...json.vertices[v].coords!)
-                //       )
-                //     );
-                //   }
-                // }
-              }}
-            />
-          )}
+            {cplx && (
+              <RenderComplex
+                wireframe={wireframe}
+                cplx={cplx.complex}
+                key={cplx.filename}
+                onClick={(e) => {
+                  // if (e.delta < 3) {
+                  //   const faceIndex = e.faceIndex;
+                  //   if (faceIndex === undefined) return;
+                  //   const face = json.triangles[faceIndex];
+                  //   const vertexIndices = [
+                  //     ...new Set(
+                  //       face.boundary.flatMap((ei) => json.edges[ei].boundary)
+                  //     ),
+                  //   ];
+                  //   if (vertexIndices) {
+                  //     setTriangle(
+                  //       vertexIndices.map(
+                  //         (v) => new THREE.Vector3(...json.vertices[v].coords!)
+                  //       )
+                  //     );
+                  //   }
+                  // }
+                }}
+              />
+            )}
 
-          {/* <RenderMedialAxis j={json} wireframe={wireframe} />
+            {/* <RenderMedialAxis j={json} wireframe={wireframe} />
 
               <RenderGrid grid={} radius={0.02} /> */}
 
-          {/* {bdPair && (
+            {/* {bdPair && (
             <>
               {bdPair.birth && (
                 <TransparentSphere
@@ -528,7 +594,7 @@ function App() {
             </>
           )} */}
 
-          {/* {timelinePosition && (
+            {/* {timelinePosition && (
             <TransparentSphere
               pos={new THREE.Vector3(...json.key_point)}
               radius={Math.sqrt(timelinePosition)}
@@ -537,31 +603,32 @@ function App() {
             />
           )} */}
 
-          {triangle && (
-            <>
-              <RedTriangle points={triangle} />
-              <RedEdge from={triangle[0]} to={triangle[1]} radius={0.01} />
-              <RedEdge from={triangle[1]} to={triangle[2]} radius={0.01} />
-              <RedEdge from={triangle[2]} to={triangle[0]} radius={0.01} />
-              <RedSphere pos={triangle[0]} radius={0.02} />
-              <RedSphere pos={triangle[1]} radius={0.02} />
-              <RedSphere pos={triangle[2]} radius={0.02} />
-            </>
-          )}
+            {triangle && (
+              <>
+                <RedTriangle points={triangle} />
+                <RedEdge from={triangle[0]} to={triangle[1]} radius={0.01} />
+                <RedEdge from={triangle[1]} to={triangle[2]} radius={0.01} />
+                <RedEdge from={triangle[2]} to={triangle[0]} radius={0.01} />
+                <RedSphere pos={triangle[0]} radius={0.02} />
+                <RedSphere pos={triangle[1]} radius={0.02} />
+                <RedSphere pos={triangle[2]} radius={0.02} />
+              </>
+            )}
 
-          <Environment preset="warehouse" />
-          {/* <TorusKnot>
+            <Environment preset="warehouse" />
+            {/* <TorusKnot>
             {wireframe && <Wireframe />}
             <meshLambertMaterial attach="material" color="#f3f3f3" />
           </TorusKnot> */}
-        </Canvas>
-      </CanvasContainer>
-      <Divider />
+          </Canvas>
+        </CanvasContainer>
+        <Divider />
 
-      <div style={{ display: "flex", width: "50%", background: "#e5e5e5" }}>
-        {/*json && <Barcode json={json} /> */}
-      </div>
-    </Row>
+        <div style={{ display: "flex", width: "50%", background: "#e5e5e5" }}>
+          {/*json && <Barcode json={json} /> */}
+        </div>
+      </Row>
+    </>
   );
 }
 

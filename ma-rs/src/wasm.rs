@@ -7,8 +7,14 @@ use std::panic;
 
 #[wasm_bindgen]
 pub fn my_init_function() {
+    static mut WAS_INIT: bool = false;
     panic::set_hook(Box::new(console_error_panic_hook::hook));
-    let _ = console_log::init_with_level(log::Level::Debug);
+    unsafe {
+        if !WAS_INIT {
+            let _ = console_log::init_with_level(log::Level::Debug);
+            WAS_INIT = true;
+        }
+    }
     debug!("WASM initialized");
 }
 
