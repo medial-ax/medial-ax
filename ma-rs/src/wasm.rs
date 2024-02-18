@@ -19,11 +19,6 @@ pub fn my_init_function() {
 }
 
 #[wasm_bindgen]
-pub fn test_fn_1() -> String {
-    "hello again ===========================".to_string()
-}
-
-#[wasm_bindgen]
 pub fn make_complex_from_obj(obj_body: String) -> Result<JsValue, JsValue> {
     let complex = Complex::read_from_obj_string(&obj_body)?;
     serde_wasm_bindgen::to_value(&complex).map_err(|e| JsValue::from_str(&format!("{}", e)))

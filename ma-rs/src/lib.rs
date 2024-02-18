@@ -26,11 +26,6 @@ pub mod json;
 pub mod permutation;
 pub mod sneaky_matrix;
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
-pub fn hello_from_rust() -> String {
-    "Hello from Rust!".to_string()
-}
-
 #[cfg_attr(feature = "python", pyo3::pyclass(get_all))]
 #[derive(Clone, Debug, serde::Serialize)]
 pub struct Swap {

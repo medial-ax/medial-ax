@@ -19,7 +19,12 @@ import {
 import * as THREE from "three";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { Barcode } from "./Barcode";
-import { complex, timelinePositionAtom } from "./state";
+import {
+  complex,
+  grid as gridAtom,
+  showGridAtom,
+  timelinePositionAtom,
+} from "./state";
 import { selectedBirthDeathPair } from "./state";
 import { keypointRadiusAtom, menuOpenAtom } from "./state";
 import { colors } from "./constants";
@@ -38,7 +43,7 @@ import cube_subdiv_2 from "../inputs/cube-subdiv-2.obj?raw";
 import maze_2 from "../inputs/maze_2.obj?raw";
 
 const GlobalStyle = createGlobalStyle`
-  h1,h2,h3,h4,h5,h6 {
+  h1,h2,h3,h4,h5,h6, p {
     margin: 0;
     padding: 0;
   }
@@ -58,9 +63,12 @@ const ExampleList = styled.ul`
   display: flex;
   flex-direction: column;
 
+  border: 1px solid #ddd;
+  margin: 0 1rem;
+  padding: 0 !important;
+
   li {
     padding: 0.2rem 0.4rem;
-
     &:hover {
       background: #f3f3f3;
       cursor: pointer;
@@ -86,17 +94,32 @@ const MenuContainer = styled.div`
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  overflow-y: auto;
 
   background: white;
 
   border-right: 1px solid #ccc;
 
+  & > * {
+    padding: 0 1rem;
+  }
+
+  h4 {
+    background: #e0e0e0;
+  }
+
   label {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    padding: 1rem;
     cursor: pointer;
+
+    &:has(input:disabled) {
+      p {
+        opacity: 0.5;
+        cursor: default;
+      }
+    }
   }
 
   label.file {
@@ -176,7 +199,7 @@ const Menu = ({
 
   return (
     <MenuContainer>
-      <Row style={{ padding: "0 1rem" }}>
+      <Row>
         <h3 style={{ flex: 1 }}>Controls</h3>
         <button
           style={{ justifySelf: "end" }}
@@ -187,6 +210,24 @@ const Menu = ({
           Close
         </button>
       </Row>
+
+      <h4>Example objs</h4>
+      <ExampleList>
+        {EXAMPLE_OBJS.map((obj, i) => (
+          <li
+            key={i}
+            onClick={() => {
+              const value = make_complex_from_obj(obj.string);
+              setComplex({ complex: value, filename: obj.name });
+            }}
+          >
+            {obj.name}
+          </li>
+        ))}
+      </ExampleList>
+
+      <UploadObjFilePicker />
+
       <label>
         <p>Wireframe</p>
         <input
@@ -208,24 +249,7 @@ const Menu = ({
         />
       </label>
 
-      <UploadObjFilePicker />
-
-      <Column>
-        <h4 style={{ paddingLeft: "1rem" }}>Example objs</h4>
-        <ExampleList style={{ paddingLeft: "0.7rem" }}>
-          {EXAMPLE_OBJS.map((obj, i) => (
-            <li
-              key={i}
-              onClick={() => {
-                const value = make_complex_from_obj(obj.string);
-                setComplex({ complex: value, filename: obj.name });
-              }}
-            >
-              {obj.name}
-            </li>
-          ))}
-        </ExampleList>
-      </Column>
+      <GridControls />
     </MenuContainer>
   );
 };
@@ -397,10 +421,248 @@ const RenderComplex = ({
   );
 };
 
-const RenderGrid = ({ grid, radius }: { grid: Grid; radius: number }) => {
+const bboxFromComplex = (cplx: any) => {
+  const [vertices] = cplx["simplices_per_dim"];
+  const coords = vertices.map((v: any) => v.coords);
+  const xs = coords.map((c: number[]) => c[0]);
+  const ys = coords.map((c: number[]) => c[1]);
+  const zs = coords.map((c: number[]) => c[2]);
+  return [
+    [Math.min(...xs), Math.min(...ys), Math.min(...zs)],
+    [Math.max(...xs), Math.max(...ys), Math.max(...zs)],
+  ];
+};
+
+const defaultGrid = (cplx: any, numberOfDots: number = 10) => {
+  const bbox = bboxFromComplex(cplx);
+  const scales = bbox[1].map((v, i) => v - bbox[0][i]);
+  const scale = Math.min(...scales);
+  const size = scale / numberOfDots;
+
+  const shape = [
+    Math.ceil(scales[0] / size) + 1,
+    Math.ceil(scales[1] / size) + 1,
+    Math.ceil(scales[2] / size) + 1,
+  ];
+  return {
+    corner: bbox[0],
+    size,
+    shape,
+  };
+};
+
+// export type Grid = {
+//   corner: number[];
+//   size: number;
+//   shape: number[];
+// };
+const GridControls = () => {
+  const [grid, setGrid] = useAtom(gridAtom);
+  const [showGrid, setShowGrid] = useAtom(showGridAtom);
+
+  const cplx = useAtomValue(complex);
+  const [numDots, setNumDots] = useState(10);
+
+  if (!grid)
+    return (
+      <Column>
+        <button
+          onClick={() => {
+            if (!cplx) return;
+            setGrid(defaultGrid(cplx.complex));
+          }}
+        >
+          Make
+        </button>
+      </Column>
+    );
+
+  return (
+    <>
+      <h4>Grid controls</h4>
+      <label>
+        <p>Show grid</p>
+        <input
+          type="checkbox"
+          checked={showGrid}
+          onChange={(e) => {
+            setShowGrid(e.target.checked);
+          }}
+        />
+      </label>
+      <button
+        disabled={!showGrid}
+        onClick={() => {
+          if (!cplx) return;
+          setGrid(defaultGrid(cplx.complex, 7));
+        }}
+      >
+        Reset grid
+      </button>
+      <label>
+        <p>Density</p>
+        <input
+          disabled={!showGrid}
+          type="range"
+          min={1}
+          max={20}
+          value={numDots}
+          onChange={(e) => {
+            const n = Number(e.target.value);
+            setNumDots(n);
+            setGrid(defaultGrid(cplx.complex, n));
+          }}
+        />
+      </label>
+      <Column>
+        <label>
+          <p>Grid corner x</p>
+          <input
+            type="range"
+            min={-2}
+            max={2}
+            step={0.01}
+            value={grid.corner[0]}
+            onChange={(e) => {
+              const x = Number(e.target.value);
+              setGrid({ ...grid, corner: [x, grid.corner[1], grid.corner[2]] });
+            }}
+            disabled={!showGrid}
+          />
+        </label>
+        <label>
+          <p>Grid corner y</p>
+          <input
+            type="range"
+            min={-2}
+            max={2}
+            step={0.01}
+            value={grid.corner[1]}
+            onChange={(e) => {
+              const y = Number(e.target.value);
+              setGrid({ ...grid, corner: [grid.corner[0], y, grid.corner[2]] });
+            }}
+            disabled={!showGrid}
+          />
+        </label>
+        <label>
+          <p>Grid corner z</p>
+          <input
+            type="range"
+            min={-2}
+            max={2}
+            step={0.01}
+            value={grid.corner[2]}
+            onChange={(e) => {
+              const z = Number(e.target.value);
+              setGrid({ ...grid, corner: [grid.corner[0], grid.corner[1], z] });
+            }}
+            disabled={!showGrid}
+          />
+        </label>
+      </Column>
+      <label>
+        <p>Grid size</p>
+        <input
+          type="range"
+          min={0.01}
+          max={1}
+          step={0.01}
+          value={grid?.size}
+          onChange={(e) => setGrid({ ...grid, size: Number(e.target.value) })}
+          disabled={!showGrid}
+        />
+      </label>
+
+      <Row>
+        <button
+          onClick={() => {
+            setGrid({
+              ...grid,
+              size: grid.size / 2,
+              shape: [
+                grid.shape[0] + grid.shape[0] - 1,
+                grid.shape[1] + grid.shape[1] - 1,
+                grid.shape[2] + grid.shape[2] - 1,
+              ],
+            });
+          }}
+          disabled={!showGrid}
+        >
+          Subdivide grid
+        </button>
+        <button
+          onClick={() => {
+            setGrid({
+              ...grid,
+              size: grid.size * 2,
+              shape: [
+                Math.ceil(grid.shape[0] / 2),
+                Math.ceil(grid.shape[1] / 2),
+                Math.ceil(grid.shape[2] / 2),
+              ],
+            });
+          }}
+          disabled={!showGrid}
+        >
+          Undo
+        </button>
+      </Row>
+
+      <Column>
+        <label>
+          <p>Grid shape x</p>
+          <input
+            type="range"
+            min={1}
+            max={50}
+            value={grid.shape[0]}
+            onChange={(e) => {
+              const x = Number(e.target.value);
+              setGrid({ ...grid, shape: [x, grid.shape[1], grid.shape[2]] });
+            }}
+            disabled={!showGrid}
+          />
+        </label>
+        <label>
+          <p>Grid shape y</p>
+          <input
+            type="range"
+            min={1}
+            max={50}
+            value={grid.shape[1]}
+            onChange={(e) => {
+              const y = Number(e.target.value);
+              setGrid({ ...grid, shape: [grid.shape[0], y, grid.shape[2]] });
+            }}
+            disabled={!showGrid}
+          />
+        </label>
+        <label>
+          <p>Grid shape z</p>
+          <input
+            type="range"
+            min={1}
+            max={50}
+            value={grid.shape[2]}
+            onChange={(e) => {
+              const z = Number(e.target.value);
+              setGrid({ ...grid, shape: [grid.shape[0], grid.shape[1], z] });
+            }}
+            disabled={!showGrid}
+          />
+        </label>
+      </Column>
+    </>
+  );
+};
+
+const RenderGrid = ({ radius }: { radius: number }) => {
+  const grid = useAtomValue(gridAtom);
   const meshref = useRef<THREE.InstancedMesh>(null);
 
   const points = useMemo(() => {
+    if (!grid) return;
     const coords: [number, number, number][] = [];
     for (let x = 0; x < grid.shape[0]; x++) {
       for (let y = 0; y < grid.shape[1]; y++) {
@@ -415,13 +677,15 @@ const RenderGrid = ({ grid, radius }: { grid: Grid; radius: number }) => {
 
   useLayoutEffect(() => {
     const m = meshref.current;
-    if (!m) return;
+    if (!m || !points) return;
 
     points.forEach((p, i) => {
       m.setMatrixAt(i, new THREE.Matrix4().makeTranslation(...p));
       m.instanceMatrix.needsUpdate = true;
     });
   }, [points]);
+
+  if (!grid || !points) return null;
 
   return (
     <instancedMesh ref={meshref} args={[undefined, undefined, points.length]}>
@@ -497,6 +761,7 @@ function App() {
 
   const bdPair = useAtomValue(selectedBirthDeathPair);
   const timelinePosition = useAtomValue(timelinePositionAtom);
+  const showGrid = useAtomValue(showGridAtom);
 
   return (
     <>
@@ -569,9 +834,10 @@ function App() {
               />
             )}
 
+            {showGrid && <RenderGrid radius={0.02} />}
+
             {/* <RenderMedialAxis j={json} wireframe={wireframe} />
 
-              <RenderGrid grid={} radius={0.02} /> */}
 
             {/* {bdPair && (
             <>
