@@ -49,14 +49,17 @@ const GlobalStyle = createGlobalStyle`
     margin: 0;
     padding: 0;
   }
+  body {
+    overflow: hidden;
+  }
 `;
 
 const ToggleBarcodeButton = styled.button`
   position: absolute;
   top: 0;
   right: 0;
-  z-index: 100;
-  margin: 0.5rem;
+  z-index: 10;
+  margin: 0.6rem;
   text-overflow: wrap;
   width: 4rem;
 `;
@@ -107,7 +110,23 @@ const CanvasContainer = styled.div`
   overflow-x: hidden;
 `;
 
+const OpenMenuButton = styled.button<{ open?: boolean }>`
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 10;
+  margin: 0.6rem;
+  max-width: 4rem;
+  transform: ${(p) =>
+    p.open ? "translateX(calc(-100% - 1.2rem))" : "translateX(0)"};
+`;
+
 const MenuContainer = styled.div`
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+
   z-index: 100;
   display: flex;
   flex-direction: column;
@@ -115,9 +134,14 @@ const MenuContainer = styled.div`
   overflow-y: auto;
   max-width: fit-content;
 
+  transition: transform 0.3s ease-in-out;
+
   background: white;
 
-  border-right: 1px solid #ccc;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  margin: 0.6rem;
+  padding-top: 1rem;
 
   & > * {
     padding: 0 1rem;
@@ -147,6 +171,29 @@ const MenuContainer = styled.div`
   }
 `;
 
+const BarcodeContainer = styled.div<{ open: boolean }>`
+  display: flex;
+  overflow: hidden;
+
+  position: absolute;
+  top: 2.8rem;
+  right: 0;
+  z-index: 100;
+  margin: 0.6rem;
+  width: fit-content;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+
+  transform: ${(p) =>
+    !p.open ? "translateX(calc(100% + 1.2rem))" : "translateX(0)"};
+  transition: transform 0.3s ease-in-out;
+
+  min-width: 30rem;
+  min-height: 30rem;
+
+  background: ${colors.barcodeBackground};
+`;
+
 const Row = styled.div`
   display: flex;
   gap: 1rem;
@@ -159,19 +206,6 @@ const Column = styled.div`
   gap: 1rem;
   flex-direction: column;
 `;
-
-const Divider = () => {
-  return (
-    <div
-      style={{
-        width: "1px",
-        maxWidth: "1px",
-        height: "100%",
-        background: "#ccc",
-      }}
-    />
-  );
-};
 
 const UploadObjFilePicker = () => {
   const setComplex = useSetAtom(complex);
@@ -202,91 +236,93 @@ const Menu = () => {
 
   const [open, setOpen] = useAtom(menuOpenAtom);
 
-  if (!open) {
-    return (
-      <div style={{ position: "absolute", top: 0, left: 0, zIndex: 123 }}>
-        <button
-          onClick={() => {
-            setOpen(true);
-          }}
-        >
-          Open menu
-        </button>
-      </div>
-    );
-  }
-
   return (
-    <MenuContainer>
-      <Row>
-        <h3 style={{ flex: 1 }}>Controls</h3>
-        <button
-          style={{ justifySelf: "end" }}
-          onClick={() => {
-            setOpen(false);
-          }}
-        >
-          Close
-        </button>
-      </Row>
-
-      <h4>Example objs</h4>
-      <ExampleList>
-        {EXAMPLE_OBJS.map((obj, i) => (
-          <li
-            key={i}
+    <>
+      <OpenMenuButton
+        open={open}
+        onClick={() => {
+          setOpen(true);
+        }}
+      >
+        Open menu
+      </OpenMenuButton>
+      <MenuContainer
+        style={{
+          transform: open
+            ? "translateX(0)"
+            : "translateX(calc(-100% - 1.2rem))",
+        }}
+      >
+        <Row>
+          <h3 style={{ flex: 1 }}>Controls</h3>
+          <button
+            style={{ justifySelf: "end" }}
             onClick={() => {
-              const value = make_complex_from_obj(obj.string);
-              setComplex({ complex: value, filename: obj.name });
+              setOpen(false);
             }}
           >
-            {obj.name}
-          </li>
-        ))}
-      </ExampleList>
+            Close
+          </button>
+        </Row>
 
-      <UploadObjFilePicker />
+        <h4>Example objs</h4>
+        <ExampleList>
+          {EXAMPLE_OBJS.map((obj, i) => (
+            <li
+              key={i}
+              onClick={() => {
+                const value = make_complex_from_obj(obj.string);
+                setComplex({ complex: value, filename: obj.name });
+              }}
+            >
+              {obj.name}
+            </li>
+          ))}
+        </ExampleList>
 
-      <GridControls />
+        <UploadObjFilePicker />
 
-      <h4>Render options</h4>
-      <label>
-        <p>Grid point size</p>
-        <input
-          type="range"
-          min={0.001}
-          max={0.1}
-          step={0.001}
-          value={gridRadius}
-          onChange={(e) => {
-            setGridRadius(Number(e.target.value));
-          }}
-        />
-        {gridRadius.toFixed(3)}
-      </label>
-      <label>
-        <p>Wireframe</p>
-        <input
-          type="checkbox"
-          id="menu-toggle"
-          checked={wireframe}
-          onChange={(e) => setWireframe(e.target.checked)}
-        />
-      </label>
+        <GridControls />
 
-      <label>
-        <p>Keypoint radius</p>
-        <input
-          type="range"
-          min={0.01}
-          max={0.5}
-          step={0.001}
-          value={keypointRadius}
-          onChange={(e) => setKeypointRadius(Number(e.target.value))}
-        />
-        {keypointRadius.toFixed(3)}
-      </label>
-    </MenuContainer>
+        <h4>Render options</h4>
+        <label>
+          <p>Grid point size</p>
+          <input
+            type="range"
+            min={0.001}
+            max={0.1}
+            step={0.001}
+            value={gridRadius}
+            onChange={(e) => {
+              setGridRadius(Number(e.target.value));
+            }}
+          />
+          {gridRadius.toFixed(3)}
+        </label>
+        <label>
+          <p>Wireframe</p>
+          <input
+            type="checkbox"
+            id="menu-toggle"
+            checked={wireframe}
+            onChange={(e) => setWireframe(e.target.checked)}
+          />
+        </label>
+
+        <label>
+          <p>Keypoint radius</p>
+          <input
+            type="range"
+            min={0.01}
+            max={0.5}
+            step={0.001}
+            value={keypointRadius}
+            onChange={(e) => setKeypointRadius(Number(e.target.value))}
+          />
+          {keypointRadius.toFixed(3)}
+        </label>
+      </MenuContainer>
+    </>
   );
 };
 
@@ -926,14 +962,9 @@ const RenderBarcodeSideThing = () => {
   const [open, setOpen] = useState(false);
   return (
     <>
-      {open && (
-        <>
-          <Divider />
-          <div style={{ display: "flex", background: "#e5e5e5" }}>
-            {/* json && <Barcode json={json} /> */}
-          </div>
-        </>
-      )}
+      <BarcodeContainer open={open}>
+        <Barcode json={undefined} />
+      </BarcodeContainer>
       <ToggleBarcodeButton
         onClick={() => {
           setOpen(!open);

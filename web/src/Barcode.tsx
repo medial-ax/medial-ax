@@ -469,7 +469,20 @@ export const Barcode = ({ json }: { json: Json | undefined }) => {
     };
   }, []);
 
-  if (!json) return <div>hello</div>;
+  if (!json)
+    return (
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          margin: "2rem auto",
+          textAlign: "center",
+          flex: 1,
+        }}
+      >
+        No barcode calculated yet
+      </div>
+    );
 
   const allPairs = json.empty_barcode
     .concat(json.vertex_barcode)
