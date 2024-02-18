@@ -92,21 +92,28 @@ await init().then(() => {
   my_init_function();
 });
 
+const MainContainer = styled.div`
+  display: flex;
+  flex-direction: row;
+  width: 100vw;
+  height: 100vh;
+  & > * {
+    flex: 1;
+  }
+`;
+
 const CanvasContainer = styled.div`
   display: flex;
   overflow-x: hidden;
 `;
 
 const MenuContainer = styled.div`
-  position: absolute;
-  top: 0;
-  left: 0;
-  bottom: 0;
   z-index: 100;
   display: flex;
   flex-direction: column;
   gap: 1rem;
   overflow-y: auto;
+  max-width: fit-content;
 
   background: white;
 
@@ -158,6 +165,7 @@ const Divider = () => {
     <div
       style={{
         width: "1px",
+        maxWidth: "1px",
         height: "100%",
         background: "#ccc",
       }}
@@ -790,49 +798,27 @@ const RenderMedialAxis = ({ wireframe }: { wireframe?: boolean }) => {
   // );
 };
 
-function App() {
+const RenderCanvas = () => {
   const cplx = useAtomValue(complex);
   const wireframe = useAtomValue(wireframeAtom);
   const [triangle, setTriangle] = useState<THREE.Vector3[] | undefined>(
     undefined
   );
   const showGrid = useAtomValue(showGridAtom);
-  const [show, setShow] = useState(false);
 
   return (
-    <>
-      <GlobalStyle />
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1px 1fr",
-          width: "100%",
+    <CanvasContainer id="canvas-container">
+      <Canvas
+        onPointerMissed={() => {
+          setTriangle(undefined);
         }}
       >
-        <Menu />
-        <CanvasContainer
-          id="canvas-container"
-          style={show ? {} : { gridColumn: "span 3" }}
-        >
-          <Canvas
-            onPointerMissed={() => {
-              setTriangle(undefined);
-            }}
-          >
-            <OrbitControls
-              enablePan={true}
-              enableZoom={true}
-              enableRotate={true}
-            />
-            <color attach="background" args={["#f6f6f6"]} />
+        <OrbitControls enablePan={true} enableZoom={true} enableRotate={true} />
+        <color attach="background" args={["#f6f6f6"]} />
 
-            <hemisphereLight
-              color={"#ffffff"}
-              groundColor="#333"
-              intensity={3.0}
-            />
+        <hemisphereLight color={"#ffffff"} groundColor="#333" intensity={3.0} />
 
-            {/* {json.swaps.map(([p, q]) => {
+        {/* {json.swaps.map(([p, q]) => {
                 const pa = gridCoordinate(json.grid, p);
                 const pb = gridCoordinate(json.grid, q);
                 return (
@@ -852,36 +838,36 @@ function App() {
                   </>
                 );
               })} */}
-            {cplx && (
-              <RenderComplex
-                wireframe={wireframe}
-                cplx={cplx.complex}
-                key={cplx.filename}
-                onClick={(e) => {
-                  // if (e.delta < 3) {
-                  //   const faceIndex = e.faceIndex;
-                  //   if (faceIndex === undefined) return;
-                  //   const face = json.triangles[faceIndex];
-                  //   const vertexIndices = [
-                  //     ...new Set(
-                  //       face.boundary.flatMap((ei) => json.edges[ei].boundary)
-                  //     ),
-                  //   ];
-                  //   if (vertexIndices) {
-                  //     setTriangle(
-                  //       vertexIndices.map(
-                  //         (v) => new THREE.Vector3(...json.vertices[v].coords!)
-                  //       )
-                  //     );
-                  //   }
-                  // }
-                }}
-              />
-            )}
+        {cplx && (
+          <RenderComplex
+            wireframe={wireframe}
+            cplx={cplx.complex}
+            key={cplx.filename}
+            onClick={(e) => {
+              // if (e.delta < 3) {
+              //   const faceIndex = e.faceIndex;
+              //   if (faceIndex === undefined) return;
+              //   const face = json.triangles[faceIndex];
+              //   const vertexIndices = [
+              //     ...new Set(
+              //       face.boundary.flatMap((ei) => json.edges[ei].boundary)
+              //     ),
+              //   ];
+              //   if (vertexIndices) {
+              //     setTriangle(
+              //       vertexIndices.map(
+              //         (v) => new THREE.Vector3(...json.vertices[v].coords!)
+              //       )
+              //     );
+              //   }
+              // }
+            }}
+          />
+        )}
 
-            {showGrid && <RenderGrid />}
+        {showGrid && <RenderGrid />}
 
-            {/* <RenderMedialAxis j={json} wireframe={wireframe} />
+        {/* <RenderMedialAxis j={json} wireframe={wireframe} />
 
 
             {/* {bdPair && (
@@ -905,7 +891,7 @@ function App() {
             </>
           )} */}
 
-            {/* {timelinePosition && (
+        {/* {timelinePosition && (
             <TransparentSphere
               pos={new THREE.Vector3(...json.key_point)}
               radius={Math.sqrt(timelinePosition)}
@@ -914,42 +900,60 @@ function App() {
             />
           )} */}
 
-            {triangle && (
-              <>
-                <RedTriangle points={triangle} />
-                <RedEdge from={triangle[0]} to={triangle[1]} radius={0.01} />
-                <RedEdge from={triangle[1]} to={triangle[2]} radius={0.01} />
-                <RedEdge from={triangle[2]} to={triangle[0]} radius={0.01} />
-                <RedSphere pos={triangle[0]} radius={0.02} />
-                <RedSphere pos={triangle[1]} radius={0.02} />
-                <RedSphere pos={triangle[2]} radius={0.02} />
-              </>
-            )}
+        {triangle && (
+          <>
+            <RedTriangle points={triangle} />
+            <RedEdge from={triangle[0]} to={triangle[1]} radius={0.01} />
+            <RedEdge from={triangle[1]} to={triangle[2]} radius={0.01} />
+            <RedEdge from={triangle[2]} to={triangle[0]} radius={0.01} />
+            <RedSphere pos={triangle[0]} radius={0.02} />
+            <RedSphere pos={triangle[1]} radius={0.02} />
+            <RedSphere pos={triangle[2]} radius={0.02} />
+          </>
+        )}
 
-            <Environment preset="warehouse" />
-            {/* <TorusKnot>
+        <Environment preset="warehouse" />
+        {/* <TorusKnot>
             {wireframe && <Wireframe />}
             <meshLambertMaterial attach="material" color="#f3f3f3" />
           </TorusKnot> */}
-          </Canvas>
-        </CanvasContainer>
-        {show && (
-          <>
-            <Divider />
-            <div style={{ display: "flex", background: "#e5e5e5" }}>
-              {/* json && <Barcode json={json} /> */}
-            </div>
-          </>
-        )}
-      </div>
+      </Canvas>
+    </CanvasContainer>
+  );
+};
 
+const RenderBarcodeSideThing = () => {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      {open && (
+        <>
+          <Divider />
+          <div style={{ display: "flex", background: "#e5e5e5" }}>
+            {/* json && <Barcode json={json} /> */}
+          </div>
+        </>
+      )}
       <ToggleBarcodeButton
         onClick={() => {
-          setShow(!show);
+          setOpen(!open);
         }}
       >
-        {show ? "Hide" : "Show"} barcode
+        {open ? "Hide" : "Show"} barcode
       </ToggleBarcodeButton>
+    </>
+  );
+};
+
+function App() {
+  return (
+    <>
+      <GlobalStyle />
+      <MainContainer>
+        <Menu />
+        <RenderCanvas />
+        <RenderBarcodeSideThing />
+      </MainContainer>
     </>
   );
 }
