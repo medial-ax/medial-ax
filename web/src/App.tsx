@@ -126,6 +126,7 @@ const MenuContainer = styled.div`
   top: 0;
   bottom: 0;
   left: 0;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.17);
 
   z-index: 100;
   display: flex;
@@ -134,7 +135,7 @@ const MenuContainer = styled.div`
   overflow-y: auto;
   max-width: fit-content;
 
-  transition: transform 0.3s ease-in-out;
+  transition: transform 0.2s ease-in-out;
 
   background: white;
 
@@ -183,15 +184,17 @@ const BarcodeContainer = styled.div<{ open: boolean }>`
   width: fit-content;
   border: 1px solid #ccc;
   border-radius: 6px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.17);
 
   transform: ${(p) =>
     !p.open ? "translateX(calc(100% + 1.2rem))" : "translateX(0)"};
-  transition: transform 0.3s ease-in-out;
+  transition: transform 0.2s ease-in-out;
 
   min-width: 30rem;
   min-height: 30rem;
 
-  background: ${colors.barcodeBackground};
+  // background: ${colors.barcodeBackground};
+  background: white;
 `;
 
 const Row = styled.div`
