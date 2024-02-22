@@ -7,21 +7,26 @@ import * as THREE from "three";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { Barcode } from "./Barcode";
 import {
+  Dim,
   complex,
   grid as gridAtom,
   gridRadiusAtom,
   showGridAtom,
+  showMA,
+  swapsAtom,
+  swapsForMA,
   wireframeAtom,
 } from "./state";
 import { keypointRadiusAtom, menuOpenAtom } from "./state";
 import { colors } from "./constants";
-import { gridCoordinate } from "./medialaxes";
-import init, { make_complex_from_obj, my_init_function } from "ma-rs";
+import { dualFaceQuad, gridCoordinate } from "./medialaxes";
+import init, { make_complex_from_obj, my_init_function, run } from "ma-rs";
 import { dedup } from "./utils";
 import squished_cylinder from "../inputs/squished_cylinder.obj?raw";
 import extruded_ellipse from "../inputs/extruded_ellipse.obj?raw";
 import cube_subdiv_2 from "../inputs/cube-subdiv-2.obj?raw";
 import maze_2 from "../inputs/maze_2.obj?raw";
+import { Grid } from "./types";
 
 const GlobalStyle = createGlobalStyle`
   h1,h2,h3,h4,h5,h6, p {
@@ -290,10 +295,17 @@ const UploadObjFilePicker = () => {
 };
 
 const Menu = () => {
-  const setComplex = useSetAtom(complex);
+  const [cplx, setComplex] = useAtom(complex);
   const [keypointRadius, setKeypointRadius] = useAtom(keypointRadiusAtom);
   const [gridRadius, setGridRadius] = useAtom(gridRadiusAtom);
   const [wireframe, setWireframe] = useAtom(wireframeAtom);
+  const grid = useAtomValue(gridAtom);
+  const setSwaps = useSetAtom(swapsAtom);
+  const [showMa, setShowMa] = useAtom(showMA);
+
+  const zerothMA = useAtomValue(swapsForMA(0));
+  if (0 < zerothMA.length)
+    console.log(zerothMA)
 
   const [open, setOpen] = useAtom(menuOpenAtom);
 
@@ -325,6 +337,16 @@ const Menu = () => {
             Close
           </button>
         </Row>
+
+        <button onClick={() => {
+          if (!grid) { console.error('No grid!'); return; }
+          if (!cplx) { console.error('No complex!'); return; }
+          const result = run(grid, cplx.complex);
+          const withSwaps = result.filter((o: any) => o[2].v.length > 0);
+          setSwaps(withSwaps);
+        }}>
+          Debug
+        </button>
 
         <h4>Example objs</h4>
         <ExampleList>
@@ -379,7 +401,14 @@ const Menu = () => {
           />
           <p>{keypointRadius.toFixed(3)}</p>
         </SliderGrid>
-      </MenuContainer>
+
+        <fieldset>
+          <legend>Show medial axes</legend>
+          <label><input type="checkbox" onChange={(e) => { setShowMa((c) => ({ ...c, 0: e.target.checked })) }} disabled={zerothMA.length === 0} />Zeroth</label>
+          <label><input type="checkbox" onChange={(e) => { setShowMa((c) => ({ ...c, 1: e.target.checked })) }} disabled={zerothMA.length === 0} />First TODO</label>
+          <label><input type="checkbox" onChange={(e) => { setShowMa((c) => ({ ...c, 2: e.target.checked })) }} disabled={zerothMA.length === 0} />Second TODO</label>
+        </fieldset>
+      </MenuContainer >
     </>
   );
 };
@@ -837,52 +866,54 @@ const RenderGrid = () => {
   );
 };
 
-const RenderMedialAxis = ({ wireframe }: { wireframe?: boolean }) => {
-  // const ref = useRef<THREE.BufferAttribute>(null);
+const RenderMedialAxis = ({ grid, dim, wireframe }: { grid: Grid, dim: Dim, wireframe?: boolean }) => {
+  const swaps = useAtomValue(swapsForMA(dim));
+  const ref = useRef<THREE.BufferAttribute>(null);
 
-  // const [coordBuffer, numberOfVertices] = useMemo(() => {
-  //   let allCoords: number[] = [];
-  //   for (const [p, q] of j.swaps) {
-  //     const [a, b, c, d] = dualFaceQuad(j.grid, p, q);
-  //     const vertexcoords = [...a, ...b, ...c, ...a, ...c, ...d];
-  //     allCoords = allCoords.concat(vertexcoords);
-  //   }
-  //   return [new Float32Array(allCoords), j.swaps.length * 2 * 3];
-  // }, [j.grid, j.swaps]);
+  const [coordBuffer, numberOfVertices] = useMemo(() => {
+    let allCoords: number[] = [];
+    for (const [p, q] of swaps) {
+      const [a, b, c, d] = dualFaceQuad(grid, p, q);
+      const vertexcoords = [...a, ...b, ...c, ...a, ...c, ...d];
+      allCoords = allCoords.concat(vertexcoords);
+    }
+    return [new Float32Array(allCoords), swaps.length * 2 * 3];
+  }, [grid, swaps]);
 
-  // useLayoutEffect(() => {
-  //   if (!ref.current) return;
-  //   ref.current.array = coordBuffer;
-  //   ref.current.needsUpdate = true;
-  // }, [coordBuffer]);
+  useLayoutEffect(() => {
+    if (!ref.current) return;
+    ref.current.array = coordBuffer;
+    ref.current.needsUpdate = true;
+  }, [coordBuffer]);
 
-  return null;
-  // return (
-  //   <mesh>
-  //     <bufferGeometry attach="geometry">
-  //       <bufferAttribute
-  //         ref={ref}
-  //         attach="attributes-position"
-  //         count={numberOfVertices}
-  //         array={coordBuffer}
-  //         itemSize={3}
-  //       />
-  //     </bufferGeometry>
-  //     <meshBasicMaterial
-  //       side={THREE.DoubleSide}
-  //       attach="material"
-  //       color="#ff0000"
-  //       transparent
-  //       opacity={0.5}
-  //     />
-  //     <meshLambertMaterial
-  //       color={colors.blue}
-  //       flatShading
-  //       side={THREE.DoubleSide}
-  //     />
-  //     {wireframe && <Wireframe />}
-  //   </mesh>
-  // );
+  if (numberOfVertices === 0) return null;
+
+  return (
+    <mesh key={numberOfVertices}>
+      <bufferGeometry attach="geometry">
+        <bufferAttribute
+          ref={ref}
+          attach="attributes-position"
+          count={numberOfVertices}
+          array={coordBuffer}
+          itemSize={3}
+        />
+      </bufferGeometry>
+      <meshBasicMaterial
+        side={THREE.DoubleSide}
+        attach="material"
+        color="#ff0000"
+        transparent
+        opacity={0.5}
+      />
+      <meshLambertMaterial
+        color={colors.blue}
+        flatShading
+        side={THREE.DoubleSide}
+      />
+      {wireframe && <Wireframe />}
+    </mesh>
+  );
 };
 
 const RenderCanvas = () => {
@@ -892,6 +923,7 @@ const RenderCanvas = () => {
     undefined
   );
   const showGrid = useAtomValue(showGridAtom);
+  const grid = useAtomValue(gridAtom);
 
   return (
     <CanvasContainer id="canvas-container">
@@ -953,6 +985,8 @@ const RenderCanvas = () => {
         )}
 
         {showGrid && <RenderGrid />}
+
+        {grid && <RenderMedialAxis grid={grid} dim={0} />}
 
         {/* <RenderMedialAxis j={json} wireframe={wireframe} />
 

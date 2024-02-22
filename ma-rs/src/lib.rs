@@ -876,15 +876,15 @@ pub fn reduce_from_scratch(complex: &Complex, key_point: Pos, noisy: bool) -> Re
     if noisy {
         print!("Invert V0 ... ");
     }
-    let U_t0 = V0.inverse_gauss_jordan();
+    let U_t0 = V0.inverse_gauss_jordan().transpose();
     if noisy {
         print!("done\nInvert V1 ... ");
     }
-    let U_t1 = V1.inverse_gauss_jordan();
+    let U_t1 = V1.inverse_gauss_jordan().transpose();
     if noisy {
         print!("done\nInvert V2 ... ");
     }
-    let U_t2 = V2.inverse_gauss_jordan();
+    let U_t2 = V2.inverse_gauss_jordan().transpose();
     if noisy {
         println!("done");
     }

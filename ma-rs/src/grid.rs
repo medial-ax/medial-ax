@@ -7,7 +7,9 @@ use crate::{
     reduce_from_scratch, vineyards_123, Reduction, Swaps,
 };
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize)]
+#[derive(
+    Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
+)]
 pub struct Index(pub [isize; 3]);
 
 impl std::ops::Add<Index> for Index {
@@ -57,14 +59,14 @@ impl std::fmt::Debug for Index {
     }
 }
 
-#[derive(Clone, Debug, serde::Serialize)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 #[cfg_attr(feature = "python", pyo3::pyclass(get_all))]
 pub struct Grid {
     pub corner: Pos,
     pub size: f64,
     pub shape: Index,
 
-    pub cell_states: std::collections::HashMap<Index, String>,
+    pub cell_states: Option<std::collections::HashMap<Index, String>>,
 }
 
 #[cfg_attr(feature = "python", pymethods)]
@@ -75,7 +77,7 @@ impl Grid {
             corner,
             size,
             shape: Index(shape),
-            cell_states: std::collections::HashMap::new(),
+            cell_states: None,
         }
     }
 
@@ -237,7 +239,7 @@ impl Grid {
     }
 
     /// Run vineyards across all edges of the grid.  
-    fn run_vineyards_in_grid(
+    pub(crate) fn run_vineyards_in_grid(
         &self,
         complex: &Complex,
         state: Reduction,
@@ -263,7 +265,7 @@ impl Grid {
 
     /// Divide up the grid, and when the volume of each subgrid is small enough,
     /// run vineyards on each subgrid in parallel.
-    fn run_state(
+    pub fn run_state(
         &mut self,
         max_volume: isize,
         complex: &Complex,
@@ -277,7 +279,6 @@ impl Grid {
             self.volume().div_euclid(max_volume)
         );
 
-        let t0 = std::time::Instant::now();
         while let Some((grid, offset)) = queue.pop_front() {
             println!("pop grid volume {}", grid.volume());
             if grid.volume() <= max_volume {
@@ -290,16 +291,8 @@ impl Grid {
                 queue.push_back((right, offset + rel_offset));
             }
         }
-        println!();
-        let t1 = std::time::Instant::now();
-        println!(
-            "Split grids and compute {} states: {}s",
-            ready.len(),
-            (t1 - t0).as_secs() as f64 + (t1 - t0).subsec_nanos() as f64 * 1e-9
-        );
-
         let mut swaps = Vec::<(HashMap<Index, Reduction>, Vec<(Index, Index, Swaps)>)>::new();
-        swaps.par_extend(ready.into_par_iter().map(|(grid, state, offset)| {
+        swaps.extend(ready.into_iter().map(|(grid, state, offset)| {
             let (states, mut swaps) = grid.run_vineyards_in_grid(complex, state);
             for (i, j, _) in swaps.iter_mut() {
                 *i = *i + offset;
@@ -310,12 +303,6 @@ impl Grid {
 
             (states, swaps)
         }));
-
-        let t2 = std::time::Instant::now();
-        eprintln!(
-            "Run vineyards in grids: {}s",
-            (t2 - t1).as_secs() as f64 + (t2 - t1).subsec_nanos() as f64 * 1e-9
-        );
 
         let mut all_swaps = Vec::new();
         let mut all_states = HashMap::new();

@@ -4,9 +4,9 @@ use std::collections::{HashMap, HashSet};
 use pyo3::FromPyObject;
 
 use crate::SneakyMatrix;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Copy, Serialize)]
+#[derive(Clone, Copy, Serialize, Deserialize)]
 pub struct Pos(pub [f64; 3]);
 
 #[cfg(feature = "python")]
@@ -107,7 +107,7 @@ impl std::ops::Div<f64> for Pos {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "python", pyo3::pyclass(get_all))]
 pub struct Simplex {
     /// Unique identifier of the simplex.  This is only unique within the dimension for the complex it is in.
@@ -159,7 +159,7 @@ impl Simplex {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "python", pyo3::pyclass(get_all))]
 pub struct Complex {
     pub simplices_per_dim: Vec<Vec<Simplex>>,
