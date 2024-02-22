@@ -1,16 +1,17 @@
-import styled, { createGlobalStyle } from "styled-components";
+import styled, { createGlobalStyle, css } from "styled-components";
 import "./App.css";
 import { Canvas, MeshProps } from "@react-three/fiber";
 import { Environment, OrbitControls, Wireframe } from "@react-three/drei";
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { Barcode } from "./Barcode";
 import {
   Dim,
-  complex,
-  grid as gridAtom,
+  complexAtom,
+  gridAtom,
   gridRadiusAtom,
+  pruningParamAtom,
   showGridAtom,
   showMA,
   swapsAtom,
@@ -27,6 +28,7 @@ import extruded_ellipse from "../inputs/extruded_ellipse.obj?raw";
 import cube_subdiv_2 from "../inputs/cube-subdiv-2.obj?raw";
 import maze_2 from "../inputs/maze_2.obj?raw";
 import { Grid } from "./types";
+import { RESET } from "jotai/utils";
 
 const GlobalStyle = createGlobalStyle`
   h1,h2,h3,h4,h5,h6, p {
@@ -267,14 +269,49 @@ const Row = styled.div`
   align-items: center;
 `;
 
-const Column = styled.div`
-  display: flex;
-  gap: 1rem;
-  flex-direction: column;
+const ClickableH4 = styled.h4`
+  &:hover {
+    background: #d0d0d0;
+    cursor: pointer;
+  }
+`;
+
+const CollapseDiv = styled.div<{ open: boolean }>`
+  max-height: ${p => p.open && css`max-height: 0;`};
+  transition: max-height 0.15s ease-in-out;
+  overflow-y: hidden;
+`;
+
+const CollapseH4 = ({ title, children }: React.PropsWithChildren<{ title: string }>) => {
+  const [open, setOpen] = useState(true);
+  const ref = useRef<HTMLDivElement>(null);
+  const [height, setHeight] = useState<number>(0);
+  return <>
+    <ClickableH4 onClick={() => {
+      if (!ref.current) return;
+      const { height } = ref.current.getBoundingClientRect();
+      if (open) setHeight(Math.ceil(height));
+      setTimeout(() => {
+        setOpen(c => !c)
+      }, 10);
+    }}>{title}</ClickableH4>
+    <CollapseDiv open={open} ref={ref} style={{
+      maxHeight: open ? (height ? height : 'initial') : '0'
+    }}>
+      {children}
+    </CollapseDiv>
+  </>;
+}
+
+const CtrlDiv = styled.div`
+  padding: 0;
+  & > *  {
+    padding: 0 1rem;
+  }
 `;
 
 const UploadObjFilePicker = () => {
-  const setComplex = useSetAtom(complex);
+  const setComplex = useSetAtom(complexAtom);
   return (
     <label className="file" htmlFor="file-upload">
       <p>Upload OBJ:</p>
@@ -294,8 +331,74 @@ const UploadObjFilePicker = () => {
   );
 };
 
+const PruningParameters = ({ dim }: { dim: Dim }) => {
+  const [params, set] = useAtom(pruningParamAtom(dim));
+  return <>
+    <label>
+      <input type="checkbox"
+        checked={params.euclidean}
+        onChange={(e) => { set(c => ({ ...c, euclidean: e.target.checked })) }} />
+      Euclidean pruning
+    </label>
+    <SliderGrid>
+      <p>Pruning distance</p>
+      <input
+        disabled={!params.euclidean}
+        type="range"
+        min={0}
+        max={10}
+        step={0.1}
+        value={params.euclideanDistance ?? 0}
+        onChange={(e) => {
+          set(c => ({ ...c, euclideanDistance: Number(e.target.value) }));
+        }}
+      />
+      <p>{(params.euclideanDistance ?? 0.00).toFixed(2)}</p>
+    </SliderGrid>
+
+    <label>
+      <input type="checkbox"
+        checked={params.coface}
+        onChange={(e) => { set(c => ({ ...c, coface: e.target.checked })) }} />
+      Coface pruning
+    </label>
+
+    <label>
+      <input type="checkbox"
+        checked={params.face}
+        onChange={(e) => { set(c => ({ ...c, face: e.target.checked })) }} />
+      Face pruning
+    </label>
+
+    <label>
+      <input type="checkbox"
+        checked={params.persistence}
+        onChange={(e) => { set(c => ({ ...c, persistence: e.target.checked })) }} />
+      Persistence pruning
+    </label>
+    <SliderGrid>
+      <p>Pruning lifespan</p>
+      <input
+        disabled={!params.persistence}
+        type="range"
+        min={0}
+        max={1}
+        step={0.01}
+        value={params.persistenceThreshold ?? 0.01}
+        onChange={(e) => {
+          set(c => ({ ...c, persistenceThreshold: Number(e.target.value) }));
+        }}
+      />
+      <p>{params.persistenceThreshold ?? 0.01}</p>
+    </SliderGrid>
+
+    <button style={{ alignSelf: 'end', margin: '0 1rem' }} onClick={() => set(RESET)}>Reset</button>
+
+  </>
+}
+
 const Menu = () => {
-  const [cplx, setComplex] = useAtom(complex);
+  const [cplx, setComplex] = useAtom(complexAtom);
   const [keypointRadius, setKeypointRadius] = useAtom(keypointRadiusAtom);
   const [gridRadius, setGridRadius] = useAtom(gridRadiusAtom);
   const [wireframe, setWireframe] = useAtom(wireframeAtom);
@@ -404,10 +507,42 @@ const Menu = () => {
 
         <fieldset>
           <legend>Show medial axes</legend>
-          <label><input type="checkbox" onChange={(e) => { setShowMa((c) => ({ ...c, 0: e.target.checked })) }} disabled={zerothMA.length === 0} />Zeroth</label>
+          <label><input type="checkbox"
+            onChange={(e) => { setShowMa((c) => ({ ...c, 0: e.target.checked })) }} disabled={zerothMA.length === 0} />Zeroth</label>
           <label><input type="checkbox" onChange={(e) => { setShowMa((c) => ({ ...c, 1: e.target.checked })) }} disabled={zerothMA.length === 0} />First TODO</label>
           <label><input type="checkbox" onChange={(e) => { setShowMa((c) => ({ ...c, 2: e.target.checked })) }} disabled={zerothMA.length === 0} />Second TODO</label>
         </fieldset>
+
+
+        <CtrlDiv>
+          {([0, 1, 2] satisfies Dim[]).map(dim => (
+            <CollapseH4 key={dim} title={`Pruning dim ${dim}`}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '0.5rem 0' }}>
+                <PruningParameters dim={dim} />
+              </div>
+            </CollapseH4 >
+          ))
+          }
+        </CtrlDiv>
+
+
+        {/* # CONTROL PARAMETERS
+        medaxdim = 0  # can say example.medial_axis when set
+
+        # euclidean prune: all dims
+        euclid_prune = True
+        prune_dist = 0.6
+
+        # coboundary: dim 0,2
+        cofaceprune = True
+
+        # faceprune: dim 1,2
+        faceprune = False
+
+        # persistence prune: dim 1
+        persprune = False
+        persistence_threshold = 0.01
+*/}
       </MenuContainer >
     </>
   );
@@ -619,7 +754,7 @@ const GridControls = () => {
   const [grid, setGrid] = useAtom(gridAtom);
   const [showGrid, setShowGrid] = useAtom(showGridAtom);
 
-  const cplx = useAtomValue(complex);
+  const cplx = useAtomValue(complexAtom);
   const [numDots, setNumDots] = useState(7);
 
   if (!grid)
@@ -917,7 +1052,7 @@ const RenderMedialAxis = ({ grid, dim, wireframe }: { grid: Grid, dim: Dim, wire
 };
 
 const RenderCanvas = () => {
-  const cplx = useAtomValue(complex);
+  const cplx = useAtomValue(complexAtom);
   const wireframe = useAtomValue(wireframeAtom);
   const [triangle, setTriangle] = useState<THREE.Vector3[] | undefined>(
     undefined

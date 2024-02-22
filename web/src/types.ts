@@ -52,3 +52,15 @@ export type Json = {
   grid: Grid;
   swaps: Swaps;
 };
+
+export type PruningParam = {
+  euclidean: boolean;
+  euclideanDistance?: number;
+
+  coface: boolean;
+
+  face: boolean;
+
+  persistence: boolean;
+  persistenceThreshold?: number;
+};

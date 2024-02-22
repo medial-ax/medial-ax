@@ -1,6 +1,6 @@
 import { atom } from "jotai";
-import { BirthDeathPair, Grid, Swaps } from "./types";
-import { atomFamily } from "jotai/utils";
+import { BirthDeathPair, Grid, PruningParam, Swaps } from "./types";
+import { atomFamily, atomWithReset } from "jotai/utils";
 
 export const timelinePositionAtom = atom<number>(0);
 export const selectedBirthDeathPair = atom<BirthDeathPair | undefined>(
@@ -9,9 +9,9 @@ export const selectedBirthDeathPair = atom<BirthDeathPair | undefined>(
 export const keypointRadiusAtom = atom(0.02);
 export const menuOpenAtom = atom(true);
 
-export const complex = atom<any>(undefined);
+export const complexAtom = atom<any>(undefined);
 
-export const grid = atom<Grid | undefined>(undefined);
+export const gridAtom = atom<Grid | undefined>(undefined);
 export const showGridAtom = atom<boolean>(true);
 
 export const gridRadiusAtom = atom<number>(0.02);
@@ -28,3 +28,10 @@ export const swapsForMA = atomFamily((dim: Dim) => atom((get) =>
 ));
 
 export const showMA = atom<Partial<Record<Dim, boolean>>>({})
+
+export const pruningParamAtom = atomFamily((dim: Dim) => atomWithReset<PruningParam>({
+  euclidean: true,
+  coface: dim == 0 || dim == 2,
+  face: 0 < dim,
+  persistence: dim == 1,
+}))
