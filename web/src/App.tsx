@@ -14,6 +14,7 @@ import {
   pruningParamAtom,
   showGridAtom,
   showMA,
+  showObjectAtom,
   swapsAtom,
   swapsForMA,
   wireframeAtom,
@@ -460,19 +461,75 @@ const PruningParameters = ({ dim }: { dim: Dim }) => {
   </>
 }
 
-const Menu = () => {
-  const [cplx, setComplex] = useAtom(complexAtom);
+const RenderOptions = () => {
+  const zerothMA = useAtomValue(swapsForMA(0));
   const [keypointRadius, setKeypointRadius] = useAtom(keypointRadiusAtom);
   const [gridRadius, setGridRadius] = useAtom(gridRadiusAtom);
+  const [showObject, setShowObject] = useAtom(showObjectAtom);
   const [wireframe, setWireframe] = useAtom(wireframeAtom);
-  const grid = useAtomValue(gridAtom);
-  const setSwaps = useSetAtom(swapsAtom);
   const [, setShowMa] = useAtom(showMA);
-  const [workerRunning, setWorkerRunning] = useAtom(workerRunningAtom);
 
-  const zerothMA = useAtomValue(swapsForMA(0));
-  if (0 < zerothMA.length)
-    console.log(zerothMA)
+  return (
+    <>
+
+      <h3>Render options</h3>
+      <label>
+        <p>Show object</p>
+        <input
+          type="checkbox"
+          checked={showObject}
+          onChange={(e) => setShowObject(e.target.checked)}
+        />
+      </label>
+      <label>
+        <p>Wireframe</p>
+        <input
+          type="checkbox"
+          checked={wireframe}
+          onChange={(e) => setWireframe(e.target.checked)}
+        />
+      </label>
+      <SliderGrid>
+        <p>Grid point size</p>
+        <input
+          type="range"
+          min={0.001}
+          max={0.1}
+          step={0.001}
+          value={gridRadius}
+          onChange={(e) => {
+            setGridRadius(Number(e.target.value));
+          }}
+        />
+        <p>{gridRadius.toFixed(3)}</p>
+        <p>Keypoint radius</p>
+        <input
+          type="range"
+          min={0.01}
+          max={0.5}
+          step={0.001}
+          value={keypointRadius}
+          onChange={(e) => setKeypointRadius(Number(e.target.value))}
+        />
+        <p>{keypointRadius.toFixed(3)}</p>
+      </SliderGrid>
+
+      <fieldset>
+        <legend>Show medial axes</legend>
+        <label><input type="checkbox"
+          onChange={(e) => { setShowMa((c) => ({ ...c, 0: e.target.checked })) }} disabled={zerothMA.length === 0} />Zeroth</label>
+        <label><input type="checkbox" onChange={(e) => { setShowMa((c) => ({ ...c, 1: e.target.checked })) }} disabled={zerothMA.length === 0} />First TODO</label>
+        <label><input type="checkbox" onChange={(e) => { setShowMa((c) => ({ ...c, 2: e.target.checked })) }} disabled={zerothMA.length === 0} />Second TODO</label>
+      </fieldset>
+    </>
+  )
+}
+
+const Menu = () => {
+  const [cplx, setComplex] = useAtom(complexAtom);
+  const [grid, setGrid] = useAtom(gridAtom);
+  const [swaps, setSwaps] = useAtom(swapsAtom);
+  const [workerRunning, setWorkerRunning] = useAtom(workerRunningAtom);
 
   const [open, setOpen] = useAtom(menuOpenAtom);
 
@@ -494,7 +551,7 @@ const Menu = () => {
         }}
       >
         <Row>
-          <h3 style={{ flex: 1 }}>Controls</h3>
+          <h2 style={{ flex: 1 }}>Controls</h2>
           <button
             style={{ justifySelf: "end" }}
             onClick={() => {
@@ -511,8 +568,13 @@ const Menu = () => {
             <li
               key={i}
               onClick={() => {
+                if (
+                  (grid || swaps.length !== 0) &&
+                  !window.confirm("Loading a new object will reset the grid and computed medial axes. Proceed?")) return;
                 const value = make_complex_from_obj(obj.string);
                 setComplex({ complex: value, filename: obj.name });
+                setSwaps([])
+                setGrid(undefined);
               }}
             >
               {obj.name}
@@ -566,69 +628,7 @@ const Menu = () => {
           }
         </CtrlDiv>
 
-        <h3>Render options</h3>
-        <label>
-          <p>Wireframe</p>
-          <input
-            type="checkbox"
-            id="menu-toggle"
-            checked={wireframe}
-            onChange={(e) => setWireframe(e.target.checked)}
-          />
-        </label>
-        <SliderGrid>
-          <p>Grid point size</p>
-          <input
-            type="range"
-            min={0.001}
-            max={0.1}
-            step={0.001}
-            value={gridRadius}
-            onChange={(e) => {
-              setGridRadius(Number(e.target.value));
-            }}
-          />
-          <p>{gridRadius.toFixed(3)}</p>
-          <p>Keypoint radius</p>
-          <input
-            type="range"
-            min={0.01}
-            max={0.5}
-            step={0.001}
-            value={keypointRadius}
-            onChange={(e) => setKeypointRadius(Number(e.target.value))}
-          />
-          <p>{keypointRadius.toFixed(3)}</p>
-        </SliderGrid>
-
-        <fieldset>
-          <legend>Show medial axes</legend>
-          <label><input type="checkbox"
-            onChange={(e) => { setShowMa((c) => ({ ...c, 0: e.target.checked })) }} disabled={zerothMA.length === 0} />Zeroth</label>
-          <label><input type="checkbox" onChange={(e) => { setShowMa((c) => ({ ...c, 1: e.target.checked })) }} disabled={zerothMA.length === 0} />First TODO</label>
-          <label><input type="checkbox" onChange={(e) => { setShowMa((c) => ({ ...c, 2: e.target.checked })) }} disabled={zerothMA.length === 0} />Second TODO</label>
-        </fieldset>
-
-
-
-
-        {/* # CONTROL PARAMETERS
-        medaxdim = 0  # can say example.medial_axis when set
-
-        # euclidean prune: all dims
-        euclid_prune = True
-        prune_dist = 0.6
-
-        # coboundary: dim 0,2
-        cofaceprune = True
-
-        # faceprune: dim 1,2
-        faceprune = False
-
-        # persistence prune: dim 1
-        persprune = False
-        persistence_threshold = 0.01
-*/}
+        <RenderOptions />
       </MenuContainer >
     </>
   );
@@ -1155,6 +1155,7 @@ const RenderCanvas = () => {
   );
   const showGrid = useAtomValue(showGridAtom);
   const grid = useAtomValue(gridAtom);
+  const showObject = useAtomValue(showObjectAtom);
 
   return (
     <CanvasContainer id="canvas-container">
@@ -1168,27 +1169,7 @@ const RenderCanvas = () => {
 
         <hemisphereLight color={"#ffffff"} groundColor="#333" intensity={3.0} />
 
-        {/* {json.swaps.map(([p, q]) => {
-                const pa = gridCoordinate(json.grid, p);
-                const pb = gridCoordinate(json.grid, q);
-                return (
-                  <>
-                    <RedSphere
-                      pos={new THREE.Vector3(pa[0], pa[1], pa[2])}
-                      radius={0.02}
-                    />
-                    <RedSphere
-                      pos={new THREE.Vector3(pb[0], pb[1], pb[2])}
-                      radius={0.02}
-                    />
-                    <RedEdge
-                      from={new THREE.Vector3(pa[0], pa[1], pa[2])}
-                      to={new THREE.Vector3(pb[0], pb[1], pb[2])}
-                    />
-                  </>
-                );
-              })} */}
-        {cplx && (
+        {cplx && showObject && (
           <RenderComplex
             wireframe={wireframe}
             cplx={cplx.complex}

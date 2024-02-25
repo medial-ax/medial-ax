@@ -17,6 +17,7 @@ export const showGridAtom = atom<boolean>(true);
 export const gridRadiusAtom = atom<number>(0.02);
 
 export const wireframeAtom = atom(false);
+export const showObjectAtom = atom(true);
 
 export const swapsAtom = atom<Swaps>([]);
 
