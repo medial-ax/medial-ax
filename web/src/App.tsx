@@ -17,11 +17,12 @@ import {
   swapsAtom,
   swapsForMA,
   wireframeAtom,
+  workerRunningAtom,
 } from "./state";
 import { keypointRadiusAtom, menuOpenAtom } from "./state";
 import { colors } from "./constants";
 import { dualFaceQuad, gridCoordinate } from "./medialaxes";
-import init, { make_complex_from_obj, my_init_function, run } from "ma-rs";
+import init, { make_complex_from_obj, my_init_function } from "ma-rs";
 import { dedup } from "./utils";
 import squished_cylinder from "../inputs/squished_cylinder.obj?raw";
 import extruded_ellipse from "../inputs/extruded_ellipse.obj?raw";
@@ -30,10 +31,16 @@ import maze_2 from "../inputs/maze_2.obj?raw";
 import { Grid } from "./types";
 import { RESET } from "jotai/utils";
 
+const myWorker = new Worker(new URL("./worker.ts", import.meta.url), {
+  type: "module",
+});
+
+
 const GlobalStyle = createGlobalStyle`
   h1,h2,h3,h4,h5,h6, p {
     margin: 0;
     padding: 0;
+    color: #333;
   }
   body {
     overflow: hidden;
@@ -103,6 +110,50 @@ const GlobalStyle = createGlobalStyle`
     border: 1px solid #888;
     border-radius: 2px;
     cursor: pointer;
+  }
+`;
+
+const Loader = styled.span<{
+  w0: number,
+  w1: number,
+}>`
+  width: ${p => p.w0}px;
+  height: 12px;
+  
+  display: block;
+  margin: 2px auto;
+  position: relative;
+  border-radius: 4px;
+  color: #bbb;
+  background: currentColor;
+  box-sizing: border-box;
+  animation: animloader 0.6s 0.3s ease infinite alternate;
+
+  &::after, &::before {
+    content: '';  
+    box-sizing: border-box;
+  width: ${p => p.w0}px;
+    height: 12px;
+    background: currentColor;
+    position: absolute;
+    border-radius: 4px;
+    top: 0;
+    right: 110%;
+    animation: animloader  0.6s ease infinite alternate;
+  }
+  &::after {
+    left: 110%;
+    right: auto;
+    animation-delay: 0.6s;
+  }
+
+  @keyframes animloader {
+    0% {
+  width: ${p => p.w0}px;
+    }
+    100% {
+  width: ${p => p.w1}px;
+    }
   }
 `;
 
@@ -179,6 +230,7 @@ const MenuContainer = styled.div`
   bottom: 0;
   left: 0;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.17);
+  padding-bottom: 1rem;
 
   z-index: 100;
   display: flex;
@@ -200,7 +252,7 @@ const MenuContainer = styled.div`
     padding: 0 1rem;
   }
 
-  h4 {
+  h3 {
     background: #e0e0e0;
   }
 
@@ -269,10 +321,18 @@ const Row = styled.div`
   align-items: center;
 `;
 
-const ClickableH4 = styled.h4`
+const ClickableH4 = styled.h4<{ open: boolean }>`
+  margin: 0 1rem;
+  padding-left: 2px !important;
+  border-bottom: 1px solid #ccc;
+
   &:hover {
-    background: #d0d0d0;
+    background: #f3f3f3;
     cursor: pointer;
+  }
+
+  &::before {
+    content: "${p => p.open ? '🞃' : '🞂'}";
   }
 `;
 
@@ -283,11 +343,11 @@ const CollapseDiv = styled.div<{ open: boolean }>`
 `;
 
 const CollapseH4 = ({ title, children }: React.PropsWithChildren<{ title: string }>) => {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const [height, setHeight] = useState<number>(0);
   return <>
-    <ClickableH4 onClick={() => {
+    <ClickableH4 open={open} onClick={() => {
       if (!ref.current) return;
       const { height } = ref.current.getBoundingClientRect();
       if (open) setHeight(Math.ceil(height));
@@ -304,6 +364,9 @@ const CollapseH4 = ({ title, children }: React.PropsWithChildren<{ title: string
 }
 
 const CtrlDiv = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
   padding: 0;
   & > *  {
     padding: 0 1rem;
@@ -405,6 +468,7 @@ const Menu = () => {
   const grid = useAtomValue(gridAtom);
   const setSwaps = useSetAtom(swapsAtom);
   const [, setShowMa] = useAtom(showMA);
+  const [workerRunning, setWorkerRunning] = useAtom(workerRunningAtom);
 
   const zerothMA = useAtomValue(swapsForMA(0));
   if (0 < zerothMA.length)
@@ -441,17 +505,7 @@ const Menu = () => {
           </button>
         </Row>
 
-        <button onClick={() => {
-          if (!grid) { console.error('No grid!'); return; }
-          if (!cplx) { console.error('No complex!'); return; }
-          const result = run(grid, cplx.complex);
-          const withSwaps = result.filter((o: any) => o[2].v.length > 0);
-          setSwaps(withSwaps);
-        }}>
-          Debug
-        </button>
-
-        <h4>Example objs</h4>
+        <h3>Example objs</h3>
         <ExampleList>
           {EXAMPLE_OBJS.map((obj, i) => (
             <li
@@ -470,7 +524,49 @@ const Menu = () => {
 
         <GridControls />
 
-        <h4>Render options</h4>
+        <h3>Medial axes</h3>
+
+        <Row>
+          <button
+            style={{ flex: 1 }}
+            disabled={workerRunning}
+            onClick={() => {
+              if (!grid) { console.error('No grid!'); return; }
+              if (!cplx) { console.error('No complex!'); return; }
+              setWorkerRunning(true);
+              myWorker.postMessage({
+                grid,
+                complex: cplx.complex,
+              });
+              myWorker.onmessage = (res: any) => {
+                setWorkerRunning(false);
+
+                const result = res.data;
+                const withSwaps = result.filter((o: any) => o[2].v.length > 0);
+                setSwaps(withSwaps);
+              }
+            }}>
+            {workerRunning ? (
+              <Loader w0={20} w1={60} />
+            ) :
+              "Compute medial axes"
+            }
+          </button>
+        </Row>
+
+
+        <CtrlDiv>
+          {([0, 1, 2] satisfies Dim[]).map(dim => (
+            <CollapseH4 key={dim} title={`Pruning dim ${dim}`}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '0.5rem 0' }}>
+                <PruningParameters dim={dim} />
+              </div>
+            </CollapseH4 >
+          ))
+          }
+        </CtrlDiv>
+
+        <h3>Render options</h3>
         <label>
           <p>Wireframe</p>
           <input
@@ -514,16 +610,6 @@ const Menu = () => {
         </fieldset>
 
 
-        <CtrlDiv>
-          {([0, 1, 2] satisfies Dim[]).map(dim => (
-            <CollapseH4 key={dim} title={`Pruning dim ${dim}`}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '0.5rem 0' }}>
-                <PruningParameters dim={dim} />
-              </div>
-            </CollapseH4 >
-          ))
-          }
-        </CtrlDiv>
 
 
         {/* # CONTROL PARAMETERS
@@ -727,11 +813,11 @@ const bboxFromComplex = (cplx: any) => {
   ];
 };
 
-const defaultGrid = (cplx: any, numberOfDots: number = 10) => {
+const defaultGrid = (cplx: any, numberOfDots: number = 5) => {
   const bbox = bboxFromComplex(cplx);
   const scales = bbox[1].map((v, i) => v - bbox[0][i]);
   const scale = Math.min(...scales);
-  const size = scale / numberOfDots;
+  const size = scale / (numberOfDots - 1);
 
   const shape = [
     Math.ceil(scales[0] / size) + 1,
@@ -770,13 +856,13 @@ const GridControls = () => {
   if (!grid)
     return (
       <>
-        <h4>Grid controls</h4>
+        <h3>Grid controls</h3>
         <button
           disabled={!cplx}
           style={{ width: "fit-content", alignSelf: "center" }}
           onClick={() => {
             if (!cplx) return;
-            setGrid(defaultGrid(cplx.complex, 7));
+            setGrid(defaultGrid(cplx.complex));
           }}
         >
           Make grid
@@ -786,7 +872,7 @@ const GridControls = () => {
 
   return (
     <>
-      <h4>Grid controls</h4>
+      <h3>Grid controls</h3>
       <label>
         <p>Show grid</p>
         <input
@@ -802,7 +888,7 @@ const GridControls = () => {
         style={{ width: "fit-content", marginLeft: "1rem" }}
         onClick={() => {
           if (!cplx) return;
-          setGrid(defaultGrid(cplx.complex, 7));
+          setGrid(defaultGrid(cplx.complex));
         }}
       >
         Reset grid
@@ -897,7 +983,7 @@ const GridControls = () => {
           }}
           disabled={!showGrid}
         >
-          Subdivide grid
+          Split grid
         </button>
         <button
           onClick={() => {
@@ -913,7 +999,7 @@ const GridControls = () => {
           }}
           disabled={!showGrid}
         >
-          Undo
+          Merge grid
         </button>
       </Row>
 

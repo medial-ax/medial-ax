@@ -20,6 +20,8 @@ export const wireframeAtom = atom(false);
 
 export const swapsAtom = atom<Swaps>([]);
 
+export const workerRunningAtom = atom<boolean>(false);
+
 export type Dim = 0 | 1 | 2;
 export const swapsForMA = atomFamily((dim: Dim) => atom((get) =>
   get(swapsAtom).map(s =>
