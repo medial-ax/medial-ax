@@ -2,9 +2,9 @@ import styled, { createGlobalStyle, css } from "styled-components";
 import "./App.css";
 import { Canvas, MeshProps } from "@react-three/fiber";
 import { Environment, OrbitControls, Wireframe } from "@react-three/drei";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
-import { useAtom, useAtomValue, useSetAtom } from "jotai";
+import { SetStateAction, useAtom, useAtomValue, useSetAtom } from "jotai";
 import { Barcode } from "./Barcode";
 import {
   Dim,
@@ -404,7 +404,7 @@ const Menu = () => {
   const [wireframe, setWireframe] = useAtom(wireframeAtom);
   const grid = useAtomValue(gridAtom);
   const setSwaps = useSetAtom(swapsAtom);
-  const [showMa, setShowMa] = useAtom(showMA);
+  const [, setShowMa] = useAtom(showMA);
 
   const zerothMA = useAtomValue(swapsForMA(0));
   if (0 < zerothMA.length)
@@ -565,33 +565,33 @@ const RedSphere = ({
   );
 };
 
-const TransparentSphere = ({
-  pos,
-  radius = 0.05,
-  opacity = 1,
-  color = "#ff0000",
-}: {
-  pos: THREE.Vector3;
-  radius?: number;
-  opacity?: number;
-  color?: string;
-}) => {
-  return (
-    <mesh position={pos}>
-      {/* SphereGeometry(radius : Float, widthSegments : Integer, heightSegments : Integer, phiStart : Float, phiLength : Float, thetaStart : Float, thetaLength : Float) */}
-      <sphereGeometry args={[radius, 64, 32]} />
-      {/* <pointsMaterial color="#ff0000" /> */}
-      <meshBasicMaterial
-        attach="material"
-        color={color}
-        transparent
-        opacity={opacity}
-        depthWrite={false}
-      />
-    </mesh>
-  );
-};
-
+// const TransparentSphere = ({
+//   pos,
+//   radius = 0.05,
+//   opacity = 1,
+//   color = "#ff0000",
+// }: {
+//   pos: THREE.Vector3;
+//   radius?: number;
+//   opacity?: number;
+//   color?: string;
+// }) => {
+//   return (
+//     <mesh position={pos}>
+//       {/* SphereGeometry(radius : Float, widthSegments : Integer, heightSegments : Integer, phiStart : Float, phiLength : Float, thetaStart : Float, thetaLength : Float) */}
+//       <sphereGeometry args={[radius, 64, 32]} />
+//       {/* <pointsMaterial color="#ff0000" /> */}
+//       <meshBasicMaterial
+//         attach="material"
+//         color={color}
+//         transparent
+//         opacity={opacity}
+//         depthWrite={false}
+//       />
+//     </mesh>
+//   );
+// };
+//
 const RedEdge = ({
   from,
   to,
@@ -751,8 +751,18 @@ const defaultGrid = (cplx: any, numberOfDots: number = 10) => {
 //   shape: number[];
 // };
 const GridControls = () => {
-  const [grid, setGrid] = useAtom(gridAtom);
+  const [grid, _setGrid] = useAtom(gridAtom);
   const [showGrid, setShowGrid] = useAtom(showGridAtom);
+  const [swaps, setSwaps] = useAtom(swapsAtom);
+
+  const setGrid = useCallback((f: SetStateAction<Grid | undefined>) => {
+    if (0 < swaps.length) {
+      if (!window.confirm("Changing the grid will delete the current medial axes. Proceed?"))
+        return;
+    }
+    setSwaps([]);
+    _setGrid(f);
+  }, [_setGrid, setSwaps, swaps.length]);
 
   const cplx = useAtomValue(complexAtom);
   const [numDots, setNumDots] = useState(7);
@@ -1097,7 +1107,7 @@ const RenderCanvas = () => {
             wireframe={wireframe}
             cplx={cplx.complex}
             key={cplx.filename}
-            onClick={(e) => {
+            onClick={() => {
               // if (e.delta < 3) {
               //   const faceIndex = e.faceIndex;
               //   if (faceIndex === undefined) return;
