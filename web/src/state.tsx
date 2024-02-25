@@ -12,6 +12,7 @@ export const menuOpenAtom = atom(true);
 export const complexAtom = atom<any>(undefined);
 
 export const gridAtom = atom<Grid | undefined>(undefined);
+export const gridForSwapsAtom = atom<Grid | undefined>(undefined);
 export const showGridAtom = atom<boolean>(true);
 
 export const gridRadiusAtom = atom<number>(0.02);

@@ -10,6 +10,7 @@ import {
   Dim,
   complexAtom,
   gridAtom,
+  gridForSwapsAtom,
   gridRadiusAtom,
   pruningParamAtom,
   showGridAtom,
@@ -651,6 +652,7 @@ const Menu = () => {
   const [grid, setGrid] = useAtom(gridAtom);
   const [swaps, setSwaps] = useAtom(swapsAtom);
   const [workerRunning, setWorkerRunning] = useAtom(workerRunningAtom);
+  const setGridForSwaps = useSetAtom(gridForSwapsAtom);
 
   const [open, setOpen] = useAtom(menuOpenAtom);
   const shownMA = useAtomValue(showMAAtom);
@@ -786,6 +788,7 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
                 const result = res.data;
                 const withSwaps = result.filter((o: any) => o[2].v.length > 0);
                 setSwaps(withSwaps);
+                setGridForSwaps(grid);
               };
             }}
           >
@@ -1025,18 +1028,18 @@ const GridControls = () => {
 
   const setGrid = useCallback(
     (f: SetStateAction<Grid | undefined>) => {
-      if (0 < swaps.length) {
-        if (
-          !window.confirm(
-            "Changing the grid will delete the current medial axes. Proceed?",
-          )
-        )
-          return;
-      }
-      setSwaps([]);
+      // if (0 < swaps.length) {
+      //   if (
+      //     !window.confirm(
+      //       "Changing the grid will delete the current medial axes. Proceed?",
+      //     )
+      //   )
+      //     return;
+      // }
+      // setSwaps([]);
       _setGrid(f);
     },
-    [_setGrid, setSwaps, swaps.length],
+    [_setGrid],
   );
 
   const cplx = useAtomValue(complexAtom);
@@ -1355,6 +1358,7 @@ const RenderCanvas = () => {
   const grid = useAtomValue(gridAtom);
   const showObject = useAtomValue(showObjectAtom);
   const showMAs = useAtomValue(showMAAtom);
+  const gridForSwaps = useAtomValue(gridForSwapsAtom);
 
   return (
     <CanvasContainer id="canvas-container">
@@ -1397,10 +1401,10 @@ const RenderCanvas = () => {
 
         {showGrid && <RenderGrid />}
 
-        {grid &&
+        {gridForSwaps &&
           ([0, 1, 2] satisfies Dim[]).map((dim) => {
             if (showMAs[dim])
-              return <RenderMedialAxis grid={grid} dim={dim} key={dim} />;
+              return <RenderMedialAxis grid={gridForSwaps} dim={dim} key={dim} />;
             return null;
           })}
 
