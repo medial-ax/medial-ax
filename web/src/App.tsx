@@ -31,10 +31,8 @@ import cube_subdiv_2 from "../inputs/cube-subdiv-2.obj?raw";
 import maze_2 from "../inputs/maze_2.obj?raw";
 import { Grid } from "./types";
 import { RESET } from "jotai/utils";
-
-const myWorker = new Worker(new URL("./worker.ts", import.meta.url), {
-  type: "module",
-});
+import MyWorker from './worker?worker';
+const myWorker = new MyWorker();
 
 const GlobalStyle = createGlobalStyle`
   h1,h2,h3,h4,h5,h6, p {
@@ -254,6 +252,7 @@ const MainContainer = styled.div`
 const CanvasContainer = styled.div`
   display: flex;
   overflow-x: hidden;
+  flex: 1;
 `;
 
 const OpenMenuButton = styled.button<{ open?: boolean }>`

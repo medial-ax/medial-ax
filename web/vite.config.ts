@@ -10,4 +10,12 @@ export default defineConfig({
   server: {
     fs: { allow: [searchForWorkspaceRoot(process.cwd()), "../ma-rs/pkg"] },
   },
+  worker: {
+    format: "es",
+  },
+  build: {
+    rollupOptions: {
+      output: { format: 'es' }
+    }
+  },
 });
