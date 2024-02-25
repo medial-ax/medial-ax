@@ -30,7 +30,11 @@ export const swapsForMA = atomFamily((dim: Dim) => atom((get) =>
   ).filter(s => s[2].v.length > 0)
 ));
 
-export const showMA = atom<Partial<Record<Dim, boolean>>>({})
+export const showMAAtom = atom<Partial<Record<Dim, boolean>>>({
+  0: true,
+  1: true,
+  2: true,
+})
 
 export const pruningParamAtom = atomFamily((dim: Dim) => atomWithReset<PruningParam>({
   euclidean: true,

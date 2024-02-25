@@ -13,7 +13,7 @@ import {
   gridRadiusAtom,
   pruningParamAtom,
   showGridAtom,
-  showMA,
+  showMAAtom,
   showObjectAtom,
   swapsAtom,
   swapsForMA,
@@ -24,7 +24,7 @@ import { keypointRadiusAtom, menuOpenAtom } from "./state";
 import { colors } from "./constants";
 import { dualFaceQuad, gridCoordinate } from "./medialaxes";
 import init, { make_complex_from_obj, my_init_function } from "ma-rs";
-import { dedup } from "./utils";
+import { dedup, downloadText } from "./utils";
 import squished_cylinder from "../inputs/squished_cylinder.obj?raw";
 import extruded_ellipse from "../inputs/extruded_ellipse.obj?raw";
 import cube_subdiv_2 from "../inputs/cube-subdiv-2.obj?raw";
@@ -35,7 +35,6 @@ import { RESET } from "jotai/utils";
 const myWorker = new Worker(new URL("./worker.ts", import.meta.url), {
   type: "module",
 });
-
 
 const GlobalStyle = createGlobalStyle`
   h1,h2,h3,h4,h5,h6, p {
@@ -96,8 +95,6 @@ const GlobalStyle = createGlobalStyle`
     cursor: pointer;
   }
 
-
-
   input[type=range]::-ms-track {
     height: 0.3rem;
     cursor: pointer;
@@ -112,15 +109,62 @@ const GlobalStyle = createGlobalStyle`
     border-radius: 2px;
     cursor: pointer;
   }
+
+  button {
+    background: #f1f1f4;
+    border-radius: 4px;
+    border: 1px solid #aaaab8;
+
+    font-size: 13px;
+    padding: 3px 6px;
+    line-height: 1.3;
+
+    cursor: pointer;
+
+    transition: background 0.1s ease-in-out;
+    &:hover {
+      background: #dadae2;
+    }
+    &:disabled {
+      background: #f1f1f4;
+      cursor: initial;
+      opacity: 0.6;
+
+    }
+  }
+
+  input[type="file"] {
+    display: none;
+  }
+  
+  label:has(input[type="file"]) {
+    p {
+      background: #f1f1f4;
+      border-radius: 4px;
+      border: 1px solid #aaaab8;
+
+      font-size: 13px;
+      padding: 3px 6px;
+    line-height: 1.3;
+
+      transition: background 0.1s ease-in-out;
+      &:hover {
+        background: #dadae2;
+      }
+      &:disabled {
+        background: cyan;
+      }
+    }
+  }
 `;
 
 const Loader = styled.span<{
-  w0: number,
-  w1: number,
+  w0: number;
+  w1: number;
 }>`
-  width: ${p => p.w0}px;
+  width: ${(p) => p.w0}px;
   height: 12px;
-  
+
   display: block;
   margin: 2px auto;
   position: relative;
@@ -130,17 +174,18 @@ const Loader = styled.span<{
   box-sizing: border-box;
   animation: animloader 0.6s 0.3s ease infinite alternate;
 
-  &::after, &::before {
-    content: '';  
+  &::after,
+  &::before {
+    content: "";
     box-sizing: border-box;
-  width: ${p => p.w0}px;
+    width: ${(p) => p.w0}px;
     height: 12px;
     background: currentColor;
     position: absolute;
     border-radius: 4px;
     top: 0;
     right: 110%;
-    animation: animloader  0.6s ease infinite alternate;
+    animation: animloader 0.6s ease infinite alternate;
   }
   &::after {
     left: 110%;
@@ -150,10 +195,10 @@ const Loader = styled.span<{
 
   @keyframes animloader {
     0% {
-  width: ${p => p.w0}px;
+      width: ${(p) => p.w0}px;
     }
     100% {
-  width: ${p => p.w1}px;
+      width: ${(p) => p.w1}px;
     }
   }
 `;
@@ -204,9 +249,6 @@ const MainContainer = styled.div`
   flex-direction: row;
   width: 100vw;
   height: 100vh;
-  & > * {
-    flex: 1;
-  }
 `;
 
 const CanvasContainer = styled.div`
@@ -250,6 +292,10 @@ const MenuContainer = styled.div`
   padding-top: 1rem;
 
   & > * {
+    margin: 0 1rem;
+  }
+  & > h3 {
+    margin: 0;
     padding: 0 1rem;
   }
 
@@ -333,43 +379,61 @@ const ClickableH4 = styled.h4<{ open: boolean }>`
   }
 
   &::before {
-    content: "${p => p.open ? '🞃' : '🞂'}";
+    content: "${(p) => (p.open ? "🞃" : "🞂")}";
   }
 `;
 
 const CollapseDiv = styled.div<{ open: boolean }>`
-  max-height: ${p => p.open && css`max-height: 0;`};
+  max-height: ${(p) =>
+    p.open &&
+    css`
+      max-height: 0;
+    `};
   transition: max-height 0.15s ease-in-out;
   overflow-y: hidden;
 `;
 
-const CollapseH4 = ({ title, children }: React.PropsWithChildren<{ title: string }>) => {
+const CollapseH4 = ({
+  title,
+  children,
+}: React.PropsWithChildren<{ title: string }>) => {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const [height, setHeight] = useState<number>(0);
-  return <>
-    <ClickableH4 open={open} onClick={() => {
-      if (!ref.current) return;
-      const { height } = ref.current.getBoundingClientRect();
-      if (open) setHeight(Math.ceil(height));
-      setTimeout(() => {
-        setOpen(c => !c)
-      }, 10);
-    }}>{title}</ClickableH4>
-    <CollapseDiv open={open} ref={ref} style={{
-      maxHeight: open ? (height ? height : 'initial') : '0'
-    }}>
-      {children}
-    </CollapseDiv>
-  </>;
-}
+  return (
+    <>
+      <ClickableH4
+        open={open}
+        onClick={() => {
+          if (!ref.current) return;
+          const { height } = ref.current.getBoundingClientRect();
+          if (open) setHeight(Math.ceil(height));
+          setTimeout(() => {
+            setOpen((c) => !c);
+          }, 10);
+        }}
+      >
+        {title}
+      </ClickableH4>
+      <CollapseDiv
+        open={open}
+        ref={ref}
+        style={{
+          maxHeight: open ? (height ? height : "initial") : "0",
+        }}
+      >
+        {children}
+      </CollapseDiv>
+    </>
+  );
+};
 
 const CtrlDiv = styled.div`
   display: flex;
   flex-direction: column;
   gap: 0.1rem;
   padding: 0;
-  & > *  {
+  & > * {
     padding: 0 1rem;
   }
 `;
@@ -378,7 +442,9 @@ const UploadObjFilePicker = () => {
   const setComplex = useSetAtom(complexAtom);
   return (
     <label className="file" htmlFor="file-upload">
-      <p>Upload OBJ:</p>
+      <p>
+        Import <code>.obj</code>
+      </p>
       <input
         type="file"
         id="file-upload"
@@ -397,97 +463,124 @@ const UploadObjFilePicker = () => {
 
 const PruningParameters = ({ dim }: { dim: Dim }) => {
   const [params, set] = useAtom(pruningParamAtom(dim));
-  return <>
-    <label>
-      <input type="checkbox"
-        checked={params.euclidean}
-        onChange={(e) => { set(c => ({ ...c, euclidean: e.target.checked })) }} />
-      Euclidean pruning
-    </label>
-    <SliderGrid>
-      <p>Pruning distance</p>
-      <input
-        disabled={!params.euclidean}
-        type="range"
-        min={0}
-        max={10}
-        step={0.1}
-        value={params.euclideanDistance ?? 0}
-        onChange={(e) => {
-          set(c => ({ ...c, euclideanDistance: Number(e.target.value) }));
-        }}
-      />
-      <p>{(params.euclideanDistance ?? 0.00).toFixed(2)}</p>
-    </SliderGrid>
+  return (
+    <>
+      <label>
+        <input
+          type="checkbox"
+          checked={params.euclidean}
+          onChange={(e) => {
+            set((c) => ({ ...c, euclidean: e.target.checked }));
+          }}
+        />
+        <p>Euclidean pruning</p>
+      </label>
+      <SliderGrid>
+        <p>Pruning distance</p>
+        <input
+          disabled={!params.euclidean}
+          type="range"
+          min={0}
+          max={10}
+          step={0.1}
+          value={params.euclideanDistance ?? 0}
+          onChange={(e) => {
+            set((c) => ({ ...c, euclideanDistance: Number(e.target.value) }));
+          }}
+        />
+        <p>{(params.euclideanDistance ?? 0.0).toFixed(2)}</p>
+      </SliderGrid>
 
-    <label>
-      <input type="checkbox"
-        checked={params.coface}
-        onChange={(e) => { set(c => ({ ...c, coface: e.target.checked })) }} />
-      Coface pruning
-    </label>
+      <label>
+        <input
+          type="checkbox"
+          checked={params.coface}
+          onChange={(e) => {
+            set((c) => ({ ...c, coface: e.target.checked }));
+          }}
+        />
+        <p>Coface pruning</p>
+      </label>
 
-    <label>
-      <input type="checkbox"
-        checked={params.face}
-        onChange={(e) => { set(c => ({ ...c, face: e.target.checked })) }} />
-      Face pruning
-    </label>
+      <label>
+        <input
+          type="checkbox"
+          checked={params.face}
+          onChange={(e) => {
+            set((c) => ({ ...c, face: e.target.checked }));
+          }}
+        />
+        <p>Face pruning</p>
+      </label>
 
-    <label>
-      <input type="checkbox"
-        checked={params.persistence}
-        onChange={(e) => { set(c => ({ ...c, persistence: e.target.checked })) }} />
-      Persistence pruning
-    </label>
-    <SliderGrid>
-      <p>Pruning lifespan</p>
-      <input
-        disabled={!params.persistence}
-        type="range"
-        min={0}
-        max={1}
-        step={0.01}
-        value={params.persistenceThreshold ?? 0.01}
-        onChange={(e) => {
-          set(c => ({ ...c, persistenceThreshold: Number(e.target.value) }));
-        }}
-      />
-      <p>{params.persistenceThreshold ?? 0.01}</p>
-    </SliderGrid>
+      <label>
+        <input
+          type="checkbox"
+          checked={params.persistence}
+          onChange={(e) => {
+            set((c) => ({ ...c, persistence: e.target.checked }));
+          }}
+        />
+        <p>Persistence pruning</p>
+      </label>
+      <SliderGrid>
+        <p>Pruning lifespan</p>
+        <input
+          disabled={!params.persistence}
+          type="range"
+          min={0}
+          max={1}
+          step={0.01}
+          value={params.persistenceThreshold ?? 0.01}
+          onChange={(e) => {
+            set((c) => ({
+              ...c,
+              persistenceThreshold: Number(e.target.value),
+            }));
+          }}
+        />
+        <p>{params.persistenceThreshold ?? 0.01}</p>
+      </SliderGrid>
 
-    <button style={{ alignSelf: 'end', margin: '0 1rem' }} onClick={() => set(RESET)}>Reset</button>
-
-  </>
-}
+      <button
+        style={{ alignSelf: "end", margin: "0 1rem" }}
+        onClick={() => set(RESET)}
+      >
+        Reset
+      </button>
+    </>
+  );
+};
 
 const RenderOptions = () => {
   const zerothMA = useAtomValue(swapsForMA(0));
+  const firstMA = useAtomValue(swapsForMA(1));
+  const secondMA = useAtomValue(swapsForMA(2));
+
   const [keypointRadius, setKeypointRadius] = useAtom(keypointRadiusAtom);
   const [gridRadius, setGridRadius] = useAtom(gridRadiusAtom);
   const [showObject, setShowObject] = useAtom(showObjectAtom);
   const [wireframe, setWireframe] = useAtom(wireframeAtom);
-  const [, setShowMa] = useAtom(showMA);
+  const [showMA, setShowMa] = useAtom(showMAAtom);
 
   return (
     <>
-
       <h3>Render options</h3>
       <label>
-        <p>Show object</p>
         <input
           type="checkbox"
           checked={showObject}
           onChange={(e) => setShowObject(e.target.checked)}
         />
+        <p>Show object</p>
       </label>
       <label>
-        <p>Wireframe</p>
         <input
           type="checkbox"
           checked={wireframe}
           onChange={(e) => setWireframe(e.target.checked)}
         />
+        <p>Wireframe</p>
       </label>
       <SliderGrid>
         <p>Grid point size</p>
@@ -516,14 +609,43 @@ const RenderOptions = () => {
 
       <fieldset>
         <legend>Show medial axes</legend>
-        <label><input type="checkbox"
-          onChange={(e) => { setShowMa((c) => ({ ...c, 0: e.target.checked })) }} disabled={zerothMA.length === 0} />Zeroth</label>
-        <label><input type="checkbox" onChange={(e) => { setShowMa((c) => ({ ...c, 1: e.target.checked })) }} disabled={zerothMA.length === 0} />First TODO</label>
-        <label><input type="checkbox" onChange={(e) => { setShowMa((c) => ({ ...c, 2: e.target.checked })) }} disabled={zerothMA.length === 0} />Second TODO</label>
+        <label>
+          <input
+            type="checkbox"
+            checked={showMA[0]}
+            onChange={(e) => {
+              setShowMa((c) => ({ ...c, 0: e.target.checked }));
+            }}
+            disabled={zerothMA.length === 0}
+          />
+          <p>Zeroth</p>
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={showMA[1]}
+            onChange={(e) => {
+              setShowMa((c) => ({ ...c, 1: e.target.checked }));
+            }}
+            disabled={firstMA.length === 0}
+          />
+          <p> First </p>
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={showMA[2]}
+            onChange={(e) => {
+              setShowMa((c) => ({ ...c, 2: e.target.checked }));
+            }}
+            disabled={secondMA.length === 0}
+          />
+          <p> Second </p>
+        </label>
       </fieldset>
     </>
-  )
-}
+  );
+};
 
 const Menu = () => {
   const [cplx, setComplex] = useAtom(complexAtom);
@@ -532,6 +654,34 @@ const Menu = () => {
   const [workerRunning, setWorkerRunning] = useAtom(workerRunningAtom);
 
   const [open, setOpen] = useAtom(menuOpenAtom);
+  const shownMA = useAtomValue(showMAAtom);
+  const [exportVisible, setExportVisible] = useState(true);
+
+  const exportMAtoObj = useCallback(() => {
+    if (!grid) return;
+    let obj = "";
+    let v = 1;
+    for (const ma of [0, 1, 2] satisfies Dim[]) {
+      if (exportVisible && !shownMA[ma]) continue;
+      obj += `o MA-${ma}\n`;
+      for (const swap of swaps) {
+        const hasAnySwaps = swap[2].v.find((s) => s.dim === ma);
+        if (!hasAnySwaps) continue;
+        const [p, q] = swap;
+        const [a, b, c, d] = dualFaceQuad(grid, p, q);
+        obj += `\
+v ${a[0]} ${a[1]} ${a[2]}
+v ${b[0]} ${b[1]} ${b[2]}
+v ${c[0]} ${c[1]} ${c[2]}
+v ${d[0]} ${d[1]} ${d[2]}
+f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
+`;
+        v += 4;
+      }
+    }
+
+    downloadText(obj, "medial-axes.obj");
+  }, [exportVisible, grid, shownMA, swaps]);
 
   return (
     <>
@@ -562,7 +712,9 @@ const Menu = () => {
           </button>
         </Row>
 
-        <h3>Example objs</h3>
+        <h3>Import / Export</h3>
+        <h4>Import</h4>
+        <UploadObjFilePicker />
         <ExampleList>
           {EXAMPLE_OBJS.map((obj, i) => (
             <li
@@ -570,10 +722,14 @@ const Menu = () => {
               onClick={() => {
                 if (
                   (grid || swaps.length !== 0) &&
-                  !window.confirm("Loading a new object will reset the grid and computed medial axes. Proceed?")) return;
+                  !window.confirm(
+                    "Loading a new object will reset the grid and computed medial axes. Proceed?",
+                  )
+                )
+                  return;
                 const value = make_complex_from_obj(obj.string);
                 setComplex({ complex: value, filename: obj.name });
-                setSwaps([])
+                setSwaps([]);
                 setGrid(undefined);
               }}
             >
@@ -582,7 +738,26 @@ const Menu = () => {
           ))}
         </ExampleList>
 
-        <UploadObjFilePicker />
+        <h4>Export</h4>
+        <label>
+          <input
+            type="checkbox"
+            checked={exportVisible}
+            onChange={(e) => setExportVisible(e.target.checked)}
+          />
+          <p>Only export visible medial axes</p>
+        </label>
+
+        <Row>
+          <button
+            disabled={swaps.length === 0}
+            onClick={() => {
+              exportMAtoObj();
+            }}
+          >
+            Export <code>.obj</code>
+          </button>
+        </Row>
 
         <GridControls />
 
@@ -593,8 +768,14 @@ const Menu = () => {
             style={{ flex: 1 }}
             disabled={workerRunning}
             onClick={() => {
-              if (!grid) { console.error('No grid!'); return; }
-              if (!cplx) { console.error('No complex!'); return; }
+              if (!grid) {
+                console.error("No grid!");
+                return;
+              }
+              if (!cplx) {
+                console.error("No complex!");
+                return;
+              }
               setWorkerRunning(true);
               myWorker.postMessage({
                 grid,
@@ -606,30 +787,32 @@ const Menu = () => {
                 const result = res.data;
                 const withSwaps = result.filter((o: any) => o[2].v.length > 0);
                 setSwaps(withSwaps);
-              }
-            }}>
-            {workerRunning ? (
-              <Loader w0={20} w1={60} />
-            ) :
-              "Compute medial axes"
-            }
+              };
+            }}
+          >
+            {workerRunning ? <Loader w0={20} w1={60} /> : "Compute medial axes"}
           </button>
         </Row>
 
-
         <CtrlDiv>
-          {([0, 1, 2] satisfies Dim[]).map(dim => (
+          {([0, 1, 2] satisfies Dim[]).map((dim) => (
             <CollapseH4 key={dim} title={`Pruning dim ${dim}`}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '0.5rem 0' }}>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "0.5rem",
+                  padding: "0.5rem 0",
+                }}
+              >
                 <PruningParameters dim={dim} />
               </div>
-            </CollapseH4 >
-          ))
-          }
+            </CollapseH4>
+          ))}
         </CtrlDiv>
 
         <RenderOptions />
-      </MenuContainer >
+      </MenuContainer>
     </>
   );
 };
@@ -715,7 +898,7 @@ const RedTriangle = ({ points }: { points: THREE.Vector3[] }) => {
   useLayoutEffect(() => {
     if (!ref.current) return;
     ref.current.array = new Float32Array(
-      points.flatMap((p) => [p.x, p.y, p.z])
+      points.flatMap((p) => [p.x, p.y, p.z]),
     );
     ref.current.needsUpdate = true;
   }, [points]);
@@ -757,7 +940,7 @@ const RenderComplex = ({
     const [vertices, edges, triangles] = cplx["simplices_per_dim"];
     const out = triangles.flatMap((t: any) => {
       const vis: number[] = dedup(
-        t["boundary"].map((ei: number) => edges[ei].boundary).flat()
+        t["boundary"].map((ei: number) => edges[ei].boundary).flat(),
       );
       const coords = vis.flatMap((i: number) => vertices[i].coords);
       return coords;
@@ -841,14 +1024,21 @@ const GridControls = () => {
   const [showGrid, setShowGrid] = useAtom(showGridAtom);
   const [swaps, setSwaps] = useAtom(swapsAtom);
 
-  const setGrid = useCallback((f: SetStateAction<Grid | undefined>) => {
-    if (0 < swaps.length) {
-      if (!window.confirm("Changing the grid will delete the current medial axes. Proceed?"))
-        return;
-    }
-    setSwaps([]);
-    _setGrid(f);
-  }, [_setGrid, setSwaps, swaps.length]);
+  const setGrid = useCallback(
+    (f: SetStateAction<Grid | undefined>) => {
+      if (0 < swaps.length) {
+        if (
+          !window.confirm(
+            "Changing the grid will delete the current medial axes. Proceed?",
+          )
+        )
+          return;
+      }
+      setSwaps([]);
+      _setGrid(f);
+    },
+    [_setGrid, setSwaps, swaps.length],
+  );
 
   const cplx = useAtomValue(complexAtom);
   const [numDots, setNumDots] = useState(7);
@@ -859,6 +1049,7 @@ const GridControls = () => {
         <h3>Grid controls</h3>
         <button
           disabled={!cplx}
+          title={cplx ? undefined : "You need a complex before you can make the grid."}
           style={{ width: "fit-content", alignSelf: "center" }}
           onClick={() => {
             if (!cplx) return;
@@ -874,7 +1065,6 @@ const GridControls = () => {
     <>
       <h3>Grid controls</h3>
       <label>
-        <p>Show grid</p>
         <input
           type="checkbox"
           checked={showGrid}
@@ -882,6 +1072,7 @@ const GridControls = () => {
             setShowGrid(e.target.checked);
           }}
         />
+        <p>Show grid</p>
       </label>
       <button
         disabled={!showGrid}
@@ -1097,7 +1288,15 @@ const RenderGrid = () => {
   );
 };
 
-const RenderMedialAxis = ({ grid, dim, wireframe }: { grid: Grid, dim: Dim, wireframe?: boolean }) => {
+const RenderMedialAxis = ({
+  grid,
+  dim,
+  wireframe,
+}: {
+  grid: Grid;
+  dim: Dim;
+  wireframe?: boolean;
+}) => {
   const swaps = useAtomValue(swapsForMA(dim));
   const ref = useRef<THREE.BufferAttribute>(null);
 
@@ -1151,11 +1350,12 @@ const RenderCanvas = () => {
   const cplx = useAtomValue(complexAtom);
   const wireframe = useAtomValue(wireframeAtom);
   const [triangle, setTriangle] = useState<THREE.Vector3[] | undefined>(
-    undefined
+    undefined,
   );
   const showGrid = useAtomValue(showGridAtom);
   const grid = useAtomValue(gridAtom);
   const showObject = useAtomValue(showObjectAtom);
+  const showMAs = useAtomValue(showMAAtom);
 
   return (
     <CanvasContainer id="canvas-container">
@@ -1198,7 +1398,12 @@ const RenderCanvas = () => {
 
         {showGrid && <RenderGrid />}
 
-        {grid && <RenderMedialAxis grid={grid} dim={0} />}
+        {grid &&
+          ([0, 1, 2] satisfies Dim[]).map((dim) => {
+            if (showMAs[dim])
+              return <RenderMedialAxis grid={grid} dim={dim} key={dim} />;
+            return null;
+          })}
 
         {/* <RenderMedialAxis j={json} wireframe={wireframe} />
 
