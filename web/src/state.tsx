@@ -43,3 +43,11 @@ export const pruningParamAtom = atomFamily((dim: Dim) => atomWithReset<PruningPa
   face: 0 < dim,
   persistence: dim == 1,
 }))
+
+export const allPruningParamsAtom = atom((get) => {
+  return {
+    0: get(pruningParamAtom(0)),
+    1: get(pruningParamAtom(1)),
+    2: get(pruningParamAtom(2)),
+  };
+})

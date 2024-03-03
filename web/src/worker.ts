@@ -5,8 +5,8 @@ await init().then(() => {
 });
 
 onmessage = (e) => {
-  const { grid, complex } = e.data;
-  const result = run(grid, complex);
+  const { grid, complex, allPruningParams } = e.data;
+  const result = run(grid, complex, allPruningParams);
   postMessage(result);
 };
 

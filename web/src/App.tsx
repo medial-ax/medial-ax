@@ -8,6 +8,7 @@ import { SetStateAction, useAtom, useAtomValue, useSetAtom } from "jotai";
 import { Barcode } from "./Barcode";
 import {
   Dim,
+  allPruningParamsAtom,
   complexAtom,
   gridAtom,
   gridForSwapsAtom,
@@ -725,6 +726,7 @@ const Menu = () => {
   const [swaps, setSwaps] = useAtom(swapsAtom);
   const [workerRunning, setWorkerRunning] = useAtom(workerRunningAtom);
   const setGridForSwaps = useSetAtom(gridForSwapsAtom);
+  const allPruningParams = useAtomValue(allPruningParamsAtom);
 
   const [open, setOpen] = useAtom(menuOpenAtom);
   const shownMA = useAtomValue(showMAAtom);
@@ -853,6 +855,7 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
               myWorker.postMessage({
                 grid,
                 complex: cplx.complex,
+                allPruningParams
               });
               myWorker.onmessage = (res: any) => {
                 setWorkerRunning(false);
