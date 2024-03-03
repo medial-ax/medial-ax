@@ -2,7 +2,7 @@ import styled, { createGlobalStyle, css } from "styled-components";
 import "./App.css";
 import { Canvas, } from "@react-three/fiber";
 import { Environment, OrbitControls, } from "@react-three/drei";
-import { useCallback, useRef, useState } from "react";
+import { PropsWithChildren, useCallback, useRef, useState } from "react";
 import * as THREE from "three";
 import { SetStateAction, useAtom, useAtomValue, useSetAtom } from "jotai";
 import { Barcode } from "./Barcode";
@@ -34,6 +34,7 @@ import { Grid } from "./types";
 import { RESET } from "jotai/utils";
 import MyWorker from './worker?worker';
 import { RedEdge, RedSphere, RedTriangle, RenderComplex, RenderGrid, RenderMedialAxis } from "./Render";
+import { createPortal } from "react-dom";
 const myWorker = new MyWorker();
 
 const GlobalStyle = createGlobalStyle`
@@ -439,6 +440,64 @@ const CtrlDiv = styled.div`
   }
 `;
 
+const HoverTooltipSpan = styled.span`
+display: inline-block;
+  padding: 2px;
+  border-radius: 4px;
+  border: 1px solid #888;
+  height: 18px;
+  box-sizing: border-box;
+  vertical-align: super;
+  line-height: 12px;
+  font-size: 12px;
+  font-weight: 600;
+`;
+
+const HoverTooltipPopup = styled.span`
+  position: fixed;
+  bottom: 0;
+  z-index: 100;
+  max-width: 16rem;
+  transform: translateX(-50%) translateY(-100%);
+  height: fit-content;
+  padding: 4px 8px;
+  background: white;
+  border-radius: 4px; 
+  border: 1px solid #aaa;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.17);
+  margin-top: -4px;
+`;
+
+const HoverTooltip = ({ children }: PropsWithChildren) => {
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<undefined | { x: number, y: number }>(undefined);
+  const ref = useRef<HTMLSpanElement>(null);
+
+  return (
+    <HoverTooltipSpan ref={ref} onMouseEnter={() => {
+      if (!ref.current) return;
+      setOpen(true);
+      const { x, y } = ref.current.getBoundingClientRect();
+      setPos({ x, y })
+    }}
+      onMouseLeave={() => {
+        setOpen(false);
+      }}
+
+    >
+      ?
+      {open && pos &&
+        createPortal(
+          <HoverTooltipPopup style={{ top: pos.y, left: pos.x }}>
+            {children}
+          </HoverTooltipPopup>,
+          document.body,
+        )
+      }
+    </HoverTooltipSpan >
+  );
+}
+
 const UploadObjFilePicker = () => {
   const setComplex = useSetAtom(complexAtom);
   return (
@@ -474,7 +533,10 @@ const PruningParameters = ({ dim }: { dim: Dim }) => {
             set((c) => ({ ...c, euclidean: e.target.checked }));
           }}
         />
-        <p>Euclidean pruning</p>
+        <p>Euclidean pruning <HoverTooltip>
+          Prunes a Faustian swap if the simplices responsible for the swap
+          are closer together than the pruning distance.
+        </HoverTooltip></p>
       </label>
       <SliderGrid>
         <p>Pruning distance</p>
@@ -483,7 +545,7 @@ const PruningParameters = ({ dim }: { dim: Dim }) => {
           type="range"
           min={0}
           max={10}
-          step={0.1}
+          step={0.01}
           value={params.euclideanDistance ?? 0}
           onChange={(e) => {
             set((c) => ({ ...c, euclideanDistance: Number(e.target.value) }));
@@ -500,7 +562,10 @@ const PruningParameters = ({ dim }: { dim: Dim }) => {
             set((c) => ({ ...c, coface: e.target.checked }));
           }}
         />
-        <p>Coface pruning</p>
+        <p>Coface pruning <HoverTooltip>
+          Prunes a Faustian swap if the simplices responsible for the swap
+          share a coface.
+        </HoverTooltip></p>
       </label>
 
       <label>
@@ -511,7 +576,10 @@ const PruningParameters = ({ dim }: { dim: Dim }) => {
             set((c) => ({ ...c, face: e.target.checked }));
           }}
         />
-        <p>Face pruning</p>
+        <p>Face pruning <HoverTooltip>
+          Prunes a Faustian swap if the simplices responsible for the swap
+          share a face.
+        </HoverTooltip></p>
       </label>
 
       <label>
@@ -522,7 +590,10 @@ const PruningParameters = ({ dim }: { dim: Dim }) => {
             set((c) => ({ ...c, persistence: e.target.checked }));
           }}
         />
-        <p>Persistence pruning</p>
+        <p>Persistence pruning <HoverTooltip>
+          Prunes a Faustian swap if both of the simplices responsible for the swap
+          are associated to a homology class with a lifespan shorter than the pruning lifespan.
+        </HoverTooltip></p>
       </label>
       <SliderGrid>
         <p>Pruning lifespan</p>
