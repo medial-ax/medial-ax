@@ -1,7 +1,11 @@
-import styled, { createGlobalStyle, css } from "styled-components";
+import styled, {
+  CSSProperties,
+  createGlobalStyle,
+  css,
+} from "styled-components";
 import "./App.css";
-import { Canvas, } from "@react-three/fiber";
-import { Environment, OrbitControls, } from "@react-three/drei";
+import { Canvas } from "@react-three/fiber";
+import { Environment, OrbitControls } from "@react-three/drei";
 import { PropsWithChildren, useCallback, useRef, useState } from "react";
 import * as THREE from "three";
 import { SetStateAction, useAtom, useAtomValue, useSetAtom } from "jotai";
@@ -9,6 +13,7 @@ import { Barcode } from "./Barcode";
 import {
   Dim,
   allPruningParamsAtom,
+  allSettingsAtom,
   complexAtom,
   gridAtom,
   gridForSwapsAtom,
@@ -24,7 +29,7 @@ import {
 } from "./state";
 import { keypointRadiusAtom, menuOpenAtom } from "./state";
 import { colors } from "./constants";
-import { dualFaceQuad, } from "./medialaxes";
+import { dualFaceQuad } from "./medialaxes";
 import init, { make_complex_from_obj, my_init_function } from "ma-rs";
 import { downloadText } from "./utils";
 import squished_cylinder from "../inputs/squished_cylinder.obj?raw";
@@ -33,8 +38,15 @@ import cube_subdiv_2 from "../inputs/cube-subdiv-2.obj?raw";
 import maze_2 from "../inputs/maze_2.obj?raw";
 import { Grid } from "./types";
 import { RESET } from "jotai/utils";
-import MyWorker from './worker?worker';
-import { RedEdge, RedSphere, RedTriangle, RenderComplex, RenderGrid, RenderMedialAxis } from "./Render";
+import MyWorker from "./worker?worker";
+import {
+  RedEdge,
+  RedSphere,
+  RedTriangle,
+  RenderComplex,
+  RenderGrid,
+  RenderMedialAxis,
+} from "./Render";
 import { createPortal } from "react-dom";
 const myWorker = new MyWorker();
 
@@ -442,7 +454,7 @@ const CtrlDiv = styled.div`
 `;
 
 const HoverTooltipSpan = styled.span`
-display: inline-block;
+  display: inline-block;
   padding: 2px;
   border-radius: 4px;
   border: 1px solid #888;
@@ -454,61 +466,71 @@ display: inline-block;
   font-weight: 600;
 `;
 
-const HoverTooltipPopup = styled.span`
+const HoverTooltipPopup = styled.span<{ right: boolean }>`
   position: fixed;
   bottom: 0;
   z-index: 100;
   max-width: 16rem;
-  transform: translateX(-50%) translateY(-100%);
+  transform: translateX(${(p) => (p.right ? "0" : "-50%")}) translateY(-100%);
   height: fit-content;
   padding: 4px 8px;
   background: white;
-  border-radius: 4px; 
+  border-radius: 4px;
   border: 1px solid #aaa;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.17);
   margin-top: -4px;
 `;
 
-const HoverTooltip = ({ children }: PropsWithChildren) => {
+const HoverTooltip = ({
+  style,
+  right,
+  children,
+}: PropsWithChildren<{ right?: boolean; style?: CSSProperties }>) => {
   const [open, setOpen] = useState(false);
-  const [pos, setPos] = useState<undefined | { x: number, y: number }>(undefined);
+  const [pos, setPos] = useState<undefined | { x: number; y: number }>(
+    undefined,
+  );
   const ref = useRef<HTMLSpanElement>(null);
 
   return (
-    <HoverTooltipSpan ref={ref} onMouseEnter={() => {
-      if (!ref.current) return;
-      setOpen(true);
-      const { x, y } = ref.current.getBoundingClientRect();
-      setPos({ x, y })
-    }}
+    <HoverTooltipSpan
+      style={style}
+      ref={ref}
+      onMouseEnter={() => {
+        if (!ref.current) return;
+        setOpen(true);
+        const { x, y } = ref.current.getBoundingClientRect();
+        setPos({ x, y });
+      }}
       onMouseLeave={() => {
         setOpen(false);
       }}
-
     >
       ?
-      {open && pos &&
+      {open &&
+        pos &&
         createPortal(
-          <HoverTooltipPopup style={{ top: pos.y, left: pos.x }}>
+          <HoverTooltipPopup
+            style={{ top: pos.y, left: pos.x }}
+            right={right ?? false}
+          >
             {children}
           </HoverTooltipPopup>,
           document.body,
-        )
-      }
-    </HoverTooltipSpan >
+        )}
+    </HoverTooltipSpan>
   );
-}
+};
 
 const UploadObjFilePicker = () => {
   const setComplex = useSetAtom(complexAtom);
   return (
-    <label className="file" htmlFor="file-upload">
+    <label className="file">
       <p>
         Import <code>.obj</code>
       </p>
       <input
         type="file"
-        id="file-upload"
         onChange={(e) => {
           const f = e.target.files?.[0];
           if (!f) return;
@@ -534,10 +556,13 @@ const PruningParameters = ({ dim }: { dim: Dim }) => {
             set((c) => ({ ...c, euclidean: e.target.checked }));
           }}
         />
-        <p>Euclidean pruning <HoverTooltip>
-          Prunes a Faustian swap if the simplices responsible for the swap
-          are closer together than the pruning distance.
-        </HoverTooltip></p>
+        <p>
+          Euclidean pruning{" "}
+          <HoverTooltip>
+            Prunes a Faustian swap if the simplices responsible for the swap are
+            closer together than the pruning distance.
+          </HoverTooltip>
+        </p>
       </label>
       <SliderGrid>
         <p>Pruning distance</p>
@@ -563,10 +588,13 @@ const PruningParameters = ({ dim }: { dim: Dim }) => {
             set((c) => ({ ...c, coface: e.target.checked }));
           }}
         />
-        <p>Coface pruning <HoverTooltip>
-          Prunes a Faustian swap if the simplices responsible for the swap
-          share a coface.
-        </HoverTooltip></p>
+        <p>
+          Coface pruning{" "}
+          <HoverTooltip>
+            Prunes a Faustian swap if the simplices responsible for the swap
+            share a coface.
+          </HoverTooltip>
+        </p>
       </label>
 
       <label>
@@ -577,10 +605,13 @@ const PruningParameters = ({ dim }: { dim: Dim }) => {
             set((c) => ({ ...c, face: e.target.checked }));
           }}
         />
-        <p>Face pruning <HoverTooltip>
-          Prunes a Faustian swap if the simplices responsible for the swap
-          share a face.
-        </HoverTooltip></p>
+        <p>
+          Face pruning{" "}
+          <HoverTooltip>
+            Prunes a Faustian swap if the simplices responsible for the swap
+            share a face.
+          </HoverTooltip>
+        </p>
       </label>
 
       <label>
@@ -591,10 +622,14 @@ const PruningParameters = ({ dim }: { dim: Dim }) => {
             set((c) => ({ ...c, persistence: e.target.checked }));
           }}
         />
-        <p>Persistence pruning <HoverTooltip>
-          Prunes a Faustian swap if both of the simplices responsible for the swap
-          are associated to a homology class with a lifespan shorter than the pruning lifespan.
-        </HoverTooltip></p>
+        <p>
+          Persistence pruning{" "}
+          <HoverTooltip>
+            Prunes a Faustian swap if both of the simplices responsible for the
+            swap are associated to a homology class with a lifespan shorter than
+            the pruning lifespan.
+          </HoverTooltip>
+        </p>
       </label>
       <SliderGrid>
         <p>Pruning lifespan</p>
@@ -732,6 +767,8 @@ const Menu = () => {
   const shownMA = useAtomValue(showMAAtom);
   const [exportVisible, setExportVisible] = useState(true);
 
+  const [allSettings, setAllSettings] = useAtom(allSettingsAtom);
+
   const exportMAtoObj = useCallback(() => {
     if (!grid) return;
     let obj = "";
@@ -812,6 +849,20 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
             </li>
           ))}
         </ExampleList>
+        <label className="file">
+          <p>Import settings</p>
+          <input
+            type="file"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (!f) return;
+              f.text().then((text) => {
+                const j = JSON.parse(text);
+                setAllSettings(j);
+              });
+            }}
+          />
+        </label>
 
         <h4>Export</h4>
         <label>
@@ -832,6 +883,20 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
           >
             Export <code>.obj</code>
           </button>
+        </Row>
+
+        <Row style={{ gap: "4px" }}>
+          <button
+            onClick={() => {
+              downloadText(JSON.stringify(allSettings), "settings.json");
+            }}
+          >
+            Export settings
+          </button>
+          <HoverTooltip style={{ alignSelf: "start" }} right>
+            Export the selected visualization, grid, and pruning settings to a{" "}
+            <code>.json</code> file.
+          </HoverTooltip>
         </Row>
 
         <GridControls />
@@ -855,7 +920,7 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
               myWorker.postMessage({
                 grid,
                 complex: cplx.complex,
-                allPruningParams
+                allPruningParams,
               });
               myWorker.onmessage = (res: any) => {
                 setWorkerRunning(false);
@@ -960,7 +1025,6 @@ const defaultGrid = (cplx: any, numberOfDots: number = 5) => {
 const GridControls = () => {
   const [grid, _setGrid] = useAtom(gridAtom);
   const [showGrid, setShowGrid] = useAtom(showGridAtom);
-  const [swaps, setSwaps] = useAtom(swapsAtom);
 
   const setGrid = useCallback(
     (f: SetStateAction<Grid | undefined>) => {
@@ -987,7 +1051,11 @@ const GridControls = () => {
         <h3>Grid controls</h3>
         <button
           disabled={!cplx}
-          title={cplx ? undefined : "You need a complex before you can make the grid."}
+          title={
+            cplx
+              ? undefined
+              : "You need a complex before you can make the grid."
+          }
           style={{ width: "fit-content", alignSelf: "center" }}
           onClick={() => {
             if (!cplx) return;
@@ -1188,7 +1256,6 @@ const RenderCanvas = () => {
     undefined,
   );
   const showGrid = useAtomValue(showGridAtom);
-  const grid = useAtomValue(gridAtom);
   const showObject = useAtomValue(showObjectAtom);
   const showMAs = useAtomValue(showMAAtom);
   const gridForSwaps = useAtomValue(gridForSwapsAtom);
@@ -1237,7 +1304,9 @@ const RenderCanvas = () => {
         {gridForSwaps &&
           ([0, 1, 2] satisfies Dim[]).map((dim) => {
             if (showMAs[dim])
-              return <RenderMedialAxis grid={gridForSwaps} dim={dim} key={dim} />;
+              return (
+                <RenderMedialAxis grid={gridForSwaps} dim={dim} key={dim} />
+              );
             return null;
           })}
 
