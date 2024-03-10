@@ -25,6 +25,7 @@ import {
   gridForSwapsAtom,
   gridRadiusAtom,
   pruningParamAtom,
+  selectedGridIndex,
   showGridAtom,
   showMAAtom,
   showObjectAtom,
@@ -800,21 +801,6 @@ const Menu = () => {
       }
   >(undefined);
 
-  // useEffect(() => {
-  //   let frame = 0;
-  //   const it = setInterval(() => {
-  //     frame += 1;
-  //     setWorkerProgress({
-  //       label: "Hello",
-  //       i: frame % 100,
-  //       n: 100,
-  //     });
-  //   }, 1000 / 60);
-  //   return () => {
-  //     clearInterval(it);
-  //   };
-  // }, []);
-  //
   const setGridForSwaps = useSetAtom(gridForSwapsAtom);
   const allPruningParams = useAtomValue(allPruningParamsAtom);
 
@@ -1342,12 +1328,14 @@ const RenderCanvas = () => {
   const showObject = useAtomValue(showObjectAtom);
   const showMAs = useAtomValue(showMAAtom);
   const gridForSwaps = useAtomValue(gridForSwapsAtom);
+  const setSelectedGridIndex = useSetAtom(selectedGridIndex);
 
   return (
     <CanvasContainer id="canvas-container">
       <Canvas
         onPointerMissed={() => {
           setTriangle(undefined);
+          setSelectedGridIndex(undefined);
         }}
       >
         <OrbitControls enablePan={true} enableZoom={true} enableRotate={true} />

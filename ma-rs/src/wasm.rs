@@ -77,7 +77,9 @@ pub fn run(
     let mut grid_swaps_vec: Vec<(Index, Index, Swaps)> = Vec::new();
     let prune_iters = swaps_per_grid_pair.len();
     for (i, s) in swaps_per_grid_pair.into_iter().enumerate() {
-        send_message("Prune", i, prune_iters).unwrap();
+        if i & 15 == 0 {
+            send_message("Prune", i, prune_iters).unwrap();
+        }
         let swaps = s.2;
 
         let mut swaps_between_these_grid_cells: Vec<Swap> = Vec::new();

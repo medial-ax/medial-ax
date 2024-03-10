@@ -1,5 +1,5 @@
 import { WritableAtom, atom } from "jotai";
-import { BirthDeathPair, Grid, PruningParam, Swaps } from "./types";
+import { BirthDeathPair, Grid, Index, PruningParam, Swaps } from "./types";
 import { atomFamily, atomWithReset } from "jotai/utils";
 
 export const timelinePositionAtom = atom<number>(0);
@@ -14,6 +14,7 @@ export const complexAtom = atom<any>(undefined);
 export const gridAtom = atom<Grid | undefined>(undefined);
 export const gridForSwapsAtom = atom<Grid | undefined>(undefined);
 export const showGridAtom = atom<boolean>(true);
+export const selectedGridIndex = atom<Index | undefined>(undefined);
 
 export const gridRadiusAtom = atom<number>(0.02);
 

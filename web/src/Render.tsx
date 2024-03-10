@@ -3,8 +3,14 @@ import { useCallback, useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { dedup } from "./utils";
 import { Wireframe } from "@react-three/drei";
-import { useAtomValue } from "jotai";
-import { Dim, gridAtom, gridRadiusAtom, swapsForMA } from "./state";
+import { useAtom, useAtomValue } from "jotai";
+import {
+  Dim,
+  gridAtom,
+  gridRadiusAtom,
+  selectedGridIndex,
+  swapsForMA,
+} from "./state";
 import { dualFaceQuad, gridCoordinate } from "./medialaxes";
 import { Grid } from "./types";
 import { colors } from "./constants";
@@ -149,6 +155,9 @@ export const RenderComplex = ({
   );
 };
 
+const GRID_COLOR = new THREE.Color(0x888888);
+const GRID_SELECTED_COLOR = new THREE.Color(0xff0000);
+
 export const RenderGrid = () => {
   const radius = useAtomValue(gridRadiusAtom);
   const grid = useAtomValue(gridAtom);
@@ -173,22 +182,53 @@ export const RenderGrid = () => {
     if (!m || !points) return;
 
     points.forEach((p, i) => {
+      m.setColorAt(i, GRID_COLOR);
       m.setMatrixAt(i, new THREE.Matrix4().makeTranslation(...p));
       m.instanceMatrix.needsUpdate = true;
     });
+    if (m.instanceColor) m.instanceColor.needsUpdate = true;
   }, [points]);
+
+  const [selGridIndex, setSelGridIndex] = useAtom(selectedGridIndex);
+  useLayoutEffect(() => {
+    const m = meshref.current;
+    if (!m || !selGridIndex || !grid) return;
+    const [x, y, z] = selGridIndex;
+    const [, Y, Z] = grid.shape;
+    const index = x * Y * Z + y * Z + z;
+
+    const ic = m.instanceColor;
+    m.setColorAt(index, GRID_SELECTED_COLOR);
+    if (ic) ic.needsUpdate = true;
+
+    return () => {
+      m.setColorAt(index, GRID_COLOR);
+      if (ic) ic.needsUpdate = true;
+    };
+  }, [grid, selGridIndex]);
 
   if (!grid || !points) return null;
 
   return (
-    <instancedMesh ref={meshref} args={[undefined, undefined, points.length]}>
+    <instancedMesh
+      ref={meshref}
+      args={[undefined, undefined, points.length]}
+      onClick={(e) => {
+        const { instanceId } = e;
+        if (instanceId === undefined) return;
+        const [, Y, Z] = grid.shape;
+        const z = instanceId % Z;
+        const y = Math.floor(instanceId / Z) % Y;
+        const x = Math.floor(instanceId / Z / Y);
+        setSelGridIndex([x, y, z]);
+      }}
+    >
       <boxGeometry args={[radius, radius, radius]} />
       <meshBasicMaterial
         side={THREE.DoubleSide}
         attach="material"
-        color="#ff0000"
         transparent
-        opacity={0.25}
+        opacity={0.5}
       />
     </instancedMesh>
   );
@@ -251,4 +291,3 @@ export const RenderMedialAxis = ({
     </mesh>
   );
 };
-
