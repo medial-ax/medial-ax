@@ -41,20 +41,43 @@ pub fn make_complex_from_obj(obj_body: String) -> Result<JsValue, JsValue> {
 }
 
 #[wasm_bindgen]
-pub fn run(grid: JsValue, complex: JsValue, params: JsValue) -> Result<JsValue, JsValue> {
+pub fn run(
+    grid: JsValue,
+    complex: JsValue,
+    params: JsValue,
+    on_message: js_sys::Function,
+) -> Result<JsValue, JsValue> {
+    let send_message = |label: &str, i: usize, n: usize| {
+        on_message.call3(
+            &JsValue::NULL,
+            &JsValue::from_str(label),
+            &JsValue::from_f64(i as f64),
+            &JsValue::from_f64(n as f64),
+        )
+    };
+
     let params: HashMap<String, PruningParam> = serde_wasm_bindgen::from_value(params)?;
     let grid: Grid = serde_wasm_bindgen::from_value(grid)?;
 
     let complex: Complex = serde_wasm_bindgen::from_value(complex)?;
 
     let p = grid.center(Index([0; 3]));
+
+    send_message("Reduce from scratch", 0, 0).unwrap();
     let s0 = reduce_from_scratch(&complex, p, false);
-    let results = grid.run_vineyards_in_grid(&complex, s0);
+    send_message("Run vineyards", 0, 0).unwrap();
+    let results = grid.run_vineyards_in_grid(&complex, s0, |i, n| {
+        if i & 15 == 0 {
+            send_message("Vineyards", i, n).unwrap();
+        }
+    });
     let reduction_map = results.0;
     let swaps_per_grid_pair = results.1;
 
     let mut grid_swaps_vec: Vec<(Index, Index, Swaps)> = Vec::new();
-    for s in swaps_per_grid_pair {
+    let prune_iters = swaps_per_grid_pair.len();
+    for (i, s) in swaps_per_grid_pair.into_iter().enumerate() {
+        send_message("Prune", i, prune_iters).unwrap();
         let swaps = s.2;
 
         let mut swaps_between_these_grid_cells: Vec<Swap> = Vec::new();

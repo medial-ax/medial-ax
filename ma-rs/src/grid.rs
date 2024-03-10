@@ -239,15 +239,22 @@ impl Grid {
     }
 
     /// Run vineyards across all edges of the grid.  
-    pub(crate) fn run_vineyards_in_grid(
+    pub(crate) fn run_vineyards_in_grid<F: Fn(usize, usize)>(
         &self,
         complex: &Complex,
         state: Reduction,
+        on_visit: F,
     ) -> (HashMap<Index, Reduction>, Vec<(Index, Index, Swaps)>) {
         let mut hm = HashMap::new();
         let mut all_swaps = Vec::new();
 
+        let num_grid_edges = self.number_of_grid_edges() as usize;
+        let mut edge_i = 0;
+
         self.visit_edges(Index([0; 3]), |new_cell, old_cell| {
+            edge_i += 1;
+            on_visit(edge_i, num_grid_edges);
+
             if let Some(old_cell) = old_cell {
                 let old_state = hm
                     .get(&old_cell)
@@ -293,7 +300,7 @@ impl Grid {
         }
         let mut swaps = Vec::<(HashMap<Index, Reduction>, Vec<(Index, Index, Swaps)>)>::new();
         swaps.extend(ready.into_iter().map(|(grid, state, offset)| {
-            let (states, mut swaps) = grid.run_vineyards_in_grid(complex, state);
+            let (states, mut swaps) = grid.run_vineyards_in_grid(complex, state, |_, _| {});
             for (i, j, _) in swaps.iter_mut() {
                 *i = *i + offset;
                 *j = *j + offset;

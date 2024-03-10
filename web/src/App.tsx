@@ -6,7 +6,13 @@ import styled, {
 import "./App.css";
 import { Canvas } from "@react-three/fiber";
 import { Environment, OrbitControls } from "@react-three/drei";
-import { PropsWithChildren, useCallback, useRef, useState } from "react";
+import {
+  PropsWithChildren,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import * as THREE from "three";
 import { SetStateAction, useAtom, useAtomValue, useSetAtom } from "jotai";
 import { Barcode } from "./Barcode";
@@ -38,7 +44,7 @@ import cube_subdiv_2 from "../inputs/cube-subdiv-2.obj?raw";
 import maze_2 from "../inputs/maze_2.obj?raw";
 import { Grid } from "./types";
 import { RESET } from "jotai/utils";
-import MyWorker from "./worker?worker";
+import WasmWorker from "./worker?worker";
 import {
   RedEdge,
   RedSphere,
@@ -48,10 +54,16 @@ import {
   RenderMedialAxis,
 } from "./Render";
 import { createPortal } from "react-dom";
-const myWorker = new MyWorker();
+const wasmWorker = new WasmWorker();
 
-const GlobalStyle = createGlobalStyle`
-  h1,h2,h3,h4,h5,h6, p {
+const GlobalStyle = createGlobalStyle`${css`
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  p {
     margin: 0;
     padding: 0;
     color: #333;
@@ -60,7 +72,7 @@ const GlobalStyle = createGlobalStyle`
     overflow: hidden;
   }
 
-  input[type=range] {
+  input[type="range"] {
     -webkit-appearance: none;
     margin: 0;
     cursor: pointer;
@@ -73,7 +85,7 @@ const GlobalStyle = createGlobalStyle`
     }
   }
 
-  input[type=range]::-webkit-slider-runnable-track {
+  input[type="range"]::-webkit-slider-runnable-track {
     width: 100%;
     height: 0.3rem;
     cursor: pointer;
@@ -81,7 +93,7 @@ const GlobalStyle = createGlobalStyle`
     border-radius: 4px;
   }
 
-  input[type=range]::-webkit-slider-thumb {
+  input[type="range"]::-webkit-slider-thumb {
     -webkit-appearance: none;
     margin-top: -0.45rem;
     height: 1.2rem;
@@ -92,15 +104,14 @@ const GlobalStyle = createGlobalStyle`
     cursor: pointer;
   }
 
-
-  input[type=range]::-moz-range-track {
+  input[type="range"]::-moz-range-track {
     height: 0.3rem;
     cursor: pointer;
     background: #888;
     border-radius: 4px;
   }
 
-  input[type=range]::-moz-range-thumb {
+  input[type="range"]::-moz-range-thumb {
     height: 1.2rem;
     width: 0.35rem;
     background: #ffffff;
@@ -109,19 +120,40 @@ const GlobalStyle = createGlobalStyle`
     cursor: pointer;
   }
 
-  input[type=range]::-ms-track {
+  input[type="range"]::-ms-track {
     height: 0.3rem;
     cursor: pointer;
     background: #888;
     border-radius: 4px;
   }
-  input[type=range]::-ms-thumb {
+  input[type="range"]::-ms-thumb {
     height: 1.2rem;
     width: 0.35rem;
     background: #ffffff;
     border: 1px solid #888;
     border-radius: 2px;
     cursor: pointer;
+  }
+
+  label:has(progress) {
+    font-size: 14px;
+    p {
+      font-variant-numeric: tabular-nums;
+    }
+  }
+
+  progress {
+    display: flex;
+    flex: 1;
+    background: #f1f1f1;
+    border: 1px solid #aaaab8;
+    border-radius: 4px;
+    height: 8px;
+  }
+
+  progress::-moz-progress-bar {
+    background: #bbbbbb;
+    border-radius: 3px;
   }
 
   button {
@@ -143,14 +175,13 @@ const GlobalStyle = createGlobalStyle`
       background: #f1f1f4;
       cursor: initial;
       opacity: 0.6;
-
     }
   }
 
   input[type="file"] {
     display: none;
   }
-  
+
   label:has(input[type="file"]) {
     p {
       background: #f1f1f4;
@@ -159,7 +190,7 @@ const GlobalStyle = createGlobalStyle`
 
       font-size: 13px;
       padding: 3px 6px;
-    line-height: 1.3;
+      line-height: 1.3;
 
       transition: background 0.1s ease-in-out;
       &:hover {
@@ -170,7 +201,7 @@ const GlobalStyle = createGlobalStyle`
       }
     }
   }
-`;
+`}`;
 
 const Loader = styled.span<{
   w0: number;
@@ -760,6 +791,30 @@ const Menu = () => {
   const [grid, setGrid] = useAtom(gridAtom);
   const [swaps, setSwaps] = useAtom(swapsAtom);
   const [workerRunning, setWorkerRunning] = useAtom(workerRunningAtom);
+  const [workerProgress, setWorkerProgress] = useState<
+    | undefined
+    | {
+        label: string;
+        i: number;
+        n: number;
+      }
+  >(undefined);
+
+  // useEffect(() => {
+  //   let frame = 0;
+  //   const it = setInterval(() => {
+  //     frame += 1;
+  //     setWorkerProgress({
+  //       label: "Hello",
+  //       i: frame % 100,
+  //       n: 100,
+  //     });
+  //   }, 1000 / 60);
+  //   return () => {
+  //     clearInterval(it);
+  //   };
+  // }, []);
+  //
   const setGridForSwaps = useSetAtom(gridForSwapsAtom);
   const allPruningParams = useAtomValue(allPruningParamsAtom);
 
@@ -917,24 +972,52 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
                 return;
               }
               setWorkerRunning(true);
-              myWorker.postMessage({
+              wasmWorker.postMessage({
                 grid,
                 complex: cplx.complex,
                 allPruningParams,
               });
-              myWorker.onmessage = (res: any) => {
-                setWorkerRunning(false);
-
-                const result = res.data;
-                const withSwaps = result.filter((o: any) => o[2].v.length > 0);
-                setSwaps(withSwaps);
-                setGridForSwaps(grid);
+              wasmWorker.onmessage = (msg: any) => {
+                if (msg.data.type === "progress") {
+                  setWorkerProgress(msg.data.data);
+                } else {
+                  const res = msg.data.data;
+                  setWorkerProgress(undefined);
+                  setWorkerRunning(false);
+                  const withSwaps = res.filter((o: any) => o[2].v.length > 0);
+                  setSwaps(withSwaps);
+                  setGridForSwaps(grid);
+                }
               };
             }}
           >
             {workerRunning ? <Loader w0={20} w1={60} /> : "Compute medial axes"}
           </button>
+          {workerRunning && (
+            <button
+              onClick={() => {
+                setWorkerRunning(false);
+                wasmWorker.terminate();
+              }}
+            >
+              Abort
+            </button>
+          )}
         </Row>
+        {workerProgress && (
+          <label>
+            <p>{workerProgress.label}</p>
+            <progress value={workerProgress.i / workerProgress.n} />
+            <p
+              style={{
+                width: "4ch",
+                textAlign: "end",
+              }}
+            >
+              {5 * Math.round((workerProgress.i / workerProgress.n) * 20)}%
+            </p>
+          </label>
+        )}
 
         <CtrlDiv>
           {([0, 1, 2] satisfies Dim[]).map((dim) => (
