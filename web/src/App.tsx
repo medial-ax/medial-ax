@@ -6,13 +6,7 @@ import styled, {
 import "./App.css";
 import { Canvas } from "@react-three/fiber";
 import { Environment, OrbitControls } from "@react-three/drei";
-import {
-  PropsWithChildren,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { PropsWithChildren, useCallback, useRef, useState } from "react";
 import * as THREE from "three";
 import { SetStateAction, useAtom, useAtomValue, useSetAtom } from "jotai";
 import { Barcode } from "./Barcode";
@@ -20,6 +14,7 @@ import {
   Dim,
   allPruningParamsAtom,
   allSettingsAtom,
+  barcodeAtom,
   complexAtom,
   gridAtom,
   gridForSwapsAtom,
@@ -55,7 +50,8 @@ import {
   RenderMedialAxis,
 } from "./Render";
 import { createPortal } from "react-dom";
-const wasmWorker = new WasmWorker();
+
+export let wasmWorker = new WasmWorker();
 
 const GlobalStyle = createGlobalStyle`${css`
   h1,
@@ -809,6 +805,8 @@ const Menu = () => {
   const [exportVisible, setExportVisible] = useState(true);
 
   const [allSettings, setAllSettings] = useAtom(allSettingsAtom);
+  const selGridIndex = useAtomValue(selectedGridIndex);
+  const setBarcode = useSetAtom(barcodeAtom);
 
   const exportMAtoObj = useCallback(() => {
     if (!grid) return;
@@ -959,9 +957,12 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
               }
               setWorkerRunning(true);
               wasmWorker.postMessage({
-                grid,
-                complex: cplx.complex,
-                allPruningParams,
+                fn: "run",
+                args: {
+                  grid,
+                  complex: cplx.complex,
+                  allPruningParams,
+                },
               });
               wasmWorker.onmessage = (msg: any) => {
                 if (msg.data.type === "progress") {
@@ -983,7 +984,9 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
             <button
               onClick={() => {
                 setWorkerRunning(false);
+                setWorkerProgress(undefined);
                 wasmWorker.terminate();
+                wasmWorker = new WasmWorker();
               }}
             >
               Abort
@@ -1438,10 +1441,11 @@ const RenderCanvas = () => {
 
 const RenderBarcodeSideThing = () => {
   const [open, setOpen] = useState(false);
+  const selGridIndex = useAtomValue(selectedGridIndex);
   return (
     <>
       <BarcodeContainer open={open}>
-        <Barcode json={undefined} />
+        <Barcode index={selGridIndex} />
       </BarcodeContainer>
       <ToggleBarcodeButton
         onClick={() => {

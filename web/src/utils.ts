@@ -4,6 +4,19 @@ export const min = (array: number[]): number => {
   return min;
 };
 
+export const minBy = <T>(array: T[], fn: (t: T) => number): T | undefined => {
+  let min = Infinity;
+  let obj = undefined;
+  for (const x of array) {
+    const fnx = fn(x);
+    if (fnx < min) {
+      min = fnx;
+      obj = x;
+    }
+  }
+  return obj;
+};
+
 export const max = (array: number[]): number => {
   let max = -Infinity;
   for (const x of array) if (max < x) max = x;
@@ -14,7 +27,6 @@ export const clamp = (x: number, min: number, max: number): number =>
   Math.max(min, Math.min(x, max));
 
 export const dedup = <T>(array: T[]): T[] => Array.from(new Set(array));
-
 
 export const downloadText = (text: string, filename: string) => {
   const element = document.createElement("a");
@@ -27,4 +39,4 @@ export const downloadText = (text: string, filename: string) => {
   document.body.appendChild(element);
   element.click();
   document.body.removeChild(element);
-}
+};

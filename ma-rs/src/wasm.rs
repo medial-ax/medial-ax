@@ -4,11 +4,42 @@ use wasm_bindgen::prelude::*;
 use crate::{
     complex::Complex,
     grid::{Grid, Index},
-    reduce_from_scratch, Swap, Swaps,
+    reduce_from_scratch, BirthDeathPair, Reduction, Swap, Swaps,
 };
-use log::{debug, warn};
+use log::{debug, info, warn};
 
-use std::{collections::HashMap, panic};
+use std::{collections::HashMap, panic, sync::Mutex};
+
+struct State {
+    grid: Grid,
+    complex: Complex,
+    p0: Index,
+    grid_index_to_reduction: HashMap<Index, Reduction>,
+    swaps: Vec<(Index, Index, Swaps)>,
+}
+
+#[wasm_bindgen]
+pub fn get_barcode_for_point(grid_point: Vec<isize>) -> Result<JsValue, String> {
+    let index = Index([grid_point[0], grid_point[1], grid_point[2]]);
+    let guard = STATE.lock().map_err(|_| "STATE.lock failed")?;
+    let state = guard.as_ref().ok_or("No global state")?;
+
+    let reduction = state
+        .grid_index_to_reduction
+        .get(&index)
+        .expect("Index not in map");
+
+    let swaps_1 = reduction.barcode(&state.complex, -1);
+    let swaps0 = reduction.barcode(&state.complex, 0);
+    let swaps1 = reduction.barcode(&state.complex, 1);
+    let swaps2 = reduction.barcode(&state.complex, 2);
+
+    let js: JsValue = serde_wasm_bindgen::to_value(&vec![swaps_1, swaps0, swaps1, swaps2])
+        .map_err(|e| e.to_string())?;
+    Ok(js)
+}
+
+static STATE: Mutex<Option<State>> = Mutex::new(None);
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -47,6 +78,11 @@ pub fn run(
     params: JsValue,
     on_message: js_sys::Function,
 ) -> Result<JsValue, JsValue> {
+    {
+        let guard = STATE.lock().unwrap();
+        info!("guard was None? {}", guard.is_none());
+    }
+
     let send_message = |label: &str, i: usize, n: usize| {
         on_message.call3(
             &JsValue::NULL,
@@ -73,6 +109,17 @@ pub fn run(
     });
     let reduction_map = results.0;
     let swaps_per_grid_pair = results.1;
+
+    {
+        let mut guard = STATE.lock().unwrap();
+        *guard = Some(State {
+            grid: grid.clone(),
+            complex: complex.clone(),
+            p0: Index([0; 3]),
+            grid_index_to_reduction: reduction_map.clone(),
+            swaps: swaps_per_grid_pair.clone(),
+        });
+    }
 
     let mut grid_swaps_vec: Vec<(Index, Index, Swaps)> = Vec::new();
     let prune_iters = swaps_per_grid_pair.len();

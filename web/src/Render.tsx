@@ -1,7 +1,7 @@
 import { MeshProps } from "@react-three/fiber";
 import { useCallback, useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
-import { dedup } from "./utils";
+import { dedup, minBy } from "./utils";
 import { Wireframe } from "@react-three/drei";
 import { useAtom, useAtomValue } from "jotai";
 import {
@@ -214,7 +214,16 @@ export const RenderGrid = () => {
       ref={meshref}
       args={[undefined, undefined, points.length]}
       onClick={(e) => {
-        const { instanceId } = e;
+        // NOTE: We have an implicit camera somewhere, not sure what the parameters actually are.
+        const probablyNearClipPlane = 0.1;
+        const closest = e.intersections.filter(
+          (e) => e.distance > probablyNearClipPlane,
+        )[0];
+        if (!closest) {
+          setSelGridIndex(undefined);
+          return;
+        }
+        const { instanceId } = closest;
         if (instanceId === undefined) return;
         const [, Y, Z] = grid.shape;
         const z = instanceId % Z;

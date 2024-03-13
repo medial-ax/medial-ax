@@ -25,6 +25,16 @@ export const swapsAtom = atom<Swaps>([]);
 
 export const workerRunningAtom = atom<boolean>(false);
 
+export const barcodeAtom = atom<
+  | {
+      "-1": BirthDeathPair[];
+      0: BirthDeathPair[];
+      1: BirthDeathPair[];
+      2: BirthDeathPair[];
+    }
+  | undefined
+>(undefined);
+
 export type Dim = 0 | 1 | 2;
 export const swapsForMA = atomFamily((dim: Dim) =>
   atom((get) =>

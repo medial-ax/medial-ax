@@ -1,6 +1,6 @@
 import styled, { CSSProperties } from "styled-components";
-import { BirthDeathPair, Json } from "./types";
-import { selectedBirthDeathPair } from "./state";
+import { BirthDeathPair, Index } from "./types";
+import { barcodeAtom, selectedBirthDeathPair } from "./state";
 import { useAtom, useSetAtom } from "jotai";
 import {
   Fragment,
@@ -13,6 +13,7 @@ import {
 import { timelinePositionAtom } from "./state";
 import { clamp, max } from "./utils";
 import { colors } from "./constants";
+import { wasmWorker } from "./App";
 
 const _width = 4;
 const barSpacing = 20;
@@ -392,14 +393,14 @@ const TimelineBar = ({ xmax }: { xmax: number }) => {
         const clampedX = clamp(
           layerX,
           barcodePaddingPx,
-          width - barcodePaddingPx
+          width - barcodePaddingPx,
         );
         setX(clampedX);
 
         setTimelinePosition(clamp(pos, 0, xmax));
       }
     },
-    [isDragging, setTimelinePosition, xmax]
+    [isDragging, setTimelinePosition, xmax],
   );
 
   useEffect(() => {
@@ -452,7 +453,16 @@ const TimelineBar = ({ xmax }: { xmax: number }) => {
   );
 };
 
-export const Barcode = ({ json }: { json: Json | undefined }) => {
+const BarcodeInner = ({
+  barcodes,
+}: {
+  barcodes: {
+    "-1": BirthDeathPair[];
+    0: BirthDeathPair[];
+    1: BirthDeathPair[];
+    2: BirthDeathPair[];
+  };
+}) => {
   const ref = useRef<HTMLDivElement>(null);
   const setSelectedBDPair = useSetAtom(selectedBirthDeathPair);
 
@@ -469,32 +479,17 @@ export const Barcode = ({ json }: { json: Json | undefined }) => {
     };
   }, []);
 
-  if (!json)
-    return (
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          margin: "2rem auto",
-          textAlign: "center",
-          flex: 1,
-        }}
-      >
-        No barcode calculated yet
-      </div>
-    );
-
-  const allPairs = json.empty_barcode
-    .concat(json.vertex_barcode)
-    .concat(json.edge_barcode)
-    .concat(json.triangle_barcode);
+  const allPairs = barcodes[-1]
+    .concat(barcodes[0])
+    .concat(barcodes[1])
+    .concat(barcodes[2]);
 
   const xmax =
     max(
       allPairs.flatMap((x) => {
         if (x.death == null) return [];
         return [x.death[0]];
-      })
+      }),
     ) * 1.2;
 
   return (
@@ -512,37 +507,53 @@ export const Barcode = ({ json }: { json: Json | undefined }) => {
       }}
     >
       <BarcodePlot>
-        <BarcodeDim
-          width={width}
-          xmax={xmax}
-          pairs={json.triangle_barcode}
-          dim={2}
-        />
+        <BarcodeDim width={width} xmax={xmax} pairs={barcodes[2]} dim={2} />
         <hr />
-        <BarcodeDim
-          width={width}
-          xmax={xmax}
-          pairs={json.edge_barcode}
-          dim={1}
-        />
+        <BarcodeDim width={width} xmax={xmax} pairs={barcodes[1]} dim={1} />
         <hr />
-        <BarcodeDim
-          width={width}
-          xmax={xmax}
-          pairs={json.vertex_barcode}
-          dim={0}
-        />
+        <BarcodeDim width={width} xmax={xmax} pairs={barcodes[0]} dim={0} />
         <hr />
-        <BarcodeDim
-          width={width}
-          xmax={xmax}
-          pairs={json.empty_barcode}
-          dim={-1}
-        />
+        <BarcodeDim width={width} xmax={xmax} pairs={barcodes[-1]} dim={-1} />
       </BarcodePlot>
       <BarcodeXAxis width={width} xmax={xmax} />
 
       <TimelineBar xmax={xmax} />
     </div>
   );
+};
+
+export const Barcode = ({ index }: { index: Index | undefined }) => {
+  const [barcodes, setBarcodes] = useAtom(barcodeAtom);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!index) return;
+    let stop = false;
+    wasmWorker.onmessage = (msg: any) => {
+      if (stop) return;
+      const array = msg.data.data;
+      setBarcodes({
+        "-1": array[0],
+        0: array[1],
+        1: array[2],
+        2: array[3],
+      });
+      setLoading(false);
+    };
+    setLoading(true);
+    wasmWorker.postMessage({
+      fn: "get-barcode-for-point",
+      args: {
+        grid_point: index,
+      },
+    });
+    return () => {
+      stop = true;
+    };
+  }, [index, setBarcodes, setLoading]);
+
+  if (!index) return <p>Click on a grid point to see the barcode</p>;
+  if (loading) return <p>hello im loading</p>;
+  if (!barcodes) return <p>no loading but also no barcode??</p>;
+  return <BarcodeInner key={String(index)} barcodes={barcodes} />;
 };
