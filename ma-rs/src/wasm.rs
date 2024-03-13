@@ -104,6 +104,7 @@ pub fn run(
     let reduction_map = results.0;
     let swaps_per_grid_pair = results.1;
 
+    send_message("Copy state", 0, 1).unwrap();
     {
         let mut guard = STATE.lock().unwrap();
         *guard = Some(State {
