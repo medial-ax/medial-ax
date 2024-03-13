@@ -14,7 +14,6 @@ import {
   Dim,
   allPruningParamsAtom,
   allSettingsAtom,
-  barcodeAtom,
   complexAtom,
   gridAtom,
   gridForSwapsAtom,
@@ -95,7 +94,7 @@ const GlobalStyle = createGlobalStyle`${css`
     margin-top: -0.45rem;
     height: 1.2rem;
     width: 0.35rem;
-    background: unset;
+    background: white;
     border: 1px solid #888;
     border-radius: 2px;
     cursor: pointer;
@@ -201,10 +200,10 @@ const GlobalStyle = createGlobalStyle`${css`
 `}`;
 
 const Loader = styled.span<{
-  w0: number;
-  w1: number;
+  $w0: number;
+  $w1: number;
 }>`
-  width: ${(p) => p.w0}px;
+  width: ${(p) => p.$w0}px;
   height: 12px;
 
   display: block;
@@ -220,7 +219,7 @@ const Loader = styled.span<{
   &::before {
     content: "";
     box-sizing: border-box;
-    width: ${(p) => p.w0}px;
+    width: ${(p) => p.$w0}px;
     height: 12px;
     background: currentColor;
     position: absolute;
@@ -237,10 +236,10 @@ const Loader = styled.span<{
 
   @keyframes animloader {
     0% {
-      width: ${(p) => p.w0}px;
+      width: ${(p) => p.$w0}px;
     }
     100% {
-      width: ${(p) => p.w1}px;
+      width: ${(p) => p.$w1}px;
     }
   }
 `;
@@ -494,12 +493,12 @@ const HoverTooltipSpan = styled.span`
   font-weight: 600;
 `;
 
-const HoverTooltipPopup = styled.span<{ right: boolean }>`
+const HoverTooltipPopup = styled.span<{ $right: boolean }>`
   position: fixed;
   bottom: 0;
   z-index: 100;
   max-width: 16rem;
-  transform: translateX(${(p) => (p.right ? "0" : "-50%")}) translateY(-100%);
+  transform: translateX(${(p) => (p.$right ? "0" : "-50%")}) translateY(-100%);
   height: fit-content;
   padding: 4px 8px;
   background: white;
@@ -540,7 +539,7 @@ const HoverTooltip = ({
         createPortal(
           <HoverTooltipPopup
             style={{ top: pos.y, left: pos.x }}
-            right={right ?? false}
+            $right={right ?? false}
           >
             {children}
           </HoverTooltipPopup>,
@@ -587,8 +586,8 @@ const PruningParameters = ({ dim }: { dim: Dim }) => {
         <p>
           Euclidean pruning{" "}
           <HoverTooltip>
-            Prunes a Faustian swap if the simplices responsible for the swap are
-            closer together than the pruning distance.
+            Prunes a Faustian swap if the squared distance between the simplices
+            responsible for the swap is less than the pruning distance.
           </HoverTooltip>
         </p>
       </label>
@@ -805,8 +804,6 @@ const Menu = () => {
   const [exportVisible, setExportVisible] = useState(true);
 
   const [allSettings, setAllSettings] = useAtom(allSettingsAtom);
-  const selGridIndex = useAtomValue(selectedGridIndex);
-  const setBarcode = useSetAtom(barcodeAtom);
 
   const exportMAtoObj = useCallback(() => {
     if (!grid) return;
@@ -978,7 +975,11 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
               };
             }}
           >
-            {workerRunning ? <Loader w0={20} w1={60} /> : "Compute medial axes"}
+            {workerRunning ? (
+              <Loader $w0={20} $w1={60} />
+            ) : (
+              "Compute medial axes"
+            )}
           </button>
           {workerRunning && (
             <button
@@ -996,7 +997,9 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
         {workerProgress && (
           <label>
             <p>{workerProgress.label}</p>
-            <progress value={workerProgress.i / workerProgress.n} />
+            {0 < workerProgress.n && (
+              <progress value={workerProgress.i / workerProgress.n} />
+            )}
             <p
               style={{
                 width: "4ch",

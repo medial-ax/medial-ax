@@ -60,9 +60,11 @@ export const showMAAtom = atom<Record<Dim, boolean>>({
 export const pruningParamAtom = atomFamily((dim: Dim) =>
   atomWithReset<PruningParam>({
     euclidean: true,
+    euclideanDistance: 0.0,
     coface: dim == 0 || dim == 2,
     face: 0 < dim,
     persistence: dim == 1,
+    persistenceThreshold: 0.0,
   }),
 );
 

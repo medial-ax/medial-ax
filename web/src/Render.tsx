@@ -1,7 +1,7 @@
 import { MeshProps } from "@react-three/fiber";
 import { useCallback, useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
-import { dedup, minBy } from "./utils";
+import { dedup } from "./utils";
 import { Wireframe } from "@react-three/drei";
 import { useAtom, useAtomValue } from "jotai";
 import {

@@ -6,7 +6,7 @@ use crate::{
     grid::{Grid, Index},
     reduce_from_scratch, BirthDeathPair, Reduction, Swap, Swaps,
 };
-use log::{debug, info, warn};
+use log::warn;
 
 use std::{collections::HashMap, panic, sync::Mutex};
 
@@ -62,7 +62,6 @@ pub fn my_init_function() {
             WAS_INIT = true;
         }
     }
-    debug!("WASM initialized");
 }
 
 #[wasm_bindgen]
@@ -78,11 +77,6 @@ pub fn run(
     params: JsValue,
     on_message: js_sys::Function,
 ) -> Result<JsValue, JsValue> {
-    {
-        let guard = STATE.lock().unwrap();
-        info!("guard was None? {}", guard.is_none());
-    }
-
     let send_message = |label: &str, i: usize, n: usize| {
         on_message.call3(
             &JsValue::NULL,

@@ -91,7 +91,6 @@ const Bar = ({
   const isTrivial =
     pair.birth != null && pair.death != null && pair.birth[0] == pair.death[0];
   const topPx = isTrivial ? 0 : top * barSpacing;
-  // const watWidth = isTrivial ? `${_width}px` : `${(ourWidth / xrange) * 100}%`;
 
   const style: CSSProperties = isTrivial
     ? {
@@ -328,7 +327,7 @@ const BarcodeXAxis = ({ xmax, width }: { xmax: number; width: number }) => {
   );
 };
 
-const TimelineBarDiv = styled.div<{ dragging: boolean }>`
+const TimelineBarDiv = styled.div<{ $dragging: boolean }>`
   position: absolute;
   height: 100%;
   width: 2px;
@@ -343,7 +342,7 @@ const TimelineBarDiv = styled.div<{ dragging: boolean }>`
   }
 
   transition: opacity 0.2s ease-in-out;
-  opacity: ${(p) => (p.dragging ? 0.75 : 0.3)};
+  opacity: ${(p) => (p.$dragging ? 0.75 : 0.3)};
 
   cursor: ew-resize;
 `;
@@ -425,7 +424,7 @@ const TimelineBar = ({ xmax }: { xmax: number }) => {
       </TimelinePositionLabel>
 
       <TimelineBarDiv
-        dragging={isDragging}
+        $dragging={isDragging}
         ref={ref}
         style={{ left: x }}
         onMouseDown={(e) => {
@@ -555,5 +554,6 @@ export const Barcode = ({ index }: { index: Index | undefined }) => {
   if (!index) return <p>Click on a grid point to see the barcode</p>;
   if (loading) return <p>hello im loading</p>;
   if (!barcodes) return <p>no loading but also no barcode??</p>;
+
   return <BarcodeInner key={String(index)} barcodes={barcodes} />;
 };
