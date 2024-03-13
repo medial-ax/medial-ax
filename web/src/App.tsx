@@ -49,6 +49,7 @@ import {
   RenderMedialAxis,
 } from "./Render";
 import { createPortal } from "react-dom";
+import { Tabs } from "./Tab";
 
 export let wasmWorker = new WasmWorker();
 
@@ -380,7 +381,6 @@ const SliderGrid = styled.div`
 
 const BarcodeContainer = styled.div<{ open: boolean }>`
   display: flex;
-  overflow: hidden;
 
   position: absolute;
   top: 2.8rem;
@@ -388,9 +388,6 @@ const BarcodeContainer = styled.div<{ open: boolean }>`
   z-index: 100;
   margin: 0.6rem;
   width: fit-content;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.17);
 
   transform: ${(p) =>
     !p.open ? "translateX(calc(100% + 1.2rem))" : "translateX(0)"};
@@ -398,9 +395,6 @@ const BarcodeContainer = styled.div<{ open: boolean }>`
 
   min-width: 30rem;
   min-height: 30rem;
-
-  // background: ${colors.barcodeBackground};
-  background: white;
 `;
 
 const Row = styled.div`
@@ -1448,7 +1442,17 @@ const RenderBarcodeSideThing = () => {
   return (
     <>
       <BarcodeContainer open={open}>
-        <Barcode index={selGridIndex} />
+        <Tabs titles={["Barcodes", "Diagram", "Vineyards"]} style={{ flex: 1 }}>
+          <Barcode index={selGridIndex} />
+          <div>
+            <h1>HERE IS THE PERSISTENCE DIAGRAM</h1>
+            <p>yaaaaaayy</p>
+          </div>
+          <div>
+            <h2>Wine goes here :-)</h2>
+            <p>Sånn er det {`\u{1F377}`}</p>
+          </div>
+        </Tabs>
       </BarcodeContainer>
       <ToggleBarcodeButton
         onClick={() => {
