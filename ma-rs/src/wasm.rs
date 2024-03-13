@@ -4,7 +4,7 @@ use wasm_bindgen::prelude::*;
 use crate::{
     complex::Complex,
     grid::{Grid, Index},
-    reduce_from_scratch, BirthDeathPair, Reduction, Swap, Swaps,
+    reduce_from_scratch, Reduction, Swap, Swaps,
 };
 use log::warn;
 
@@ -101,20 +101,21 @@ pub fn run(
             send_message("Vineyards", i, n).unwrap();
         }
     });
-    let reduction_map = results.0;
-    let swaps_per_grid_pair = results.1;
 
-    send_message("Copy state", 0, 1).unwrap();
-    {
-        let mut guard = STATE.lock().unwrap();
-        *guard = Some(State {
-            grid: grid.clone(),
-            complex: complex.clone(),
-            p0: Index([0; 3]),
-            grid_index_to_reduction: reduction_map.clone(),
-            swaps: swaps_per_grid_pair.clone(),
-        });
-    }
+    send_message("Move state to global", 0, 1).unwrap();
+    let mut state = STATE.lock().unwrap();
+    *state = Some(State {
+        grid,
+        complex,
+        p0: Index([0; 3]),
+        grid_index_to_reduction: results.0,
+        swaps: results.1,
+    });
+    let st = state.as_ref().unwrap();
+
+    let reduction_map = &st.grid_index_to_reduction;
+    let swaps_per_grid_pair = &st.swaps;
+    let complex = &st.complex;
 
     let mut grid_swaps_vec: Vec<(Index, Index, Swaps)> = Vec::new();
     let prune_iters = swaps_per_grid_pair.len();
@@ -122,7 +123,7 @@ pub fn run(
         if i & 15 == 0 {
             send_message("Prune", i, prune_iters).unwrap();
         }
-        let swaps = s.2;
+        let swaps = &s.2;
 
         let mut swaps_between_these_grid_cells: Vec<Swap> = Vec::new();
         for dim in 0..3 {
