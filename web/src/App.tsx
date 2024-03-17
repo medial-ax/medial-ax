@@ -9,18 +9,15 @@ import { Environment, OrbitControls } from "@react-three/drei";
 import { PropsWithChildren, useCallback, useRef, useState } from "react";
 import * as THREE from "three";
 import { SetStateAction, useAtom, useAtomValue, useSetAtom } from "jotai";
-import { Barcode, BarcodeTabs } from "./Barcode";
+import { BarcodeTabs } from "./Barcode";
 import {
   Dim,
-  Highlight,
   allPruningParamsAtom,
   allSettingsAtom,
-  barcodeAtom,
   complexAtom,
   gridAtom,
   gridForSwapsAtom,
   gridRadiusAtom,
-  persistenceTableHighlight,
   pruningParamAtom,
   selectedGridIndex,
   showGridAtom,
@@ -51,7 +48,6 @@ import {
   RenderMedialAxis,
 } from "./Render";
 import { createPortal } from "react-dom";
-import { Tabs } from "./Tab";
 
 export let wasmWorker = new WasmWorker();
 
@@ -1339,12 +1335,18 @@ const RenderCanvas = () => {
   return (
     <CanvasContainer id="canvas-container">
       <Canvas
-        onPointerMissed={() => {
+        onPointerMissed={(e) => {
+          if (e.type !== "click") return;
           setTriangle(undefined);
           setSelectedGridIndex(undefined);
         }}
       >
-        <OrbitControls enablePan={true} enableZoom={true} enableRotate={true} />
+        <OrbitControls
+          zoomSpeed={0.4}
+          enablePan={true}
+          enableZoom={true}
+          enableRotate={true}
+        />
         <color attach="background" args={["#f6f6f6"]} />
 
         <hemisphereLight color={"#ffffff"} groundColor="#333" intensity={3.0} />
