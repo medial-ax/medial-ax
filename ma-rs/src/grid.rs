@@ -147,6 +147,7 @@ impl Grid {
         Index(arr)
     }
 
+    /// Returns the coordinate of the lower corner of the cell.
     fn coordinate(&self, i: Index) -> Pos {
         let mut arr = [0.0; 3];
         for j in 0..3 {
@@ -162,7 +163,7 @@ impl Grid {
     /// Return the dual face in between the two indices. The output is the four
     /// coordinates of the quad.
     pub fn dual_face(&self, a: Index, b: Index) -> [Pos; 4] {
-        let middle = (self.coordinate(a) + self.coordinate(b)) / 2.0;
+        let middle = (self.center(a) + self.center(b)) / 2.0;
 
         if a.0[0] != b.0[0] {
             [

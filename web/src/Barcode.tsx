@@ -1,7 +1,14 @@
 import styled, { CSSProperties } from "styled-components";
 import { BirthDeathPair, Index } from "./types";
-import { barcodeAtom, selectedBirthDeathPair } from "./state";
-import { useAtom, useSetAtom } from "jotai";
+import {
+  BarcodeType,
+  barcodeAtom,
+  gridAtom,
+  persistenceTableHighlight,
+  selectedBirthDeathPair,
+  selectedGridIndex,
+} from "./state";
+import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import {
   Fragment,
   useCallback,
@@ -14,6 +21,7 @@ import { timelinePositionAtom } from "./state";
 import { clamp, max } from "./utils";
 import { colors } from "./constants";
 import { wasmWorker } from "./App";
+import { Tabs } from "./Tab";
 
 const _width = 4;
 const barSpacing = 20;
@@ -25,6 +33,17 @@ const dim2label: Record<number, string> = {
   1: "e",
   2: "t",
 };
+
+const Center = styled.div`
+  flex: 1;
+  margin: 1rem;
+  text-align: center;
+  align-self: center;
+  margin-bottom: 50%;
+  p {
+    color: #888;
+  }
+`;
 
 const HoverPopup = styled.div`
   background: white;
@@ -478,10 +497,10 @@ const BarcodeInner = ({
     };
   }, []);
 
-  const allPairs = barcodes[-1]
-    .concat(barcodes[0])
-    .concat(barcodes[1])
-    .concat(barcodes[2]);
+  const allPairs = (barcodes[-1] ?? [])
+    .concat(barcodes[0] ?? [])
+    .concat(barcodes[1] ?? [])
+    .concat(barcodes[2] ?? []);
 
   const xmax =
     max(
@@ -521,7 +540,147 @@ const BarcodeInner = ({
   );
 };
 
-export const Barcode = ({ index }: { index: Index | undefined }) => {
+export const Barcode = ({
+  index,
+  barcodes,
+}: {
+  index: Index | undefined;
+  barcodes: BarcodeType | undefined;
+}) => {
+  if (!index)
+    return (
+      <Center>
+        <p>Click on a grid point to see the barcode</p>
+      </Center>
+    );
+  if (!barcodes)
+    return (
+      <Center>
+        <p>No barcode</p>
+      </Center>
+    );
+
+  return <BarcodeInner key={String(index)} barcodes={barcodes} />;
+};
+
+const TableWrapper = styled.div`
+  max-height: 80vh;
+  overflow-y: auto;
+
+  table {
+    border-collapse: collapse;
+
+    tr {
+      border-bottom: 1px solid #aaa;
+    }
+    tr:has(th) {
+      border-color: #333;
+      border-width: 2px;
+      position: sticky;
+      top: 0;
+      box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.4);
+      background: white;
+    }
+    tr:not(:has(th)):hover {
+      background: #4aa2ff33;
+    }
+
+    td,
+    th {
+      min-width: 44px;
+      text-align: end;
+      padding: 1px 0.8rem;
+      font-variant-numeric: tabular-nums;
+    }
+  }
+`;
+
+const Table = () => {
+  const [hideZero, setHideZero] = useState<boolean>(false);
+  const [dim, setDim] = useState<0 | 1 | 2>(0);
+  const fullBarcode = useAtomValue(barcodeAtom)?.[dim];
+  const setHighlight = useSetAtom(persistenceTableHighlight);
+
+  const barcode = hideZero
+    ? (fullBarcode ?? []).filter(
+        (b) => !b.death || !b.birth || 0 < Math.abs(b.death[0] - b.birth[0]),
+      )
+    : fullBarcode ?? [];
+
+  if (!barcode) return <h3>No barcode</h3>;
+
+  return (
+    <TableWrapper>
+      <label>
+        <p>Dimension:</p>
+        <select
+          value={dim}
+          onChange={(e) => {
+            setDim(parseInt(e.target.value) as 0 | 1 | 2);
+          }}
+        >
+          <option value={-1}>-1</option>
+          <option value={0}>0</option>
+          <option value={1}>1</option>
+          <option value={2}>2</option>
+        </select>
+      </label>
+      <h3>Persistence pairs for dim {dim}</h3>
+      <label>
+        <input
+          type="checkbox"
+          checked={hideZero}
+          onChange={(e) => {
+            setHideZero(e.target.checked);
+          }}
+        />
+        <p>Hide trivial persistence</p>
+      </label>
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Birth</th>
+            <th scope="col">Death</th>
+            <th scope="col">
+              <code>s1</code>
+            </th>
+            <th scope="col">
+              <code>s2</code>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {barcode.map((s, i) => {
+            const birth = s.birth ? s.birth[0].toFixed(3) : "-";
+            const death = s.death ? s.death[0].toFixed(3) : "-";
+            const birthI = s.birth ? s.birth[1] : "-";
+            const deathI = s.death ? s.death[1] : "-";
+            return (
+              <tr
+                key={i}
+                onClick={() => {
+                  setHighlight({
+                    dim,
+                    lower: s.birth?.[1],
+                    upper: s.death?.[1],
+                  });
+                }}
+              >
+                <td>{birth}</td>
+                <td>{death}</td>
+                <td>{birthI}</td>
+                <td>{deathI}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </TableWrapper>
+  );
+};
+
+export const BarcodeTabs = () => {
+  const index = useAtomValue(selectedGridIndex);
   const [barcodes, setBarcodes] = useAtom(barcodeAtom);
   const [loading, setLoading] = useState(false);
 
@@ -540,6 +699,7 @@ export const Barcode = ({ index }: { index: Index | undefined }) => {
       setLoading(false);
     };
     setLoading(true);
+    console.log("post");
     wasmWorker.postMessage({
       fn: "get-barcode-for-point",
       args: {
@@ -551,9 +711,22 @@ export const Barcode = ({ index }: { index: Index | undefined }) => {
     };
   }, [index, setBarcodes, setLoading]);
 
-  if (!index) return <p>Click on a grid point to see the barcode</p>;
-  if (loading) return <p>hello im loading</p>;
-  if (!barcodes) return <p>no loading but also no barcode??</p>;
-
-  return <BarcodeInner key={String(index)} barcodes={barcodes} />;
+  return (
+    <Tabs
+      titles={["Barcodes", "Diagram", "Vineyards", "Table"]}
+      style={{ flex: 1 }}
+    >
+      <Barcode index={index} barcodes={barcodes} />
+      <div>
+        <p>hello</p>
+      </div>
+      <div>
+        <p>Sånn er det {`\u{1F377}`}</p>
+      </div>
+      <div style={{ flex: 1, padding: "1rem 1rem 0 1rem" }}>
+        <h2>Table</h2>
+        <Table />
+      </div>
+    </Tabs>
+  );
 };

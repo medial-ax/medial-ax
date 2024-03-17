@@ -8,6 +8,7 @@ import {
   Dim,
   gridAtom,
   gridRadiusAtom,
+  highlightAtom,
   selectedGridIndex,
   swapsForMA,
 } from "./state";
@@ -127,31 +128,65 @@ export const RenderComplex = ({
     ref.current.needsUpdate = true;
   }, [getCoords]);
 
-  return (
-    <mesh onClick={onClick}>
-      <bufferGeometry attach="geometry">
-        <bufferAttribute
-          ref={ref}
-          attach="attributes-position"
-          count={coords.length / 3}
-          array={coords}
-          itemSize={3}
+  const highlights = useAtomValue(highlightAtom);
+
+  // const {vertices, edges} = useMemo(() => {
+  //   const vertices = [];
+  //   const edges = [];
+  //   for (const h of highlights) {
+  //     if (h.dim === )
+  //
+  //   }
+  //
+  // }, []);
+
+  const vertices = highlights
+    .filter((h) => h.dim === 0)
+    .map((h, i) => {
+      const pos = cplx.simplices_per_dim[0][h.index].coords;
+      return (
+        <RedSphere key={i} pos={new THREE.Vector3(...pos)} radius={0.04} />
+      );
+    });
+
+  const edges = highlights
+    .filter((h) => h.dim === 1)
+    .map((h, i) => {
+      const edge = cplx.simplices_per_dim[1][h.index];
+      const p = cplx.simplices_per_dim[0][edge.boundary[0]];
+      const q = cplx.simplices_per_dim[0][edge.boundary[1]];
+      return (
+        <RedEdge
+          key={i}
+          from={new THREE.Vector3(...p.coords)}
+          to={new THREE.Vector3(...q.coords)}
+          radius={0.02}
         />
-      </bufferGeometry>
-      {/* <meshBasicMaterial
-        side={THREE.DoubleSide}
-        attach="material"
-        color="#ff0000"
-        transparent
-        opacity={0.5}
-      /> */}
-      <meshLambertMaterial
-        color="#f3f3f3"
-        flatShading
-        side={THREE.DoubleSide}
-      />
-      {wireframe && <Wireframe />}
-    </mesh>
+      );
+    });
+
+  return (
+    <>
+      <mesh onClick={onClick}>
+        <bufferGeometry attach="geometry">
+          <bufferAttribute
+            ref={ref}
+            attach="attributes-position"
+            count={coords.length / 3}
+            array={coords}
+            itemSize={3}
+          />
+        </bufferGeometry>
+        <meshLambertMaterial
+          color="#f3f3f3"
+          flatShading
+          side={THREE.DoubleSide}
+        />
+        {wireframe && <Wireframe />}
+      </mesh>
+      {vertices}
+      {edges}
+    </>
   );
 };
 

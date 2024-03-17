@@ -16,6 +16,26 @@ export const gridForSwapsAtom = atom<Grid | undefined>(undefined);
 export const showGridAtom = atom<boolean>(true);
 export const selectedGridIndex = atom<Index | undefined>(undefined);
 
+export const persistenceTableHighlight = atom<
+  | {
+      dim: number;
+      lower: number | undefined;
+      upper: number | undefined;
+    }
+  | undefined
+>(undefined);
+
+export const highlightAtom = atom<{ dim: number; index: number }[]>((get) => {
+  const highlights = [];
+  const table = get(persistenceTableHighlight);
+  if (table) {
+    if (table.lower) highlights.push({ dim: table.dim, index: table.lower });
+    if (table.upper)
+      highlights.push({ dim: table.dim + 1, index: table.upper });
+  }
+  return highlights;
+});
+
 export const gridRadiusAtom = atom<number>(0.02);
 
 export const wireframeAtom = atom(false);
@@ -25,15 +45,13 @@ export const swapsAtom = atom<Swaps>([]);
 
 export const workerRunningAtom = atom<boolean>(false);
 
-export const barcodeAtom = atom<
-  | {
-      "-1": BirthDeathPair[];
-      0: BirthDeathPair[];
-      1: BirthDeathPair[];
-      2: BirthDeathPair[];
-    }
-  | undefined
->(undefined);
+export type BarcodeType = {
+  "-1": BirthDeathPair[];
+  0: BirthDeathPair[];
+  1: BirthDeathPair[];
+  2: BirthDeathPair[];
+};
+export const barcodeAtom = atom<BarcodeType | undefined>(undefined);
 
 export type Dim = 0 | 1 | 2;
 export const swapsForMA = atomFamily((dim: Dim) =>
@@ -60,11 +78,11 @@ export const showMAAtom = atom<Record<Dim, boolean>>({
 export const pruningParamAtom = atomFamily((dim: Dim) =>
   atomWithReset<PruningParam>({
     euclidean: true,
-    euclideanDistance: 0.0,
+    euclideanDistance: 0.01,
     coface: dim == 0 || dim == 2,
     face: 0 < dim,
     persistence: dim == 1,
-    persistenceThreshold: 0.0,
+    persistenceThreshold: 0.01,
   }),
 );
 

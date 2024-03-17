@@ -4,15 +4,18 @@ export const swapsForDimension = (j: Json, dim: number) => {
   return j.swaps.filter(([, , { v }]) => v[0].dim === dim);
 };
 
+/**
+ * Returns the center coordinate of the grid cell.
+ */
 export const gridCoordinate = (grid: Grid, index: Index): number[] => {
-  return grid.corner.map((c, i) => c + grid.size * index[i]);
+  return grid.corner.map((c, i) => c + grid.size * (index[i] + 0.5));
 };
 
 type Pos = [number, number, number];
 export const dualFaceQuad = (
   grid: Grid,
   a: Index,
-  b: Index
+  b: Index,
 ): [Pos, Pos, Pos, Pos] => {
   const pa = gridCoordinate(grid, a);
   const pb = gridCoordinate(grid, b);

@@ -9,15 +9,18 @@ import { Environment, OrbitControls } from "@react-three/drei";
 import { PropsWithChildren, useCallback, useRef, useState } from "react";
 import * as THREE from "three";
 import { SetStateAction, useAtom, useAtomValue, useSetAtom } from "jotai";
-import { Barcode } from "./Barcode";
+import { Barcode, BarcodeTabs } from "./Barcode";
 import {
   Dim,
+  Highlight,
   allPruningParamsAtom,
   allSettingsAtom,
+  barcodeAtom,
   complexAtom,
   gridAtom,
   gridForSwapsAtom,
   gridRadiusAtom,
+  persistenceTableHighlight,
   pruningParamAtom,
   selectedGridIndex,
   showGridAtom,
@@ -29,7 +32,6 @@ import {
   workerRunningAtom,
 } from "./state";
 import { keypointRadiusAtom, menuOpenAtom } from "./state";
-import { colors } from "./constants";
 import { dualFaceQuad } from "./medialaxes";
 import init, { make_complex_from_obj, my_init_function } from "ma-rs";
 import { downloadText } from "./utils";
@@ -140,17 +142,28 @@ const GlobalStyle = createGlobalStyle`${css`
   }
 
   progress {
+    appearance: none;
     display: flex;
     flex: 1;
     background: #f1f1f1;
     border: 1px solid #aaaab8;
-    border-radius: 4px;
-    height: 8px;
+    box-sizing: border-box;
+    border-radius: 5px;
+    height: 10px;
   }
 
   progress::-moz-progress-bar {
     background: #bbbbbb;
-    border-radius: 3px;
+    border-radius: 4px;
+  }
+
+  progress::-webkit-progress-bar {
+    border-radius: 4px;
+    background: #f1f1f1;
+  }
+  progress::-webkit-progress-value {
+    border-radius: 4px;
+    background: #bbb;
   }
 
   button {
@@ -197,6 +210,25 @@ const GlobalStyle = createGlobalStyle`${css`
         background: cyan;
       }
     }
+  }
+
+  label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+
+    &:has(input:disabled) {
+      p {
+        opacity: 0.5;
+        cursor: default;
+      }
+    }
+  }
+
+  label.file {
+    flex-direction: column;
+    align-items: start;
   }
 `}`;
 
@@ -345,25 +377,6 @@ const MenuContainer = styled.div`
   h3 {
     background: #e0e0e0;
   }
-
-  label {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    cursor: pointer;
-
-    &:has(input:disabled) {
-      p {
-        opacity: 0.5;
-        cursor: default;
-      }
-    }
-  }
-
-  label.file {
-    flex-direction: column;
-    align-items: start;
-  }
 `;
 
 const SliderGrid = styled.div`
@@ -415,7 +428,7 @@ const ClickableH4 = styled.h4<{ open: boolean }>`
   }
 
   &::before {
-    content: "${(p) => (p.open ? "🞃" : "🞂")}";
+    content: "${(p) => (p.open ? "▼ " : "▶︎ ")}";
   }
 `;
 
@@ -604,7 +617,8 @@ const PruningParameters = ({ dim }: { dim: Dim }) => {
       <label>
         <input
           type="checkbox"
-          checked={params.coface}
+          checked={params.coface && dim !== 2}
+          disabled={dim === 2}
           onChange={(e) => {
             set((c) => ({ ...c, coface: e.target.checked }));
           }}
@@ -613,7 +627,7 @@ const PruningParameters = ({ dim }: { dim: Dim }) => {
           Coface pruning{" "}
           <HoverTooltip>
             Prunes a Faustian swap if the simplices responsible for the swap
-            share a coface.
+            share a coface. Only for dimensions 0 and 1.
           </HoverTooltip>
         </p>
       </label>
@@ -691,6 +705,7 @@ const RenderOptions = () => {
   const [showObject, setShowObject] = useAtom(showObjectAtom);
   const [wireframe, setWireframe] = useAtom(wireframeAtom);
   const [showMA, setShowMa] = useAtom(showMAAtom);
+  const [showGrid, setShowGrid] = useAtom(showGridAtom);
 
   return (
     <>
@@ -702,6 +717,16 @@ const RenderOptions = () => {
           onChange={(e) => setShowObject(e.target.checked)}
         />
         <p>Show object</p>
+      </label>
+      <label>
+        <input
+          type="checkbox"
+          checked={showGrid}
+          onChange={(e) => {
+            setShowGrid(e.target.checked);
+          }}
+        />
+        <p>Show grid</p>
       </label>
       <label>
         <input
@@ -1097,15 +1122,6 @@ const GridControls = () => {
 
   const setGrid = useCallback(
     (f: SetStateAction<Grid | undefined>) => {
-      // if (0 < swaps.length) {
-      //   if (
-      //     !window.confirm(
-      //       "Changing the grid will delete the current medial axes. Proceed?",
-      //     )
-      //   )
-      //     return;
-      // }
-      // setSwaps([]);
       _setGrid(f);
     },
     [_setGrid],
@@ -1139,16 +1155,6 @@ const GridControls = () => {
   return (
     <>
       <h3>Grid controls</h3>
-      <label>
-        <input
-          type="checkbox"
-          checked={showGrid}
-          onChange={(e) => {
-            setShowGrid(e.target.checked);
-          }}
-        />
-        <p>Show grid</p>
-      </label>
       <button
         disabled={!showGrid}
         style={{ width: "fit-content", marginLeft: "1rem" }}
@@ -1438,22 +1444,9 @@ const RenderCanvas = () => {
 
 const RenderBarcodeSideThing = () => {
   const [open, setOpen] = useState(false);
-  const selGridIndex = useAtomValue(selectedGridIndex);
   return (
     <>
-      <BarcodeContainer open={open}>
-        <Tabs titles={["Barcodes", "Diagram", "Vineyards"]} style={{ flex: 1 }}>
-          <Barcode index={selGridIndex} />
-          <div>
-            <h1>HERE IS THE PERSISTENCE DIAGRAM</h1>
-            <p>yaaaaaayy</p>
-          </div>
-          <div>
-            <h2>Wine goes here :-)</h2>
-            <p>Sånn er det {`\u{1F377}`}</p>
-          </div>
-        </Tabs>
-      </BarcodeContainer>
+      <BarcodeContainer open={open}>{open && <BarcodeTabs />}</BarcodeContainer>
       <ToggleBarcodeButton
         onClick={() => {
           setOpen(!open);
