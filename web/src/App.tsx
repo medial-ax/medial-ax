@@ -1114,7 +1114,7 @@ const defaultGrid = (cplx: any, numberOfDots: number = 5) => {
 // };
 const GridControls = () => {
   const [grid, _setGrid] = useAtom(gridAtom);
-  const [showGrid, setShowGrid] = useAtom(showGridAtom);
+  const [showGrid] = useAtom(showGridAtom);
 
   const setGrid = useCallback(
     (f: SetStateAction<Grid | undefined>) => {

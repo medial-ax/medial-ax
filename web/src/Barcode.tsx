@@ -3,7 +3,6 @@ import { BirthDeathPair, Index } from "./types";
 import {
   BarcodeType,
   barcodeAtom,
-  gridAtom,
   persistenceTableHighlight,
   selectedBirthDeathPair,
   selectedGridIndex,
@@ -682,7 +681,7 @@ const Table = () => {
 export const BarcodeTabs = () => {
   const index = useAtomValue(selectedGridIndex);
   const [barcodes, setBarcodes] = useAtom(barcodeAtom);
-  const [loading, setLoading] = useState(false);
+  const [, setLoading] = useState(false);
 
   useEffect(() => {
     if (!index) return;
