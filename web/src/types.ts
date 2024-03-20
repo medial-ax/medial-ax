@@ -87,11 +87,11 @@ export const bboxFromComplex = (cplx: Complex) => {
   return [bbox[0].map((n) => n - offset), bbox[1].map((n) => n + offset)];
 };
 
-export const defaultGrid = (cplx: any, numberOfDots: number = 5) => {
+export const defaultGrid = (cplx: Complex, numberOfDots: number = 5) => {
   const bbox = bboxFromComplex(cplx);
   const scales = bbox[1].map((v, i) => v - bbox[0][i]);
   const scale = Math.min(...scales);
-  const size = scale / numberOfDots;
+  const size = scale / (numberOfDots + 1);
 
   const shape = [
     Math.ceil(scales[0] / size) + 1,

@@ -21,6 +21,7 @@ import { clamp, max } from "./utils";
 import { colors } from "./constants";
 import { wasmWorker } from "./work";
 import { Tabs } from "./Tab";
+import "./Barcode.css";
 
 const _width = 4;
 const barSpacing = 20;
@@ -511,17 +512,11 @@ const BarcodeInner = ({
 
   return (
     <div
+      className="barcode-wrapper"
       onClick={() => {
         setSelectedBDPair(undefined);
       }}
       ref={ref}
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "center",
-        flex: 1,
-        position: "relative",
-      }}
     >
       <BarcodePlot>
         <BarcodeDim width={width} xmax={xmax} pairs={barcodes[2]} dim={2} />
@@ -562,37 +557,35 @@ export const Barcode = ({
   return <BarcodeInner key={String(index)} barcodes={barcodes} />;
 };
 
-const TableWrapper = styled.div`
-  max-height: 80vh;
-  overflow-y: auto;
+const triangle = {
+  up: {
+    filled: "▲",
+    empty: "△",
+  },
+  down: {
+    filled: "▼",
+    empty: "▽",
+  },
+} as const;
 
-  table {
-    border-collapse: collapse;
-
-    tr {
-      border-bottom: 1px solid #aaa;
-    }
-    tr:has(th) {
-      border-color: #333;
-      border-width: 2px;
-      position: sticky;
-      top: 0;
-      box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.4);
-      background: white;
-    }
-    tr:not(:has(th)):hover {
-      background: #4aa2ff33;
-    }
-
-    td,
-    th {
-      min-width: 44px;
-      text-align: end;
-      padding: 1px 0.8rem;
-      font-variant-numeric: tabular-nums;
-    }
-  }
-`;
+const Sort = ({
+  dir,
+  onClick,
+}: {
+  dir: undefined | keyof typeof triangle;
+  onClick: () => void;
+}) => {
+  const ch = !dir
+    ? triangle.down.empty
+    : dir === "up"
+      ? triangle.up.filled
+      : triangle.down.filled;
+  return (
+    <span onClick={onClick} className="sort-icon">
+      {ch}
+    </span>
+  );
+};
 
 const Table = () => {
   const [hideZero, setHideZero] = useState<boolean>(false);
@@ -600,16 +593,60 @@ const Table = () => {
   const fullBarcode = useAtomValue(barcodeAtom)?.[dim];
   const setHighlight = useSetAtom(persistenceTableHighlight);
 
+  const [sortmode, setSortmode] = useState<
+    | {
+        key: string;
+        value: "up" | "down";
+      }
+    | undefined
+  >(undefined);
+
   const barcode = hideZero
     ? (fullBarcode ?? []).filter(
         (b) => !b.death || !b.birth || 0 < Math.abs(b.death[0] - b.birth[0]),
       )
-    : fullBarcode ?? [];
+    : [...(fullBarcode ?? [])];
+
+  console.log(barcode);
+  const sortedBarcode = (() => {
+    if (sortmode === undefined) return barcode;
+    if (sortmode.key === "birth")
+      barcode.sort(
+        (a, b) => (a.birth?.[0] as number) - (b.birth?.[0] as number),
+      );
+    if (sortmode.key === "death")
+      barcode.sort(
+        (a, b) => (a.death?.[0] as number) - (b.death?.[0] as number),
+      );
+    if (sortmode.key === "s1")
+      barcode.sort(
+        (a, b) => (a.birth?.[1] as number) - (b.birth?.[1] as number),
+      );
+    if (sortmode.key === "s2")
+      barcode.sort(
+        (a, b) => (a.death?.[1] as number) - (b.death?.[1] as number),
+      );
+    if (sortmode.value == "up") barcode.reverse();
+    return barcode;
+  })();
+
+  const toggleSort = useCallback(
+    (key: string) => {
+      if (sortmode === undefined || sortmode?.key !== key) {
+        setSortmode({ key, value: "down" });
+      } else if (sortmode.value === "down") {
+        setSortmode({ key, value: "up" });
+      } else {
+        setSortmode(undefined);
+      }
+    },
+    [sortmode],
+  );
 
   if (!barcode) return <h3>No barcode</h3>;
 
   return (
-    <TableWrapper>
+    <div className="persistence-pairs-table">
       <label>
         <p>Dimension:</p>
         <select
@@ -635,56 +672,78 @@ const Table = () => {
         />
         <p>Hide trivial persistence</p>
       </label>
-      <table>
-        <thead>
-          <tr>
-            <th scope="col">Birth</th>
-            <th scope="col">Death</th>
-            <th scope="col">
-              <code>s1</code>
-            </th>
-            <th scope="col">
-              <code>s2</code>
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {barcode.map((s, i) => {
-            const birth = s.birth ? s.birth[0].toFixed(3) : "-";
-            const death = s.death ? s.death[0].toFixed(3) : "-";
-            const birthI = s.birth ? s.birth[1] : "-";
-            const deathI = s.death ? s.death[1] : "-";
-            return (
-              <tr
-                key={i}
-                onClick={() => {
-                  setHighlight({
-                    dim,
-                    lower: s.birth?.[1],
-                    upper: s.death?.[1],
-                  });
-                }}
-              >
-                <td>{birth}</td>
-                <td>{death}</td>
-                <td>{birthI}</td>
-                <td>{deathI}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </TableWrapper>
+      <div>
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">
+                <Sort
+                  onClick={() => toggleSort("birth")}
+                  dir={sortmode?.key === "birth" ? sortmode.value : undefined}
+                />
+                Birth
+              </th>
+              <th scope="col">
+                <Sort
+                  onClick={() => toggleSort("death")}
+                  dir={sortmode?.key === "death" ? sortmode.value : undefined}
+                />
+                Death
+              </th>
+              <th scope="col">
+                <Sort
+                  onClick={() => toggleSort("s1")}
+                  dir={sortmode?.key === "s1" ? sortmode.value : undefined}
+                />
+                <code>s1</code>
+              </th>
+              <th scope="col">
+                <Sort
+                  onClick={() => toggleSort("s2")}
+                  dir={sortmode?.key === "s2" ? sortmode.value : undefined}
+                />
+                <code>s2</code>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {sortedBarcode.map((s, i) => {
+              const birth = s.birth ? s.birth[0].toFixed(3) : "-";
+              const death = s.death ? s.death[0].toFixed(3) : "-";
+              const birthI = s.birth ? s.birth[1] : "-";
+              const deathI = s.death ? s.death[1] : "-";
+              return (
+                <tr
+                  key={i}
+                  onClick={() => {
+                    setHighlight({
+                      dim,
+                      lower: s.birth?.[1],
+                      upper: s.death?.[1],
+                    });
+                  }}
+                >
+                  <td>{birth}</td>
+                  <td>{death}</td>
+                  <td>{birthI}</td>
+                  <td>{deathI}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 };
 
-export const BarcodeTabs = () => {
+export const BarcodeTabs = ({ live }: { live: boolean }) => {
   const index = useAtomValue(selectedGridIndex);
   const [barcodes, setBarcodes] = useAtom(barcodeAtom);
   const [, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!index) return;
+    if (!index || !live) return;
     let stop = false;
     wasmWorker.onmessage = (msg: any) => {
       if (stop) return;
@@ -708,13 +767,10 @@ export const BarcodeTabs = () => {
     return () => {
       stop = true;
     };
-  }, [index, setBarcodes, setLoading]);
+  }, [index, live, setBarcodes, setLoading]);
 
   return (
-    <Tabs
-      titles={["Barcodes", "Diagram", "Vineyards", "Table"]}
-      style={{ flex: 1 }}
-    >
+    <Tabs titles={["Barcodes", "Diagram", "Vineyards", "Table"]}>
       <Barcode index={index} barcodes={barcodes} />
       <div>
         <p>hello</p>
@@ -722,7 +778,7 @@ export const BarcodeTabs = () => {
       <div>
         <p>Sånn er det {`\u{1F377}`}</p>
       </div>
-      <div style={{ flex: 1, padding: "1rem 1rem 0 1rem" }}>
+      <div>
         <h2>Table</h2>
         <Table />
       </div>

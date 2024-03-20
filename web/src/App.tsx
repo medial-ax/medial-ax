@@ -49,24 +49,6 @@ const CanvasContainer = styled.div`
   flex: 1;
 `;
 
-const BarcodeContainer = styled.div<{ open: boolean }>`
-  display: flex;
-
-  position: absolute;
-  top: 2.8rem;
-  right: 0;
-  z-index: 100;
-  margin: 0.6rem;
-  width: fit-content;
-
-  transform: ${(p) =>
-    !p.open ? "translateX(calc(100% + 1.2rem))" : "translateX(0)"};
-  transition: transform 0.2s ease-in-out;
-
-  min-width: 30rem;
-  min-height: 30rem;
-`;
-
 const RenderCanvas = () => {
   const cplx = useAtomValue(complexAtom);
   const wireframe = useAtomValue(wireframeAtom);
@@ -141,7 +123,9 @@ const RenderBarcodeSideThing = () => {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <BarcodeContainer open={open}>{open && <BarcodeTabs />}</BarcodeContainer>
+      <div id="barcode" aria-hidden={!open}>
+        <BarcodeTabs live={open} />
+      </div>
       <ToggleBarcodeButton
         onClick={() => {
           setOpen(!open);

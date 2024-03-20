@@ -63,7 +63,7 @@ export const Tabs = ({
           </span>
         ))}
       </Headers>
-      <Frame>{child}</Frame>
+      <Frame className="tabs-content">{child}</Frame>
     </Wrapper>
   );
 };
