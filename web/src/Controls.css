@@ -1,6 +1,4 @@
-import { css } from "styled-components";
-
-export const CSS = css`
+#controls {
   #open-menu-button {
     position: absolute;
     top: 0;
@@ -111,4 +109,4 @@ export const CSS = css`
       overflow-y: hidden;
     }
   }
-`;
+}

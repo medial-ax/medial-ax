@@ -21,7 +21,7 @@ import {
 import { SetStateAction, useCallback, useRef, useState } from "react";
 import { dualFaceQuad } from "./medialaxes";
 import { downloadText } from "./utils";
-import styled, { css } from "styled-components";
+import styled from "styled-components";
 import squished_cylinder from "../inputs/squished_cylinder.obj?raw";
 import extruded_ellipse from "../inputs/extruded_ellipse.obj?raw";
 import cube_subdiv_2 from "../inputs/cube-subdiv-2.obj?raw";
@@ -30,12 +30,8 @@ import { Grid, defaultGrid } from "./types";
 import { make_complex_from_obj } from "ma-rs";
 import { RESET } from "jotai/utils";
 import { resetWasmWorker, wasmWorker } from "./work";
-import { CSS } from "./Controls.style";
+import "./Controls.css";
 import { HoverTooltip } from "./HoverTooltip";
-
-const Wrapper = styled.div`
-  ${CSS}
-`;
 
 const EXAMPLE_OBJS = [
   { name: "Squished cylinder", string: squished_cylinder },
@@ -659,7 +655,7 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
   }, [exportVisible, grid, shownMA, swaps]);
 
   return (
-    <Wrapper>
+    <div id="controls">
       <button
         id="open-menu-button"
         aria-hidden={!!open}
@@ -857,6 +853,6 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
 
         <RenderOptions />
       </MenuContainer>
-    </Wrapper>
+    </div>
   );
 };
