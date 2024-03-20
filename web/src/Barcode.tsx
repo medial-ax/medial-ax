@@ -6,6 +6,7 @@ import {
   persistenceTableHighlight,
   selectedBirthDeathPair,
   selectedGridIndex,
+  timelinePositionAtom,
 } from "./state";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import {
@@ -16,10 +17,9 @@ import {
   useRef,
   useState,
 } from "react";
-import { timelinePositionAtom } from "./state";
 import { clamp, max } from "./utils";
 import { colors } from "./constants";
-import { wasmWorker } from "./App";
+import { wasmWorker } from "./work";
 import { Tabs } from "./Tab";
 
 const _width = 4;
