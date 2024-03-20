@@ -18,26 +18,20 @@ import {
   wireframeAtom,
   workerRunningAtom,
 } from "./state";
-import {
-  PropsWithChildren,
-  SetStateAction,
-  useCallback,
-  useRef,
-  useState,
-} from "react";
+import { SetStateAction, useCallback, useRef, useState } from "react";
 import { dualFaceQuad } from "./medialaxes";
 import { downloadText } from "./utils";
-import styled, { CSSProperties, css } from "styled-components";
+import styled, { css } from "styled-components";
 import squished_cylinder from "../inputs/squished_cylinder.obj?raw";
 import extruded_ellipse from "../inputs/extruded_ellipse.obj?raw";
 import cube_subdiv_2 from "../inputs/cube-subdiv-2.obj?raw";
 import maze_2 from "../inputs/maze_2.obj?raw";
 import { Grid, defaultGrid } from "./types";
-import { createPortal } from "react-dom";
 import { make_complex_from_obj } from "ma-rs";
 import { RESET } from "jotai/utils";
 import { resetWasmWorker, wasmWorker } from "./work";
 import { CSS } from "./Controls.style";
+import { HoverTooltip } from "./HoverTooltip";
 
 const Wrapper = styled.div`
   ${CSS}
@@ -49,39 +43,6 @@ const EXAMPLE_OBJS = [
   { name: "Cube", string: cube_subdiv_2 },
   { name: "Maze", string: maze_2 },
 ];
-
-const SliderGrid = styled.div`
-  display: grid;
-  grid-template-columns: max-content auto minmax(2rem, max-content);
-  gap: 0.5rem 1rem;
-  justify-items: end;
-
-  input[type="range"]:disabled,
-  input[type="range"]:disabled + p,
-  p:has(+ input[type="range"]:disabled) {
-    opacity: 0.5;
-  }
-`;
-
-const ExampleList = styled.ul`
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-
-  border: 1px solid #ddd;
-  margin: 0 1rem;
-  padding: 0 !important;
-
-  li {
-    padding: 0.2rem 0.4rem;
-    &:hover {
-      background: #f3f3f3;
-      cursor: pointer;
-    }
-  }
-`;
 
 const MenuContainer = styled.div`
   position: absolute;
@@ -164,117 +125,6 @@ const Loader = styled.span<{
     }
   }
 `;
-
-const ClickableH4 = styled.h4<{ open: boolean }>`
-  margin: 0 1rem;
-  padding-left: 2px !important;
-  border-bottom: 1px solid #ccc;
-
-  &:hover {
-    background: #f3f3f3;
-    cursor: pointer;
-  }
-
-  &::before {
-    content: "${(p) => (p.open ? "▼ " : "▶︎ ")}";
-  }
-`;
-
-const CollapseDiv = styled.div<{ open: boolean }>`
-  max-height: ${(p) =>
-    p.open &&
-    css`
-      max-height: 0;
-    `};
-  transition: max-height 0.15s ease-in-out;
-  overflow-y: hidden;
-`;
-
-const CtrlDiv = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-  padding: 0;
-  & > * {
-    padding: 0 1rem;
-  }
-`;
-
-const HoverTooltipSpan = styled.span`
-  display: inline-block;
-  padding: 2px;
-  border-radius: 4px;
-  border: 1px solid #888;
-  height: 18px;
-  box-sizing: border-box;
-  vertical-align: super;
-  line-height: 12px;
-  font-size: 12px;
-  font-weight: 600;
-`;
-
-const Row = styled.div`
-  display: flex;
-  gap: 1rem;
-  flex-direction: row;
-  align-items: center;
-`;
-
-const HoverTooltipPopup = styled.span<{ $right: boolean }>`
-  position: fixed;
-  bottom: 0;
-  z-index: 100;
-  max-width: 16rem;
-  transform: translateX(${(p) => (p.$right ? "0" : "-50%")}) translateY(-100%);
-  height: fit-content;
-  padding: 4px 8px;
-  background: white;
-  border-radius: 4px;
-  border: 1px solid #aaa;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.17);
-  margin-top: -4px;
-`;
-
-const HoverTooltip = ({
-  style,
-  right,
-  children,
-}: PropsWithChildren<{ right?: boolean; style?: CSSProperties }>) => {
-  const [open, setOpen] = useState(false);
-  const [pos, setPos] = useState<undefined | { x: number; y: number }>(
-    undefined,
-  );
-  const ref = useRef<HTMLSpanElement>(null);
-
-  return (
-    <HoverTooltipSpan
-      style={style}
-      ref={ref}
-      onMouseEnter={() => {
-        if (!ref.current) return;
-        setOpen(true);
-        const { x, y } = ref.current.getBoundingClientRect();
-        setPos({ x, y });
-      }}
-      onMouseLeave={() => {
-        setOpen(false);
-      }}
-    >
-      ?
-      {open &&
-        pos &&
-        createPortal(
-          <HoverTooltipPopup
-            style={{ top: pos.y, left: pos.x }}
-            $right={right ?? false}
-          >
-            {children}
-          </HoverTooltipPopup>,
-          document.body,
-        )}
-    </HoverTooltipSpan>
-  );
-};
 
 const GridControls = () => {
   const [grid, _setGrid] = useAtom(gridAtom);
@@ -400,7 +250,7 @@ const GridControls = () => {
         <span>{grid.size.toFixed(3)}</span>
       </fieldset>
 
-      <Row>
+      <div className="row">
         <button
           onClick={() => {
             setGrid({
@@ -433,13 +283,9 @@ const GridControls = () => {
         >
           Merge grid
         </button>
-      </Row>
+      </div>
 
-      <SliderGrid
-        style={{
-          alignItems: "initial | initial | right",
-        }}
-      >
+      <fieldset className="ranges-with-number">
         <p>Grid shape x</p>
         <input
           type="range"
@@ -479,7 +325,7 @@ const GridControls = () => {
           disabled={!showGrid}
         />
         <p>{grid.shape[2]}</p>
-      </SliderGrid>
+      </fieldset>
     </>
   );
 };
@@ -492,9 +338,8 @@ const CollapseH4 = ({
   const ref = useRef<HTMLDivElement>(null);
   const [height, setHeight] = useState<number>(0);
   return (
-    <>
-      <ClickableH4
-        open={open}
+    <div className="collapse">
+      <h4
         onClick={() => {
           if (!ref.current) return;
           const { height } = ref.current.getBoundingClientRect();
@@ -505,17 +350,17 @@ const CollapseH4 = ({
         }}
       >
         {title}
-      </ClickableH4>
-      <CollapseDiv
-        open={open}
+      </h4>
+      <div
+        aria-hidden={!open}
         ref={ref}
         style={{
           maxHeight: open ? (height ? height : "initial") : "0",
         }}
       >
         {children}
-      </CollapseDiv>
-    </>
+      </div>
+    </div>
   );
 };
 
@@ -561,7 +406,7 @@ const PruningParameters = ({ dim }: { dim: Dim }) => {
           </HoverTooltip>
         </p>
       </label>
-      <SliderGrid>
+      <fieldset className="ranges-with-number">
         <p>Pruning distance</p>
         <input
           disabled={!params.euclidean}
@@ -575,7 +420,7 @@ const PruningParameters = ({ dim }: { dim: Dim }) => {
           }}
         />
         <p>{(params.euclideanDistance ?? 0.0).toFixed(2)}</p>
-      </SliderGrid>
+      </fieldset>
 
       <label>
         <input
@@ -629,7 +474,7 @@ const PruningParameters = ({ dim }: { dim: Dim }) => {
           </HoverTooltip>
         </p>
       </label>
-      <SliderGrid>
+      <fieldset className="ranges-with-number">
         <p>Pruning lifespan</p>
         <input
           disabled={!params.persistence}
@@ -646,7 +491,7 @@ const PruningParameters = ({ dim }: { dim: Dim }) => {
           }}
         />
         <p>{params.persistenceThreshold ?? 0.01}</p>
-      </SliderGrid>
+      </fieldset>
 
       <button
         style={{ alignSelf: "end", margin: "0 1rem" }}
@@ -699,7 +544,7 @@ const RenderOptions = () => {
         />
         <p>Wireframe</p>
       </label>
-      <SliderGrid>
+      <fieldset className="ranges-with-number">
         <p>Grid point size</p>
         <input
           type="range"
@@ -722,7 +567,7 @@ const RenderOptions = () => {
           onChange={(e) => setKeypointRadius(Number(e.target.value))}
         />
         <p>{keypointRadius.toFixed(3)}</p>
-      </SliderGrid>
+      </fieldset>
 
       <fieldset>
         <legend>Show medial axes</legend>
@@ -831,22 +676,21 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
             : "translateX(calc(-100% - 1.2rem))",
         }}
       >
-        <Row>
-          <h2 style={{ flex: 1 }}>Controls</h2>
+        <div>
+          <h2>Controls</h2>
           <button
-            style={{ justifySelf: "end" }}
             onClick={() => {
               setOpen(false);
             }}
           >
             Close
           </button>
-        </Row>
+        </div>
 
         <h3>Import / Export</h3>
         <h4>Import</h4>
         <UploadObjFilePicker />
-        <ExampleList>
+        <ul className="predef-files-list">
           {EXAMPLE_OBJS.map((obj, i) => (
             <li
               key={i}
@@ -867,7 +711,7 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
               {obj.name}
             </li>
           ))}
-        </ExampleList>
+        </ul>
         <label className="file">
           <p>Import settings</p>
           <input
@@ -893,19 +737,19 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
           <p>Only export visible medial axes</p>
         </label>
 
-        <Row>
-          <button
-            disabled={swaps.length === 0}
-            onClick={() => {
-              exportMAtoObj();
-            }}
-          >
-            Export <code>.obj</code>
-          </button>
-        </Row>
+        <button
+          style={{ alignSelf: "start" }}
+          disabled={swaps.length === 0}
+          onClick={() => {
+            exportMAtoObj();
+          }}
+        >
+          Export <code>.obj</code>
+        </button>
 
-        <Row style={{ gap: "4px" }}>
+        <div className="row" style={{ gap: "4px" }}>
           <button
+            style={{ alignSelf: "start" }}
             onClick={() => {
               downloadText(JSON.stringify(allSettings), "settings.json");
             }}
@@ -916,13 +760,13 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
             Export the selected visualization, grid, and pruning settings to a{" "}
             <code>.json</code> file.
           </HoverTooltip>
-        </Row>
+        </div>
 
         <GridControls />
 
         <h3>Medial axes</h3>
 
-        <Row>
+        <div className="row">
           <button
             style={{ flex: 1 }}
             disabled={workerRunning}
@@ -975,7 +819,8 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
               Abort
             </button>
           )}
-        </Row>
+        </div>
+
         {workerProgress && (
           <label>
             <p>{workerProgress.label}</p>
@@ -993,7 +838,7 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
           </label>
         )}
 
-        <CtrlDiv>
+        <div className="pruning-param-list">
           {([0, 1, 2] satisfies Dim[]).map((dim) => (
             <CollapseH4 key={dim} title={`Pruning dim ${dim}`}>
               <div
@@ -1008,7 +853,7 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
               </div>
             </CollapseH4>
           ))}
-        </CtrlDiv>
+        </div>
 
         <RenderOptions />
       </MenuContainer>
