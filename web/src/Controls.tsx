@@ -40,43 +40,6 @@ const EXAMPLE_OBJS = [
   { name: "Maze", string: maze_2 },
 ];
 
-const MenuContainer = styled.div`
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.17);
-  padding-bottom: 1rem;
-
-  z-index: 100;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  overflow-y: auto;
-  max-width: fit-content;
-
-  transition: transform 0.2s ease-in-out;
-
-  background: white;
-
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  margin: 0.6rem;
-  padding-top: 1rem;
-
-  & > * {
-    margin: 0 1rem;
-  }
-  & > h3 {
-    margin: 0;
-    padding: 0 1rem;
-  }
-
-  h3 {
-    background: #e0e0e0;
-  }
-`;
-
 const Loader = styled.span<{
   $w0: number;
   $w1: number;
@@ -163,7 +126,7 @@ const GridControls = () => {
       <h3>Grid controls</h3>
       <button
         disabled={!showGrid}
-        style={{ width: "fit-content", marginLeft: "1rem" }}
+        style={{ width: "fit-content" }}
         onClick={() => {
           if (!cplx) return;
           setGrid(defaultGrid(cplx.complex));
@@ -489,10 +452,7 @@ const PruningParameters = ({ dim }: { dim: Dim }) => {
         <p>{params.persistenceThreshold ?? 0.01}</p>
       </fieldset>
 
-      <button
-        style={{ alignSelf: "end", margin: "0 1rem" }}
-        onClick={() => set(RESET)}
-      >
+      <button style={{ alignSelf: "end" }} onClick={() => set(RESET)}>
         Reset
       </button>
     </>
@@ -665,7 +625,8 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
       >
         Open menu
       </button>
-      <MenuContainer
+      <div
+        id="menu-container"
         style={{
           transform: open
             ? "translateX(0)"
@@ -743,16 +704,15 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
           Export <code>.obj</code>
         </button>
 
-        <div className="row" style={{ gap: "4px" }}>
+        <div className="row">
           <button
-            style={{ alignSelf: "start" }}
             onClick={() => {
               downloadText(JSON.stringify(allSettings), "settings.json");
             }}
           >
             Export settings
           </button>
-          <HoverTooltip style={{ alignSelf: "start" }} right>
+          <HoverTooltip right>
             Export the selected visualization, grid, and pruning settings to a{" "}
             <code>.json</code> file.
           </HoverTooltip>
@@ -761,20 +721,11 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
         <GridControls />
 
         <h3>Medial axes</h3>
-
         <div className="row">
           <button
             style={{ flex: 1 }}
-            disabled={workerRunning}
+            disabled={workerRunning || !grid || !cplx}
             onClick={() => {
-              if (!grid) {
-                console.error("No grid!");
-                return;
-              }
-              if (!cplx) {
-                console.error("No complex!");
-                return;
-              }
               setWorkerRunning(true);
               wasmWorker.postMessage({
                 fn: "run",
@@ -823,12 +774,7 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
             {0 < workerProgress.n && (
               <progress value={workerProgress.i / workerProgress.n} />
             )}
-            <p
-              style={{
-                width: "4ch",
-                textAlign: "end",
-              }}
-            >
+            <p className="percent">
               {5 * Math.round((workerProgress.i / workerProgress.n) * 20)}%
             </p>
           </label>
@@ -837,22 +783,13 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
         <div className="pruning-param-list">
           {([0, 1, 2] satisfies Dim[]).map((dim) => (
             <CollapseH4 key={dim} title={`Pruning dim ${dim}`}>
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "0.5rem",
-                  padding: "0.5rem 0",
-                }}
-              >
-                <PruningParameters dim={dim} />
-              </div>
+              <PruningParameters dim={dim} />
             </CollapseH4>
           ))}
         </div>
 
         <RenderOptions />
-      </MenuContainer>
+      </div>
     </div>
   );
 };

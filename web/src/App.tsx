@@ -89,6 +89,7 @@ const RenderCanvas = () => {
         }}
       >
         <OrbitControls
+          dampingFactor={0.1}
           zoomSpeed={0.4}
           enablePan={true}
           enableZoom={true}
