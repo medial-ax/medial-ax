@@ -61,9 +61,24 @@ To install the things needed to run the web app you first need to install `node`
 brew install node
 ```
 
+## Install Wasm 
+This is also in the `ma-rs/` directory README, but for convenience we put it here as well: inside the `ma-rs` directory, run 
+```sh
+curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+```
+to install wasm if you do not have it. 
+
+## Build Wasm
+To update rust after getting wasm, still in the `ma-rs/`, run 
+```shell
+wasm-pack build --target web --features wasm
+```
+Note that this does not have the release option like inside the other README.
+
+## Compile the web things
 Then go to the `web/` directory and run
 ```sh
-npm i # install the things. Only needd the first time.
+npm i # install the things. Only need the first time.
 npm run dev # start the server
 ```
 
