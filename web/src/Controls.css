@@ -37,10 +37,11 @@
     margin: 0.6rem;
     padding-top: 1rem;
 
-    > * {
+    >* {
       margin: 0 1rem;
     }
-    > h3 {
+
+    >h3 {
       margin: 0;
       padding: 0 1rem;
     }
@@ -59,7 +60,7 @@
     justify-items: end;
 
     input[type="range"]:disabled,
-    input[type="range"]:disabled + span,
+    input[type="range"]:disabled+span,
     p:has(+ input[type="range"]:disabled) {
       opacity: 0.5;
     }
@@ -100,7 +101,8 @@
     flex-direction: column;
     gap: 0.1rem;
     padding: 0;
-    & > div {
+
+    &>div {
       padding: 0 1rem;
     }
   }
@@ -118,6 +120,7 @@
 
     li {
       padding: 0.2rem 0.4rem;
+
       &:hover {
         background: #f3f3f3;
         cursor: pointer;
@@ -126,7 +129,7 @@
   }
 
   .collapse {
-    > h4 {
+    >h4 {
       padding-left: 2px !important;
       border-bottom: 1px solid #ccc;
 
@@ -135,21 +138,35 @@
         cursor: pointer;
       }
 
-      &:has(+ [aria-hidden="true"])::before {
+      /* &:has(+ [aria-hidden="true"])::before {
         content: "▶︎ ";
       }
       &:has(+ [aria-hidden="false"])::before {
         content: "▼ ";
+      } */
+      &:has(+ [aria-hidden="true"])::before {
+        content: url(assets/arrow-circle.svg);
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+      }
+
+      &:has(+ [aria-hidden="false"])::before {
+        content: url(assets/arrow-circle-down.svg);
+        display: inline-block;
+        width: 20px;
+        height: 20px;
       }
     }
-    > div {
+
+    >div {
       &[aria-hidden="true"] {
         max-height: 0;
         margin-bottom: 0;
       }
-      transition:
-        max-height 0.15s ease-in-out,
-        margin 0.15s ease-in-out;
+
+      transition: max-height 0.15s ease-in-out,
+      margin 0.15s ease-in-out;
       overflow-y: hidden;
       display: flex;
       flex-direction: column;
@@ -162,4 +179,5 @@
     width: 4ch;
     text-align: end;
   }
+
 }
