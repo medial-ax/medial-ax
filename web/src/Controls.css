@@ -37,11 +37,11 @@
     margin: 0.6rem;
     padding-top: 1rem;
 
-    >* {
+    > * {
       margin: 0 1rem;
     }
 
-    >h3 {
+    > h3 {
       margin: 0;
       padding: 0 1rem;
     }
@@ -60,7 +60,7 @@
     justify-items: end;
 
     input[type="range"]:disabled,
-    input[type="range"]:disabled+span,
+    input[type="range"]:disabled + span,
     p:has(+ input[type="range"]:disabled) {
       opacity: 0.5;
     }
@@ -102,7 +102,7 @@
     gap: 0.1rem;
     padding: 0;
 
-    &>div {
+    & > div {
       padding: 0 1rem;
     }
   }
@@ -129,7 +129,8 @@
   }
 
   .collapse {
-    >h4 {
+    > h4 {
+      display: flex;
       padding-left: 2px !important;
       border-bottom: 1px solid #ccc;
 
@@ -138,35 +139,32 @@
         cursor: pointer;
       }
 
-      /* &:has(+ [aria-hidden="true"])::before {
-        content: "▶︎ ";
-      }
-      &:has(+ [aria-hidden="false"])::before {
-        content: "▼ ";
-      } */
-      &:has(+ [aria-hidden="true"])::before {
-        content: url(assets/arrow-circle.svg);
+      &::before {
         display: inline-block;
         width: 20px;
         height: 20px;
+        padding-right: 4px;
+        align-self: center;
+      }
+
+      &:has(+ [aria-hidden="true"])::before {
+        content: url(assets/arrow-circle.svg);
       }
 
       &:has(+ [aria-hidden="false"])::before {
         content: url(assets/arrow-circle-down.svg);
-        display: inline-block;
-        width: 20px;
-        height: 20px;
       }
     }
 
-    >div {
+    > div {
       &[aria-hidden="true"] {
         max-height: 0;
         margin-bottom: 0;
       }
 
-      transition: max-height 0.15s ease-in-out,
-      margin 0.15s ease-in-out;
+      transition:
+        max-height 0.15s ease-in-out,
+        margin 0.15s ease-in-out;
       overflow-y: hidden;
       display: flex;
       flex-direction: column;
@@ -179,5 +177,5 @@
     width: 4ch;
     text-align: end;
   }
-
 }
+
