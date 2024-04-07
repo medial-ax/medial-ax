@@ -393,8 +393,9 @@ const PruningParameters = ({ dim }: { dim: Dim }) => {
         <p>
           Coface pruning{" "}
           <HoverTooltip>
-            Prunes a Faustian swap if the simplices responsible for the swap
-            share a coface. Only for dimensions 0 and 1.
+            {dim === 2
+              ? "This option does not make sense for dimension 2."
+              : "Prunes a Faustian swap if the simplices responsible for the swap share a coface. Only for dimensions 0 and 1."}
           </HoverTooltip>
         </p>
       </label>
@@ -402,6 +403,7 @@ const PruningParameters = ({ dim }: { dim: Dim }) => {
       <label>
         <input
           type="checkbox"
+          disabled={dim === 0}
           checked={params.face}
           onChange={(e) => {
             set((c) => ({ ...c, face: e.target.checked }));
@@ -410,8 +412,9 @@ const PruningParameters = ({ dim }: { dim: Dim }) => {
         <p>
           Face pruning{" "}
           <HoverTooltip>
-            Prunes a Faustian swap if the simplices responsible for the swap
-            share a face.
+            {dim === 0
+              ? "This option does not make sense for dimension 0."
+              : "Prunes a Faustian swap if the simplices responsible for the swap share a face."}
           </HoverTooltip>
         </p>
       </label>

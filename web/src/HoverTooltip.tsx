@@ -19,7 +19,6 @@ export const HoverTooltip = ({
       style={style}
       ref={ref}
       onMouseEnter={() => {
-        console.log("here", ref.current);
         if (!ref.current) return;
         setOpen(true);
         const { x, y } = ref.current.getBoundingClientRect();
