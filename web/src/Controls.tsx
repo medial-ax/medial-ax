@@ -365,20 +365,27 @@ const PruningParameters = ({ dim }: { dim: Dim }) => {
           </HoverTooltip>
         </p>
       </label>
-      <fieldset className="ranges-with-number">
+      <fieldset className="ranges-with-number" disabled={!params.euclidean}>
         <p>Pruning distance</p>
         <input
-          disabled={!params.euclidean}
           type="range"
           min={0}
-          max={10}
+          max={5}
           step={0.01}
           value={params.euclideanDistance ?? 0}
           onChange={(e) => {
             set((c) => ({ ...c, euclideanDistance: Number(e.target.value) }));
           }}
         />
-        <p>{(params.euclideanDistance ?? 0.0).toFixed(2)}</p>
+        <input
+          type="number"
+          step={0.01}
+          style={{ width: "5rem" }}
+          value={params.euclideanDistance ?? 0}
+          onChange={(e) => {
+            set((c) => ({ ...c, euclideanDistance: Number(e.target.value) }));
+          }}
+        />
       </fieldset>
 
       <label>
@@ -436,7 +443,7 @@ const PruningParameters = ({ dim }: { dim: Dim }) => {
           </HoverTooltip>
         </p>
       </label>
-      <fieldset className="ranges-with-number">
+      <fieldset className="ranges-with-number" disabled={!params.persistence}>
         <p>Pruning lifespan</p>
         <input
           disabled={!params.persistence}
@@ -452,7 +459,18 @@ const PruningParameters = ({ dim }: { dim: Dim }) => {
             }));
           }}
         />
-        <p>{params.persistenceThreshold ?? 0.01}</p>
+        <input
+          type="number"
+          step={0.01}
+          style={{ width: "5rem" }}
+          value={params.persistenceThreshold ?? 0}
+          onChange={(e) => {
+            set((c) => ({
+              ...c,
+              persistenceThreshold: Number(e.target.value),
+            }));
+          }}
+        />
       </fieldset>
 
       <button style={{ alignSelf: "end" }} onClick={() => set(RESET)}>

@@ -83,6 +83,12 @@ input[type="range"]::-ms-thumb {
   cursor: pointer;
 }
 
+input[type="number"] {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+}
+
 label:has(progress) {
   font-size: 14px;
   p {
