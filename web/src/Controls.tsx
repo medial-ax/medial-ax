@@ -378,6 +378,7 @@ const PruningParameters = ({ dim }: { dim: Dim }) => {
           max={5}
           step={0.01}
           value={params.euclideanDistance ?? 0}
+          style={{ width: "8rem" }}
           onChange={(e) => {
             set((c) => ({ ...c, euclideanDistance: Number(e.target.value) }));
           }}
@@ -456,6 +457,7 @@ const PruningParameters = ({ dim }: { dim: Dim }) => {
           min={0}
           max={1}
           step={0.01}
+          style={{ width: "8rem" }}
           value={params.persistenceThreshold ?? 0.01}
           onChange={(e) => {
             set((c) => ({
@@ -621,7 +623,7 @@ export const Menu = () => {
     for (const ma of [0, 1, 2] satisfies Dim[]) {
       if (exportVisible && !shownMA[ma]) continue;
       obj += `o MA-${ma}\n`;
-      for (const swap of swaps) {
+      for (const swap of swaps[ma]) {
         const hasAnySwaps = swap[2].v.find((s) => s.dim === ma);
         if (!hasAnySwaps) continue;
         const [p, q] = swap;
@@ -687,7 +689,10 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
               key={i}
               onClick={() => {
                 if (
-                  (grid || swaps.length !== 0) &&
+                  (grid ||
+                    (swaps[0].length !== 0 &&
+                      swaps[1].length !== 0 &&
+                      swaps[2].length !== 0)) &&
                   !window.confirm(
                     "Loading a new object will reset the grid and computed medial axes. Proceed?",
                   )
@@ -695,7 +700,7 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
                   return;
                 const value = make_complex_from_obj(obj.string);
                 setComplex({ complex: value, filename: obj.name });
-                setSwaps([]);
+                setSwaps({ 0: [], 1: [], 2: [] });
                 setGrid(undefined);
               }}
             >
@@ -730,7 +735,11 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
 
         <button
           style={{ alignSelf: "start" }}
-          disabled={swaps.length === 0}
+          disabled={
+            swaps[0].length === 0 &&
+            swaps[1].length === 0 &&
+            swaps[2].length === 0
+          }
           onClick={() => {
             exportMAtoObj();
           }}
@@ -777,13 +786,17 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
               };
               wasmWorker.onmessage = (msg: any) => {
                 if (msg.data.type === "progress") {
+                  console.log(msg.data.data);
                   setWorkerProgress(msg.data.data);
                 } else {
                   const res = msg.data.data;
                   setWorkerProgress(undefined);
                   setWorkerRunning(false);
-                  const withSwaps = res.filter((o: any) => o[2].v.length > 0);
-                  setSwaps(withSwaps);
+                  setSwaps({
+                    0: res.dim0,
+                    1: res.dim1,
+                    2: res.dim2,
+                  });
                   setGridForSwaps(grid);
                 }
               };

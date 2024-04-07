@@ -1,4 +1,4 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 
 use crate::{
@@ -15,7 +15,14 @@ struct State {
     complex: Complex,
     p0: Index,
     grid_index_to_reduction: HashMap<Index, Reduction>,
-    swaps: Vec<(Index, Index, Swaps)>,
+
+    swaps0: Vec<(Index, Index, Swaps)>,
+    swaps1: Vec<(Index, Index, Swaps)>,
+    swaps2: Vec<(Index, Index, Swaps)>,
+
+    swaps0_pruned: Vec<(Index, Index, Swaps)>,
+    swaps1_pruned: Vec<(Index, Index, Swaps)>,
+    swaps2_pruned: Vec<(Index, Index, Swaps)>,
 }
 
 #[wasm_bindgen]
@@ -70,6 +77,81 @@ pub fn make_complex_from_obj(obj_body: String) -> Result<JsValue, JsValue> {
     serde_wasm_bindgen::to_value(&complex).map_err(|e| JsValue::from_str(&format!("{}", e)))
 }
 
+fn prune<F: FnMut(&str, usize, usize) -> Result<JsValue, JsValue>>(
+    st: &State,
+    params: &HashMap<String, PruningParam>,
+    dim: usize,
+    mut send_message: F,
+) -> Vec<(Index, Index, Swaps)> {
+    let reduction_map = &st.grid_index_to_reduction;
+    let swaps_per_grid_pair = match dim {
+        0 => &st.swaps0,
+        1 => &st.swaps1,
+        2 => &st.swaps2,
+        _ => panic!("wat"),
+    };
+    let complex = &st.complex;
+
+    let mut grid_swaps_vec: Vec<(Index, Index, Swaps)> = Vec::new();
+    let prune_iters = swaps_per_grid_pair.len();
+
+    let params = match params.get(&format!("{}", dim)) {
+        Some(p) => p,
+        None => {
+            panic!("Not sure what to do here yet.");
+        }
+    };
+
+    for (i, s) in swaps_per_grid_pair.into_iter().enumerate() {
+        if i & 127 == 0 {
+            send_message("Prune", i, prune_iters).unwrap();
+        }
+        if s.2.v.len() == 0 {
+            continue;
+        }
+
+        let mut dim_swaps = s.2.clone();
+
+        if params.euclidean {
+            if let Some(dist) = params.euclidean_distance {
+                dim_swaps.prune_euclidian(&complex, dist)
+            } else {
+                warn!(
+                    "params dim {}: euclidean was true but distance was None",
+                    dim
+                );
+            }
+        }
+
+        if params.face {
+            dim_swaps.prune_common_face(&complex);
+        }
+
+        if params.coface {
+            dim_swaps.prune_coboundary(&complex);
+        }
+
+        if params.persistence {
+            if let Some(dist) = params.persistence_threshold {
+                let grid_index_a = s.0;
+                let reduction_at_a = reduction_map.get(&grid_index_a).unwrap();
+                let grid_index_b = s.1;
+                let reduction_at_b = reduction_map.get(&grid_index_b).unwrap();
+                dim_swaps.prune_persistence(&complex, reduction_at_a, reduction_at_b, dist)
+            } else {
+                warn!(
+                    "params dim {}: persistence was true but threshold was None",
+                    dim
+                );
+            }
+        }
+
+        grid_swaps_vec.push((s.0, s.1, dim_swaps));
+    }
+
+    grid_swaps_vec
+}
+
 #[wasm_bindgen]
 pub fn run(
     grid: JsValue,
@@ -104,82 +186,49 @@ pub fn run(
 
     send_message("Move state to global", 0, 1).unwrap();
     let mut state = STATE.lock().unwrap();
+
+    fn filter_dim(v: &[(Index, Index, Swaps)], dim: usize) -> Vec<(Index, Index, Swaps)> {
+        v.iter()
+            .map(|(i, j, s)| {
+                (
+                    *i,
+                    *j,
+                    Swaps {
+                        v: s.v.iter().filter(|s| s.dim == dim).cloned().collect(),
+                    },
+                )
+            })
+            .collect()
+    }
+
     *state = Some(State {
         grid,
         complex,
         p0: Index([0; 3]),
         grid_index_to_reduction: results.0,
-        swaps: results.1,
+        swaps0: filter_dim(&results.1, 0),
+        swaps1: filter_dim(&results.1, 1),
+        swaps2: filter_dim(&results.1, 2),
+        swaps0_pruned: Vec::new(),
+        swaps1_pruned: Vec::new(),
+        swaps2_pruned: Vec::new(),
     });
-    let st = state.as_ref().unwrap();
+    let st = state.as_mut().unwrap();
 
-    let reduction_map = &st.grid_index_to_reduction;
-    let swaps_per_grid_pair = &st.swaps;
-    let complex = &st.complex;
+    st.swaps0_pruned = prune(&st, &params, 0, send_message);
+    st.swaps1_pruned = prune(&st, &params, 1, send_message);
+    st.swaps2_pruned = prune(&st, &params, 2, send_message);
 
-    let mut grid_swaps_vec: Vec<(Index, Index, Swaps)> = Vec::new();
-    let prune_iters = swaps_per_grid_pair.len();
-    for (i, s) in swaps_per_grid_pair.into_iter().enumerate() {
-        if i & 15 == 0 {
-            send_message("Prune", i, prune_iters).unwrap();
-        }
-        let swaps = &s.2;
-
-        let mut swaps_between_these_grid_cells: Vec<Swap> = Vec::new();
-        for dim in 0..3 {
-            let mut dim_swaps = Swaps {
-                v: swaps.v.iter().cloned().filter(|s| s.dim == dim).collect(),
-            };
-            let params = match params.get(&format!("{}", dim)) {
-                Some(p) => p,
-                None => {
-                    panic!("Not sure what to do here yet.");
-                }
-            };
-
-            if params.euclidean {
-                if let Some(dist) = params.euclidean_distance {
-                    dim_swaps.prune_euclidian(&complex, dist)
-                } else {
-                    warn!(
-                        "params dim {}: euclidean was true but distance was None",
-                        dim
-                    );
-                }
-            }
-
-            if params.face {
-                dim_swaps.prune_common_face(&complex);
-            }
-
-            if params.coface {
-                dim_swaps.prune_coboundary(&complex);
-            }
-
-            if params.persistence {
-                if let Some(dist) = params.persistence_threshold {
-                    let grid_index_a = s.0;
-                    let reduction_at_a = reduction_map.get(&grid_index_a).unwrap();
-                    let grid_index_b = s.1;
-                    let reduction_at_b = reduction_map.get(&grid_index_b).unwrap();
-                    dim_swaps.prune_persistence(&complex, reduction_at_a, reduction_at_b, dist)
-                } else {
-                    warn!(
-                        "params dim {}: persistence was true but threshold was None",
-                        dim
-                    );
-                }
-            }
-            swaps_between_these_grid_cells.extend(dim_swaps.v);
-        }
-        grid_swaps_vec.push((
-            s.0,
-            s.1,
-            Swaps {
-                v: swaps_between_these_grid_cells,
-            },
-        ));
+    #[derive(Serialize)]
+    struct Ret<'a> {
+        dim0: &'a Vec<(Index, Index, Swaps)>,
+        dim1: &'a Vec<(Index, Index, Swaps)>,
+        dim2: &'a Vec<(Index, Index, Swaps)>,
     }
 
-    Ok(serde_wasm_bindgen::to_value(&grid_swaps_vec)?)
+    Ok(serde_wasm_bindgen::to_value(&Ret {
+        dim0: &st.swaps0_pruned,
+        dim1: &st.swaps1_pruned,
+        dim2: &st.swaps2_pruned,
+    })?)
 }

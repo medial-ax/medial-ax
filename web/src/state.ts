@@ -47,7 +47,11 @@ export const gridRadiusAtom = atom<number>(0.02);
 export const wireframeAtom = atom(false);
 export const showObjectAtom = atom(true);
 
-export const swapsAtom = atom<Swaps>([]);
+export const swapsAtom = atom<{ 0: Swaps; 1: Swaps; 2: Swaps }>({
+  0: [],
+  1: [],
+  2: [],
+});
 
 export const workerRunningAtom = atom<boolean>(false);
 
@@ -61,18 +65,7 @@ export const barcodeAtom = atom<BarcodeType | undefined>(undefined);
 
 export type Dim = 0 | 1 | 2;
 export const swapsForMA = atomFamily((dim: Dim) =>
-  atom((get) =>
-    get(swapsAtom)
-      .map(
-        (s) =>
-          [
-            s[0],
-            s[1],
-            { v: s[2].v.filter((o) => o.dim === dim) },
-          ] satisfies Swaps[number],
-      )
-      .filter((s) => s[2].v.length > 0),
-  ),
+  atom((get) => get(swapsAtom)[dim].filter((s) => s[2].v.length > 0)),
 );
 
 export const showMAAtom = atom<Record<Dim, boolean>>({
