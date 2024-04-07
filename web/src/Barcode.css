@@ -13,7 +13,8 @@
     transform: translateX(calc(100% + 1.2rem));
   }
 
-  min-width: 30rem;
+  min-width: 35rem;
+  max-width: 35rem;
   min-height: 30rem;
 
   > div {

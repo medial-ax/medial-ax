@@ -3,9 +3,12 @@ import { BirthDeathPair, Index } from "./types";
 import {
   BarcodeType,
   barcodeAtom,
+  gridForSwapsAtom,
+  gridOutOfSync,
   persistenceTableHighlight,
   selectedBirthDeathPair,
   selectedGridIndex,
+  swapsAtom,
   timelinePositionAtom,
 } from "./state";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
@@ -541,12 +544,35 @@ export const Barcode = ({
   index: Index | undefined;
   barcodes: BarcodeType | undefined;
 }) => {
+  const haveComputed = useAtomValue(gridForSwapsAtom) !== undefined;
+  const gridIsOutOfSync = useAtomValue(gridOutOfSync);
+
+  if (!haveComputed)
+    return (
+      <Center>
+        <p>
+          Compute the medial axes from the Controls panel to see the barcode.
+        </p>
+      </Center>
+    );
+
+  if (gridIsOutOfSync)
+    return (
+      <Center>
+        <p>
+          Grid was changed after computing the medial axes.{" "}
+          <strong>Recompute</strong> to see barcode.
+        </p>
+      </Center>
+    );
+
   if (!index)
     return (
       <Center>
         <p>Click on a grid point to see the barcode</p>
       </Center>
     );
+
   if (!barcodes)
     return (
       <Center>
@@ -741,9 +767,11 @@ export const BarcodeTabs = ({ live }: { live: boolean }) => {
   const index = useAtomValue(selectedGridIndex);
   const [barcodes, setBarcodes] = useAtom(barcodeAtom);
   const [, setLoading] = useState(false);
+  const haveSwaps = useAtomValue(swapsAtom).length > 0;
 
   useEffect(() => {
     if (!index || !live) return;
+    if (!haveSwaps) return;
     let stop = false;
     wasmWorker.onmessage = (msg: any) => {
       if (stop) return;
@@ -756,8 +784,12 @@ export const BarcodeTabs = ({ live }: { live: boolean }) => {
       });
       setLoading(false);
     };
+    wasmWorker.onerror = (err: any) => {
+      setLoading(false);
+      err.preventDefault();
+      window.alert(err.message);
+    };
     setLoading(true);
-    console.log("post");
     wasmWorker.postMessage({
       fn: "get-barcode-for-point",
       args: {
@@ -767,7 +799,7 @@ export const BarcodeTabs = ({ live }: { live: boolean }) => {
     return () => {
       stop = true;
     };
-  }, [index, live, setBarcodes, setLoading]);
+  }, [haveSwaps, index, live, setBarcodes, setLoading]);
 
   return (
     <Tabs titles={["Barcodes", "Diagram", "Vineyards", "Table"]}>

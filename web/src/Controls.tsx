@@ -756,6 +756,12 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
                   allPruningParams,
                 },
               });
+              wasmWorker.onerror = (e: any) => {
+                e.preventDefault();
+                setWorkerProgress(undefined);
+                setWorkerRunning(false);
+                window.alert(e.message);
+              };
               wasmWorker.onmessage = (msg: any) => {
                 if (msg.data.type === "progress") {
                   setWorkerProgress(msg.data.data);

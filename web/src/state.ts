@@ -16,6 +16,12 @@ export const gridForSwapsAtom = atom<Grid | undefined>(undefined);
 export const showGridAtom = atom<boolean>(true);
 export const selectedGridIndex = atom<Index | undefined>(undefined);
 
+export const gridOutOfSync = atom((get) => {
+  const g1 = get(gridAtom);
+  const g2 = get(gridForSwapsAtom);
+  return g1 !== g2;
+});
+
 export const persistenceTableHighlight = atom<
   | {
       dim: number;
