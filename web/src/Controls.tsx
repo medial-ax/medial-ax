@@ -32,6 +32,7 @@ import { RESET } from "jotai/utils";
 import { resetWasmWorker, wasmWorker } from "./work";
 import "./Controls.css";
 import { HoverTooltip } from "./HoverTooltip";
+import { toast } from "./Toast";
 
 const EXAMPLE_OBJS = [
   { name: "Squished cylinder", string: squished_cylinder },
@@ -335,10 +336,14 @@ const UploadObjFilePicker = () => {
         onChange={(e) => {
           const f = e.target.files?.[0];
           if (!f) return;
-          f.text().then((text) => {
-            const value = make_complex_from_obj(text);
-            setComplex({ complex: value, filename: f.name });
-          });
+          f.text()
+            .then((text) => {
+              const value = make_complex_from_obj(text);
+              setComplex({ complex: value, filename: f.name });
+            })
+            .catch((err: string) => {
+              toast("error", `Failed to parse .obj: ${err}`, 3);
+            });
         }}
       />
     </label>
@@ -666,6 +671,14 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
         </div>
 
         <h3>Import / Export</h3>
+        <button
+          onClick={() => {
+            toast("error", "hello", 3);
+          }}
+        >
+          debug
+        </button>
+
         <h4>Import</h4>
         <UploadObjFilePicker />
         <ul className="predef-files-list">
@@ -760,7 +773,7 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
                 e.preventDefault();
                 setWorkerProgress(undefined);
                 setWorkerRunning(false);
-                window.alert(e.message);
+                toast("error", e.message, 10);
               };
               wasmWorker.onmessage = (msg: any) => {
                 if (msg.data.type === "progress") {

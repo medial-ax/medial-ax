@@ -255,7 +255,9 @@ impl Complex {
             } else if line.starts_with("l") {
                 // l 1 2
                 let groups = line.split_ascii_whitespace().collect::<Vec<_>>();
-                assert!(groups.len() == 3, "An edge should have two vertices");
+                if groups.len() != 3 {
+                    return Err("An edge should have two vertices".into());
+                }
                 let a = groups
                     .get(1)
                     .ok_or("missing field".to_string())
@@ -286,7 +288,10 @@ impl Complex {
             } else if line.starts_with("f") {
                 // f 20 27 19
                 let groups = line.split_ascii_whitespace().collect::<Vec<_>>();
-                assert!(groups.len() == 4, "A triangle should have three vertices");
+
+                if groups.len() != 4 {
+                    return Err("A triangle should have three vertices".into());
+                }
                 let a = groups
                     .get(1)
                     .ok_or("missing field".to_string())
@@ -314,8 +319,8 @@ impl Complex {
         // Check that no two vertices are actually the same vertex
         for i in 0..vertices.len() {
             for j in (i + 1)..vertices.len() {
-                let p = vertices[i].coords.expect("Vertex should have coordinates");
-                let q = vertices[j].coords.expect("Vertex should have coordinates");
+                let p = vertices[i].coords.ok_or("Vertex should have coordinates")?;
+                let q = vertices[j].coords.ok_or("Vertex should have coordinates")?;
                 let dist = p.dist(&q);
                 if dist < 1e-5 {
                     return Err(format!(
