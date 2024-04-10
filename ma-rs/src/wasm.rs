@@ -4,7 +4,7 @@ use wasm_bindgen::prelude::*;
 use crate::{
     complex::Complex,
     grid::{Grid, Index},
-    reduce_from_scratch, Reduction, Swap, Swaps,
+    reduce_from_scratch, Reduction, Swaps,
 };
 use log::warn;
 
@@ -79,7 +79,7 @@ pub fn make_complex_from_obj(obj_body: String) -> Result<JsValue, JsValue> {
 
 fn prune<F: FnMut(&str, usize, usize) -> Result<JsValue, JsValue>>(
     st: &State,
-    params: &HashMap<String, PruningParam>,
+    params: &PruningParam,
     dim: usize,
     mut send_message: F,
 ) -> Vec<(Index, Index, Swaps)> {
@@ -94,13 +94,6 @@ fn prune<F: FnMut(&str, usize, usize) -> Result<JsValue, JsValue>>(
 
     let mut grid_swaps_vec: Vec<(Index, Index, Swaps)> = Vec::new();
     let prune_iters = swaps_per_grid_pair.len();
-
-    let params = match params.get(&format!("{}", dim)) {
-        Some(p) => p,
-        None => {
-            panic!("Not sure what to do here yet.");
-        }
-    };
 
     for (i, s) in swaps_per_grid_pair.into_iter().enumerate() {
         if i & 127 == 0 {
@@ -150,6 +143,37 @@ fn prune<F: FnMut(&str, usize, usize) -> Result<JsValue, JsValue>>(
     }
 
     grid_swaps_vec
+}
+
+#[wasm_bindgen]
+pub fn prune_dimension(
+    dim: JsValue,
+    params: JsValue,
+    on_message: js_sys::Function,
+) -> Result<JsValue, JsValue> {
+    let dim: usize = serde_wasm_bindgen::from_value(dim)?;
+    let send_message = |label: &str, i: usize, n: usize| {
+        on_message.call3(
+            &JsValue::NULL,
+            &JsValue::from_str(label),
+            &JsValue::from_f64(i as f64),
+            &JsValue::from_f64(n as f64),
+        )
+    };
+
+    let params: PruningParam = serde_wasm_bindgen::from_value(params)?;
+    let mut state = STATE.lock().unwrap();
+    let st = state.as_mut().unwrap();
+    let new_pruned = prune(st, &params, dim, send_message);
+
+    match dim {
+        0 => st.swaps0_pruned = new_pruned.clone(),
+        1 => st.swaps1_pruned = new_pruned.clone(),
+        2 => st.swaps2_pruned = new_pruned.clone(),
+        _ => return Err("bad dimension".into()),
+    }
+
+    Ok(serde_wasm_bindgen::to_value(&new_pruned)?)
 }
 
 #[wasm_bindgen]
@@ -215,9 +239,9 @@ pub fn run(
     });
     let st = state.as_mut().unwrap();
 
-    st.swaps0_pruned = prune(&st, &params, 0, send_message);
-    st.swaps1_pruned = prune(&st, &params, 1, send_message);
-    st.swaps2_pruned = prune(&st, &params, 2, send_message);
+    st.swaps0_pruned = prune(&st, &params.get("0").unwrap(), 0, send_message);
+    st.swaps1_pruned = prune(&st, &params.get("1").unwrap(), 1, send_message);
+    st.swaps2_pruned = prune(&st, &params.get("2").unwrap(), 2, send_message);
 
     #[derive(Serialize)]
     struct Ret<'a> {

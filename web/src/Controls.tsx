@@ -352,6 +352,10 @@ const UploadObjFilePicker = () => {
 
 const PruningParameters = ({ dim }: { dim: Dim }) => {
   const [params, set] = useAtom(pruningParamAtom(dim));
+  const [workerProgress, setWorkerProgress] = useState<
+    { i: number; n: number } | undefined
+  >(undefined);
+  const setSwaps = useSetAtom(swapsAtom);
   return (
     <>
       <label>
@@ -480,9 +484,49 @@ const PruningParameters = ({ dim }: { dim: Dim }) => {
         />
       </fieldset>
 
-      <button style={{ alignSelf: "end" }} onClick={() => set(RESET)}>
-        Reset
-      </button>
+      <div
+        style={{
+          display: "flex",
+          gap: "1rem",
+          justifyContent: "end",
+          alignItems: "center",
+        }}
+      >
+        {workerProgress && (
+          <progress value={workerProgress.i / workerProgress.n} />
+        )}
+        <button
+          disabled={workerProgress !== undefined}
+          onClick={() => {
+            wasmWorker.postMessage({
+              fn: "prune-dimension",
+              args: {
+                dim,
+                params,
+              },
+            });
+            wasmWorker.onerror = (e: any) => {
+              e.preventDefault();
+              toast("error", e.message, 10);
+            };
+            wasmWorker.onmessage = (msg: any) => {
+              if (msg.data.type === "progress") {
+                setWorkerProgress({ i: msg.data.i, n: msg.data.n });
+              } else {
+                const res = msg.data.data;
+                setSwaps((c) => ({
+                  ...c,
+                  [dim]: res,
+                }));
+                setWorkerProgress(undefined);
+              }
+            };
+          }}
+        >
+          Re-prune
+        </button>
+        <button onClick={() => set(RESET)}>Reset</button>
+      </div>
     </>
   );
 };
