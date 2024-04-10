@@ -767,7 +767,9 @@ export const BarcodeTabs = ({ live }: { live: boolean }) => {
   const index = useAtomValue(selectedGridIndex);
   const [barcodes, setBarcodes] = useAtom(barcodeAtom);
   const [, setLoading] = useState(false);
-  const haveSwaps = useAtomValue(swapsAtom).length > 0;
+  const swaps = useAtomValue(swapsAtom);
+  const haveSwaps =
+    swaps[0].length > 0 || swaps[1].length > 0 || swaps[2].length > 0;
 
   useEffect(() => {
     if (!index || !live) return;

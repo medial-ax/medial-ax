@@ -34,7 +34,7 @@ pub fn get_barcode_for_point(grid_point: Vec<isize>) -> Result<JsValue, String> 
     let reduction = state
         .grid_index_to_reduction
         .get(&index)
-        .expect("Index not in map");
+        .ok_or("Index not in map")?;
 
     let swaps_1 = reduction.barcode(&state.complex, -1);
     let swaps0 = reduction.barcode(&state.complex, 0);

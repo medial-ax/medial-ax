@@ -786,7 +786,6 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
               };
               wasmWorker.onmessage = (msg: any) => {
                 if (msg.data.type === "progress") {
-                  console.log(msg.data.data);
                   setWorkerProgress(msg.data.data);
                 } else {
                   const res = msg.data.data;
