@@ -495,37 +495,49 @@ const PruningParameters = ({ dim }: { dim: Dim }) => {
         {workerProgress && (
           <progress value={workerProgress.i / workerProgress.n} />
         )}
-        <button
-          disabled={workerProgress !== undefined}
-          onClick={() => {
-            wasmWorker.postMessage({
-              fn: "prune-dimension",
-              args: {
-                dim,
-                params,
-              },
-            });
-            wasmWorker.onerror = (e: any) => {
-              e.preventDefault();
-              toast("error", e.message, 10);
-            };
-            wasmWorker.onmessage = (msg: any) => {
-              if (msg.data.type === "progress") {
-                setWorkerProgress({ i: msg.data.i, n: msg.data.n });
-              } else {
-                const res = msg.data.data;
-                setSwaps((c) => ({
-                  ...c,
-                  [dim]: res,
-                }));
-                setWorkerProgress(undefined);
-              }
-            };
-          }}
-        >
-          Re-prune
-        </button>
-        <button onClick={() => set(RESET)}>Reset</button>
+        <div>
+          <button
+            disabled={workerProgress !== undefined}
+            onClick={() => {
+              wasmWorker.postMessage({
+                fn: "prune-dimension",
+                args: {
+                  dim,
+                  params,
+                },
+              });
+              wasmWorker.onerror = (e: any) => {
+                e.preventDefault();
+                toast("error", e.message, 10);
+              };
+              wasmWorker.onmessage = (msg: any) => {
+                if (msg.data.type === "progress") {
+                  setWorkerProgress({ i: msg.data.i, n: msg.data.n });
+                } else {
+                  const res = msg.data.data;
+                  setSwaps((c) => ({
+                    ...c,
+                    [dim]: res,
+                  }));
+                  setWorkerProgress(undefined);
+                }
+              };
+            }}
+          >
+            Re-prune
+          </button>
+          <HoverTooltip>
+            Reprunes the {{ 0: "0th", 1: "1st", 2: "2nd" }[dim]} medial axis
+            with the given paramters, and updates the visualization.
+          </HoverTooltip>
+        </div>
+
+        <div>
+          <button onClick={() => set(RESET)}>Reset</button>
+          <HoverTooltip>
+            Resets the parameters to the default values.
+          </HoverTooltip>
+        </div>
       </div>
     </>
   );
