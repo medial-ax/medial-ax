@@ -7,6 +7,7 @@ import {
   gridAtom,
   gridForSwapsAtom,
   gridRadiusAtom,
+  hasAnySwaps,
   keypointRadiusAtom,
   menuOpenAtom,
   pruningParamAtom,
@@ -350,7 +351,13 @@ const UploadObjFilePicker = () => {
   );
 };
 
-const PruningParameters = ({ dim }: { dim: Dim }) => {
+const PruningParameters = ({
+  dim,
+  disabled,
+}: {
+  dim: Dim;
+  disabled: boolean;
+}) => {
   const [params, set] = useAtom(pruningParamAtom(dim));
   const [workerProgress, setWorkerProgress] = useState<
     { i: number; n: number } | undefined
@@ -497,7 +504,7 @@ const PruningParameters = ({ dim }: { dim: Dim }) => {
         )}
         <div>
           <button
-            disabled={workerProgress !== undefined}
+            disabled={workerProgress !== undefined || disabled}
             onClick={() => {
               wasmWorker.postMessage({
                 fn: "prune-dimension",
@@ -526,7 +533,11 @@ const PruningParameters = ({ dim }: { dim: Dim }) => {
           >
             Re-prune
           </button>
-          <HoverTooltip>
+          <HoverTooltip
+            style={{
+              opacity: disabled ? 0.5 : 1.0,
+            }}
+          >
             Reprunes the {{ 0: "0th", 1: "1st", 2: "2nd" }[dim]} medial axis
             with the given paramters, and updates the visualization.
           </HoverTooltip>
@@ -653,6 +664,7 @@ export const Menu = () => {
   const [cplx, setComplex] = useAtom(complexAtom);
   const [grid, setGrid] = useAtom(gridAtom);
   const [swaps, setSwaps] = useAtom(swapsAtom);
+  const anySwaps = useAtomValue(hasAnySwaps);
   const [workerRunning, setWorkerRunning] = useAtom(workerRunningAtom);
   const [workerProgress, setWorkerProgress] = useState<
     | undefined
@@ -891,7 +903,10 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
         <div className="pruning-param-list">
           {([0, 1, 2] satisfies Dim[]).map((dim) => (
             <CollapseH4 key={dim} title={`Pruning dim ${dim}`}>
-              <PruningParameters dim={dim} />
+              <PruningParameters
+                dim={dim}
+                disabled={workerRunning || !grid || !cplx || !anySwaps}
+              />
             </CollapseH4>
           ))}
         </div>

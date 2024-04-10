@@ -53,6 +53,11 @@ export const swapsAtom = atom<{ 0: Swaps; 1: Swaps; 2: Swaps }>({
   2: [],
 });
 
+export const hasAnySwaps = atom((get) => {
+  const o = get(swapsAtom);
+  return o[0].length > 0 || o[1].length > 0 || o[2].length > 0;
+});
+
 export const workerRunningAtom = atom<boolean>(false);
 
 export type BarcodeType = {
