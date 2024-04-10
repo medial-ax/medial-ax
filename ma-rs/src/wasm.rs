@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use wasm_bindgen::prelude::*;
 
 use crate::{
@@ -6,10 +6,11 @@ use crate::{
     grid::{Grid, Index},
     reduce_from_scratch, Reduction, Swaps,
 };
-use log::warn;
+use log::{info, warn};
 
 use std::{collections::HashMap, panic, sync::Mutex};
 
+#[derive(Serialize, Deserialize)]
 struct State {
     grid: Grid,
     complex: Complex,
@@ -23,6 +24,29 @@ struct State {
     swaps0_pruned: Vec<(Index, Index, Swaps)>,
     swaps1_pruned: Vec<(Index, Index, Swaps)>,
     swaps2_pruned: Vec<(Index, Index, Swaps)>,
+}
+
+#[wasm_bindgen]
+pub fn get_state() -> Result<JsValue, JsValue> {
+    let guard = STATE.lock().map_err(|_| "STATE.lock failed")?;
+    let state = guard.as_ref().ok_or("No global state")?;
+    let bytes = rmp_serde::to_vec(&state).map_err(|e| e.to_string())?;
+    let serializer = serde_wasm_bindgen::Serializer::new();
+    let ret = serializer.serialize_bytes(&bytes)?;
+    Ok(ret)
+}
+
+#[wasm_bindgen]
+pub fn load_state(bytes: JsValue, on_message: js_sys::Function) -> Result<JsValue, JsValue> {
+    let send_message = |label: &str| on_message.call1(&JsValue::NULL, &JsValue::from_str(label));
+
+    send_message("1").unwrap();
+    let bytes: serde_bytes::ByteBuf = serde_wasm_bindgen::from_value(bytes)?;
+    send_message("2").unwrap();
+    let state: State = rmp_serde::from_slice(&bytes).map_err(|e| e.to_string())?;
+    send_message("3").unwrap();
+    info!("{:?}", state.grid);
+    Ok(serde_wasm_bindgen::to_value("okay")?)
 }
 
 #[wasm_bindgen]

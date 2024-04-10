@@ -743,7 +743,34 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
         <h3>Import / Export</h3>
         <button
           onClick={() => {
-            toast("error", "hello", 3);
+            console.log("lkjasdljasldkj");
+            wasmWorker.postMessage({
+              fn: "get-state",
+              args: {},
+            });
+            wasmWorker.onerror = (e: any) => {
+              e.preventDefault();
+              console.error(e);
+              toast("error", e.message, 10);
+            };
+            wasmWorker.onmessage = (msg: any) => {
+              console.log(msg);
+              if (msg.data.type === "progress") {
+                setWorkerProgress(msg.data.data);
+              } else {
+                const res = msg.data.data;
+                console.log(res);
+                wasmWorker.postMessage({
+                  fn: "load-state",
+                  args: {
+                    bytes: res,
+                  },
+                });
+                wasmWorker.onmessage = () => {
+                  console.log("all done");
+                };
+              }
+            };
           }}
         >
           debug

@@ -1,4 +1,6 @@
-#[derive(Debug, Clone, serde::Serialize)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "python", pyo3::pyclass)]
 pub struct Permutation {
     forwards: Vec<usize>,

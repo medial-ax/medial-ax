@@ -3,10 +3,10 @@ use std::{
     iter::zip,
 };
 
-use complex::{Complex, Pos, Simplex};
-use grid::Grid;
+use complex::{Complex, Pos};
 use permutation::Permutation;
-use sneaky_matrix::{Col, SneakyMatrix};
+use serde::{Deserialize, Serialize};
+use sneaky_matrix::SneakyMatrix;
 
 #[cfg(feature = "python")]
 use pyo3::{exceptions::PyValueError, prelude::*};
@@ -27,7 +27,7 @@ pub mod permutation;
 pub mod sneaky_matrix;
 
 #[cfg_attr(feature = "python", pyo3::pyclass(get_all))]
-#[derive(Clone, Debug, serde::Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Swap {
     /// Dimension in which the swap happened.
     dim: usize,
@@ -38,7 +38,7 @@ pub struct Swap {
 }
 
 #[cfg_attr(feature = "python", pyo3::pyclass(get_all))]
-#[derive(Clone, Debug, serde::Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Swaps {
     pub v: Vec<Swap>,
 }
@@ -207,7 +207,7 @@ impl Swaps {
 }
 
 #[cfg_attr(feature = "python", pyo3::pyclass(get_all))]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 #[allow(non_snake_case)]
 pub struct Stack {
     /// Boundary matrix. Size is (#vert, #edges)  (for 1st stack).
@@ -232,7 +232,7 @@ pub struct BirthDeathPair {
 }
 
 #[cfg_attr(feature = "python", pyo3::pyclass(get_all))]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub struct Reduction {
     /// Key point around which the reduction is done.
     pub key_point: Pos,

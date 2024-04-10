@@ -1,8 +1,9 @@
 use crate::permutation::Permutation;
 #[cfg(feature = "python")]
 use pyo3::prelude::PyObject;
+use serde::{Deserialize, Serialize};
 
-#[derive(PartialEq, Eq, Debug, Clone)]
+#[derive(PartialEq, Eq, Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "python", pyo3::pyclass)]
 pub struct Col(Vec<usize>);
 
@@ -92,7 +93,7 @@ impl From<Vec<usize>> for Col {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[cfg_attr(feature = "python", pyo3::pyclass(get_all))]
 pub struct SneakyMatrix {
     columns: Vec<Col>,

@@ -192,6 +192,7 @@ impl Grid {
     }
 
     /// Splits the grid into two along the longest axis.
+    /// The [Index] returned is the offset of the second [Grid] wrt. the first [Grid].
     pub fn split_with_overlap(&self) -> (Self, Self, Index) {
         let [w, h, d] = self.shape.0;
         if h <= w && d <= w {

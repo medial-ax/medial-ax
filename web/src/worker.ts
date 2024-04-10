@@ -3,6 +3,8 @@ import init, {
   run,
   get_barcode_for_point,
   prune_dimension,
+  get_state,
+  load_state,
 } from "ma-rs";
 
 await init().then(() => {
@@ -42,6 +44,18 @@ onmessage = (e) => {
     postMessage({
       type: "finished",
       data: result,
+    });
+  } else if (fn === "get-state") {
+    postMessage({
+      type: "finished",
+      data: get_state(),
+    });
+  } else if (fn === "load-state") {
+    const { bytes } = args;
+    const res = load_state(bytes, (s) => console.log(s));
+    postMessage({
+      type: "finished",
+      data: res,
     });
   }
 };
