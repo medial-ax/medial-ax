@@ -65,8 +65,6 @@ pub struct Grid {
     pub corner: Pos,
     pub size: f64,
     pub shape: Index,
-
-    pub cell_states: Option<std::collections::HashMap<Index, String>>,
 }
 
 #[cfg_attr(feature = "python", pymethods)]
@@ -77,7 +75,6 @@ impl Grid {
             corner,
             size,
             shape: Index(shape),
-            cell_states: None,
         }
     }
 

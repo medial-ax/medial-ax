@@ -27,13 +27,14 @@ import squished_cylinder from "../inputs/squished_cylinder.obj?raw";
 import extruded_ellipse from "../inputs/extruded_ellipse.obj?raw";
 import cube_subdiv_2 from "../inputs/cube-subdiv-2.obj?raw";
 import maze_2 from "../inputs/maze_2.obj?raw";
-import { Grid, defaultGrid } from "./types";
-import { make_complex_from_obj } from "ma-rs";
+import { Complex, Grid, Index, PruningParam, defaultGrid } from "./types";
+import { make_complex_from_obj, split_grid } from "ma-rs";
 import { RESET } from "jotai/utils";
 import { resetWasmWorker, wasmWorker } from "./work";
 import "./Controls.css";
 import { HoverTooltip } from "./HoverTooltip";
 import { toast } from "./Toast";
+import WasmWorker from "./worker?worker";
 
 const EXAMPLE_OBJS = [
   { name: "Squished cylinder", string: squished_cylinder },
@@ -41,6 +42,36 @@ const EXAMPLE_OBJS = [
   { name: "Cube", string: cube_subdiv_2 },
   { name: "Maze", string: maze_2 },
 ];
+
+const runVineyards = (
+  grid: Grid,
+  complex: Complex,
+  params: { 0: PruningParam; 1: PruningParam; 2: PruningParam },
+  progress?: (a: any) => void,
+) =>
+  new Promise((res, rej) => {
+    const worker = new WasmWorker();
+    worker.onerror = (e: any) => {
+      e.preventDefault();
+      rej(e.message);
+    };
+    worker.onmessage = (msg: any) => {
+      if (msg.data.type === "progress") {
+        progress?.(msg.data.data);
+      } else {
+        worker.terminate();
+        res(msg.data.data);
+      }
+    };
+    worker.postMessage({
+      fn: "run-and-dump",
+      args: {
+        grid,
+        complex,
+        allPruningParams: params,
+      },
+    });
+  });
 
 const Loader = styled.span<{
   $w0: number;
@@ -742,35 +773,97 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
 
         <h3>Import / Export</h3>
         <button
-          onClick={() => {
-            console.log("lkjasdljasldkj");
-            wasmWorker.postMessage({
-              fn: "get-state",
-              args: {},
-            });
-            wasmWorker.onerror = (e: any) => {
-              e.preventDefault();
-              console.error(e);
-              toast("error", e.message, 10);
+          disabled={grid === undefined}
+          onClick={async () => {
+            const res = split_grid(grid);
+
+            console.log("start");
+            const results = await Promise.all(
+              res.map(([grid, offset]: [Grid, Index]) =>
+                runVineyards(grid, cplx.complex, allPruningParams).then(
+                  (state) => ({
+                    state,
+                    offset,
+                  }),
+                ),
+              ),
+            );
+            console.log({ results });
+            wasmWorker.onmessage = () => {
+              console.log("done");
             };
-            wasmWorker.onmessage = (msg: any) => {
-              console.log(msg);
-              if (msg.data.type === "progress") {
-                setWorkerProgress(msg.data.data);
-              } else {
-                const res = msg.data.data;
-                console.log(res);
-                wasmWorker.postMessage({
-                  fn: "load-state",
-                  args: {
-                    bytes: res,
-                  },
-                });
-                wasmWorker.onmessage = () => {
-                  console.log("all done");
-                };
-              }
-            };
+            for (const res of results) {
+              wasmWorker.postMessage({
+                fn: "load-state",
+                args: {
+                  bytes: res.state,
+                  index: res.offset,
+                },
+              });
+            }
+            console.log("loaded");
+
+            //
+            //
+            // const worker = new WasmWorker();
+            // setTimeout(() => {
+            //   worker.onerror = (e: any) => {
+            //     e.preventDefault();
+            //     toast("error", e.message, 10);
+            //   };
+            //   worker.onmessage = (msg: any) => {
+            //     if (msg.data.type === "progress") {
+            //       // console.log("progress", msg.data.data);
+            //       // setWorkerProgress(msg.data.data);
+            //     } else {
+            //       const res = msg.data.data;
+            //       console.log(res);
+            //       // setSwaps({
+            //       //   0: res.dim0,
+            //       //   1: res.dim1,
+            //       //   2: res.dim2,
+            //       // });
+            //       // setGridForSwaps(grid);
+            //     }
+            //   };
+            //   worker.postMessage({
+            //     fn: "run",
+            //     args: {
+            //       grid,
+            //       complex: cplx.complex,
+            //       allPruningParams,
+            //     },
+            //   });
+            // }, 0);
+            // }
+
+            // wasmWorker.postMessage({
+            //   fn: "get-state",
+            //   args: {},
+            // });
+            // wasmWorker.onerror = (e: any) => {
+            //   e.preventDefault();
+            //   console.error(e);
+            //   toast("error", e.message, 10);
+            // };
+            // wasmWorker.onmessage = (msg: any) => {
+            //   console.log(msg);
+            //   if (msg.data.type === "progress") {
+            //     setWorkerProgress(msg.data.data);
+            //   } else {
+            //     const res = msg.data.data;
+            //     console.log(res);
+            //     wasmWorker.postMessage({
+            //       fn: "load-state",
+            //       args: {
+            //         bytes: res,
+            //       },
+            //     });
+            //     wasmWorker.onmessage = () => {
+            //       console.log("all done");
+            //     };
+            //   }
+            // };
           }}
         >
           debug
@@ -886,6 +979,11 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
                   const res = msg.data.data;
                   setWorkerProgress(undefined);
                   setWorkerRunning(false);
+                  console.log("here", {
+                    0: res.dim0,
+                    1: res.dim1,
+                    2: res.dim2,
+                  });
                   setSwaps({
                     0: res.dim0,
                     1: res.dim1,

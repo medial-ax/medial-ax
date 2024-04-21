@@ -37,15 +37,46 @@ pub fn get_state() -> Result<JsValue, JsValue> {
 }
 
 #[wasm_bindgen]
-pub fn load_state(bytes: JsValue, on_message: js_sys::Function) -> Result<JsValue, JsValue> {
+pub fn load_state(
+    bytes: JsValue,
+    grid_offset: JsValue,
+    on_message: js_sys::Function,
+) -> Result<JsValue, JsValue> {
     let send_message = |label: &str| on_message.call1(&JsValue::NULL, &JsValue::from_str(label));
-
-    send_message("1").unwrap();
+    let offset: Index = serde_wasm_bindgen::from_value(grid_offset)?;
     let bytes: serde_bytes::ByteBuf = serde_wasm_bindgen::from_value(bytes)?;
-    send_message("2").unwrap();
-    let state: State = rmp_serde::from_slice(&bytes).map_err(|e| e.to_string())?;
-    send_message("3").unwrap();
-    info!("{:?}", state.grid);
+    let mut state: State = rmp_serde::from_slice(&bytes).map_err(|e| e.to_string())?;
+
+    let grid_index_to_reduction = state
+        .grid_index_to_reduction
+        .drain()
+        .map(|(k, v)| (k + offset, v))
+        .collect::<HashMap<_, _>>();
+    let swaps0: Vec<_> = state
+        .swaps0
+        .drain(0..)
+        .map(|s| (s.0 + offset, s.1 + offset, s.2))
+        .collect();
+    let swaps1: Vec<_> = state
+        .swaps0
+        .drain(0..)
+        .map(|s| (s.0 + offset, s.1 + offset, s.2))
+        .collect();
+    let swaps2: Vec<_> = state
+        .swaps0
+        .drain(0..)
+        .map(|s| (s.0 + offset, s.1 + offset, s.2))
+        .collect();
+
+    let mut guard = STATE.lock().map_err(|_| "STATE.lock failed")?;
+    let state = guard.as_mut().ok_or("No global state")?;
+    state
+        .grid_index_to_reduction
+        .extend(grid_index_to_reduction);
+    state.swaps0.extend(swaps0);
+    state.swaps1.extend(swaps1);
+    state.swaps2.extend(swaps2);
+
     Ok(serde_wasm_bindgen::to_value("okay")?)
 }
 
@@ -201,12 +232,31 @@ pub fn prune_dimension(
 }
 
 #[wasm_bindgen]
-pub fn run(
+pub fn split_grid(grid: JsValue) -> Result<JsValue, JsValue> {
+    let grid: Grid = serde_wasm_bindgen::from_value(grid)?;
+
+    let (a, b, b_offset) = grid.split_with_overlap();
+
+    let (aa, ab, ab_offset) = a.split_with_overlap();
+    let (ba, bb, bb_offset) = b.split_with_overlap();
+
+    let grids = [
+        (aa, Index([0; 3])),
+        (ab, ab_offset),
+        (ba, b_offset),
+        (bb, b_offset + bb_offset),
+    ];
+
+    Ok(serde_wasm_bindgen::to_value(&grids)?)
+}
+
+#[wasm_bindgen]
+pub fn run_without_prune(
     grid: JsValue,
     complex: JsValue,
     params: JsValue,
     on_message: js_sys::Function,
-) -> Result<JsValue, JsValue> {
+) -> Result<(), JsValue> {
     let send_message = |label: &str, i: usize, n: usize| {
         on_message.call3(
             &JsValue::NULL,
@@ -261,8 +311,31 @@ pub fn run(
         swaps1_pruned: Vec::new(),
         swaps2_pruned: Vec::new(),
     });
+
+    Ok(())
+}
+
+#[wasm_bindgen]
+pub fn run(
+    grid: JsValue,
+    complex: JsValue,
+    params: JsValue,
+    on_message: js_sys::Function,
+) -> Result<JsValue, JsValue> {
+    run_without_prune(grid, complex, params.clone(), on_message.clone())?;
+    let send_message = |label: &str, i: usize, n: usize| {
+        on_message.call3(
+            &JsValue::NULL,
+            &JsValue::from_str(label),
+            &JsValue::from_f64(i as f64),
+            &JsValue::from_f64(n as f64),
+        )
+    };
+
+    let mut state = STATE.lock().unwrap();
     let st = state.as_mut().unwrap();
 
+    let params: HashMap<String, PruningParam> = serde_wasm_bindgen::from_value(params)?;
     st.swaps0_pruned = prune(&st, &params.get("0").unwrap(), 0, send_message);
     st.swaps1_pruned = prune(&st, &params.get("1").unwrap(), 1, send_message);
     st.swaps2_pruned = prune(&st, &params.get("2").unwrap(), 2, send_message);
@@ -273,10 +346,14 @@ pub fn run(
         dim1: &'a Vec<(Index, Index, Swaps)>,
         dim2: &'a Vec<(Index, Index, Swaps)>,
     }
+    info!("after prune");
 
-    Ok(serde_wasm_bindgen::to_value(&Ret {
+    let value = serde_wasm_bindgen::to_value(&Ret {
         dim0: &st.swaps0_pruned,
         dim1: &st.swaps1_pruned,
         dim2: &st.swaps2_pruned,
-    })?)
+    })?;
+
+    info!("after serialize");
+    Ok(value)
 }

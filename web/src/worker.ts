@@ -1,19 +1,14 @@
 import init, {
   my_init_function,
   run,
+  run_without_prune,
   get_barcode_for_point,
   prune_dimension,
   get_state,
   load_state,
 } from "ma-rs";
 
-await init().then(() => {
-  my_init_function();
-});
-
-onmessage = (e) => {
-  const { fn, args } = e.data;
-
+function _run(fn: string, args: any) {
   const onMessage = (label: string, i: number, n: number) => {
     postMessage({
       type: "progress",
@@ -30,6 +25,13 @@ onmessage = (e) => {
     postMessage({
       type: "finished",
       data: result,
+    });
+  } else if (fn === "run-and-dump") {
+    const { grid, complex, allPruningParams } = args;
+    run_without_prune(grid, complex, allPruningParams, onMessage);
+    postMessage({
+      type: "finished",
+      data: get_state(),
     });
   } else if (fn === "get-barcode-for-point") {
     const { grid_point } = args;
@@ -51,11 +53,30 @@ onmessage = (e) => {
       data: get_state(),
     });
   } else if (fn === "load-state") {
-    const { bytes } = args;
-    const res = load_state(bytes, (s) => console.log(s));
+    const { bytes, index } = args;
+    const res = load_state(bytes, index, (s: any) => console.log(s));
     postMessage({
       type: "finished",
       data: res,
     });
   }
+}
+
+const queue: { fn: string; args: any }[] = [];
+onmessage = (e) => {
+  const { fn, args } = e.data;
+  queue.push({ fn, args });
+};
+
+await init().then(() => {
+  my_init_function();
+  while (queue.length) {
+    const { fn, args } = queue.shift()!;
+    _run(fn, args);
+  }
+});
+
+onmessage = (e) => {
+  const { fn, args } = e.data;
+  _run(fn, args);
 };
