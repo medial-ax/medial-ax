@@ -1,3 +1,4 @@
+import * as Comlink from "comlink";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import {
   Dim,
@@ -21,7 +22,7 @@ import {
 } from "./state";
 import { SetStateAction, useCallback, useRef, useState } from "react";
 import { dualFaceQuad } from "./medialaxes";
-import { downloadText } from "./utils";
+import { downloadText, wait } from "./utils";
 import styled from "styled-components";
 import squished_cylinder from "../inputs/squished_cylinder.obj?raw";
 import extruded_ellipse from "../inputs/extruded_ellipse.obj?raw";
@@ -30,7 +31,7 @@ import maze_2 from "../inputs/maze_2.obj?raw";
 import { Complex, Grid, Index, PruningParam, defaultGrid } from "./types";
 import { make_complex_from_obj, split_grid } from "ma-rs";
 import { RESET } from "jotai/utils";
-import { resetWasmWorker, wasmWorker } from "./work";
+import { Mars, resetComlink } from "./work";
 import "./Controls.css";
 import { HoverTooltip } from "./HoverTooltip";
 import { toast } from "./Toast";
@@ -536,30 +537,22 @@ const PruningParameters = ({
         <div>
           <button
             disabled={workerProgress !== undefined || disabled}
-            onClick={() => {
-              wasmWorker.postMessage({
-                fn: "prune-dimension",
-                args: {
-                  dim,
-                  params,
-                },
-              });
-              wasmWorker.onerror = (e: any) => {
-                e.preventDefault();
+            onClick={async () => {
+              const res = await Mars.pruneDimension(
+                dim,
+                params,
+                Comlink.proxy((_, i, n) => {
+                  setWorkerProgress({ i, n });
+                }),
+              ).catch((e: any) => {
                 toast("error", e.message, 10);
-              };
-              wasmWorker.onmessage = (msg: any) => {
-                if (msg.data.type === "progress") {
-                  setWorkerProgress({ i: msg.data.i, n: msg.data.n });
-                } else {
-                  const res = msg.data.data;
-                  setSwaps((c) => ({
-                    ...c,
-                    [dim]: res,
-                  }));
-                  setWorkerProgress(undefined);
-                }
-              };
+                throw e;
+              });
+              setSwaps((c) => ({
+                ...c,
+                [dim]: res,
+              }));
+              setWorkerProgress(undefined);
             }}
           >
             Re-prune
@@ -875,7 +868,7 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
           {EXAMPLE_OBJS.map((obj, i) => (
             <li
               key={i}
-              onClick={() => {
+              onClick={async () => {
                 if (
                   (grid ||
                     (swaps[0].length !== 0 &&
@@ -886,7 +879,7 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
                   )
                 )
                   return;
-                const value = make_complex_from_obj(obj.string);
+                const value = await Mars.makeComplexFromObj(obj.string);
                 setComplex({ complex: value, filename: obj.name });
                 setSwaps({ 0: [], 1: [], 2: [] });
                 setGrid(undefined);
@@ -956,42 +949,51 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
           <button
             style={{ flex: 1 }}
             disabled={workerRunning || !grid || !cplx}
-            onClick={() => {
+            onClick={async () => {
+              if (!grid) return;
               setWorkerRunning(true);
-              wasmWorker.postMessage({
-                fn: "run",
-                args: {
-                  grid,
-                  complex: cplx.complex,
-                  allPruningParams,
+
+              const callback = (nn: number) =>
+                Comlink.proxy(async (label: string, i: number, n: number) => {
+                  console.log("set worker progress", nn);
+                  setWorkerProgress({ label, i, n });
+                });
+
+              await Mars.compute(grid, cplx.complex, callback(1)).catch(
+                (e: any) => {
+                  toast("error", e.message, 10);
+                  throw e;
                 },
+              );
+
+              const pruned0 = await Mars.pruneDimension(
+                0,
+                allPruningParams[0],
+                callback(2),
+              );
+              const pruned1 = await Mars.pruneDimension(
+                1,
+                allPruningParams[1],
+                callback(3),
+              );
+              const pruned2 = await Mars.pruneDimension(
+                2,
+                allPruningParams[2],
+                callback(4),
+              );
+
+              console.log("before wait");
+              await wait(50);
+              console.log("after wait");
+
+              setSwaps({
+                0: pruned0,
+                1: pruned1,
+                2: pruned2,
               });
-              wasmWorker.onerror = (e: any) => {
-                e.preventDefault();
-                setWorkerProgress(undefined);
-                setWorkerRunning(false);
-                toast("error", e.message, 10);
-              };
-              wasmWorker.onmessage = (msg: any) => {
-                if (msg.data.type === "progress") {
-                  setWorkerProgress(msg.data.data);
-                } else {
-                  const res = msg.data.data;
-                  setWorkerProgress(undefined);
-                  setWorkerRunning(false);
-                  console.log("here", {
-                    0: res.dim0,
-                    1: res.dim1,
-                    2: res.dim2,
-                  });
-                  setSwaps({
-                    0: res.dim0,
-                    1: res.dim1,
-                    2: res.dim2,
-                  });
-                  setGridForSwaps(grid);
-                }
-              };
+              setGridForSwaps(grid);
+              setWorkerProgress(undefined);
+              setWorkerRunning(false);
             }}
           >
             {workerRunning ? (
@@ -1002,10 +1004,10 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
           </button>
           {workerRunning && (
             <button
-              onClick={() => {
+              onClick={async () => {
                 setWorkerRunning(false);
                 setWorkerProgress(undefined);
-                resetWasmWorker();
+                await resetComlink();
               }}
             >
               Abort

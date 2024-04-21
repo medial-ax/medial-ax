@@ -1,12 +1,16 @@
-import init, { my_init_function } from "ma-rs";
+import * as Comlink from "comlink";
 import WasmWorker from "./worker?worker";
+import { Mars as _Mars } from "./worker";
 
-export let wasmWorker = new WasmWorker();
-export const resetWasmWorker = () => {
-  wasmWorker.terminate();
-  wasmWorker = new WasmWorker();
-};
+let worker = new WasmWorker();
+let MarsComlink = Comlink.wrap<typeof _Mars>(worker);
+export let Mars = await new MarsComlink();
+await Mars.init();
 
-await init().then(() => {
-  my_init_function();
-});
+export async function resetComlink() {
+  worker.terminate();
+  worker = new WasmWorker();
+  MarsComlink = Comlink.wrap<typeof _Mars>(worker);
+  Mars = await new MarsComlink();
+  await Mars.init();
+}

@@ -40,3 +40,6 @@ export const downloadText = (text: string, filename: string) => {
   element.click();
   document.body.removeChild(element);
 };
+
+export const wait = async (ms: number) =>
+  new Promise((res) => setTimeout(() => res(0), ms));
