@@ -24,7 +24,7 @@ import { clamp, max } from "./utils";
 import { colors } from "./constants";
 import { Tabs } from "./Tab";
 import "./Barcode.css";
-// import { Mars } from "./work";
+import { Mars } from "./work";
 
 const _width = 4;
 const barSpacing = 20;
@@ -775,25 +775,25 @@ export const BarcodeTabs = ({ live }: { live: boolean }) => {
     if (!index || !live) return;
     if (!haveSwaps) return;
     let stop = false;
-    // new Mars().then(async (mars) => {
-    //   mars
-    //     .getBarcodeForPoint(index)
-    //     .then((array: any) => {
-    //       if (stop) return;
-    //       setBarcodes({
-    //         "-1": array[0],
-    //         0: array[1],
-    //         1: array[2],
-    //         2: array[3],
-    //       });
-    //       setLoading(false);
-    //     })
-    //     .catch((err: any) => {
-    //       setLoading(false);
-    //       err.preventDefault();
-    //       window.alert(err.message);
-    //     });
-    // });
+    new Mars().then(async (mars) => {
+      mars
+        .getBarcodeForPoint(index)
+        .then((array: any) => {
+          if (stop) return;
+          setBarcodes({
+            "-1": array[0],
+            0: array[1],
+            1: array[2],
+            2: array[3],
+          });
+          setLoading(false);
+        })
+        .catch((err: any) => {
+          setLoading(false);
+          err.preventDefault();
+          window.alert(err.message);
+        });
+    });
 
     return () => {
       stop = true;

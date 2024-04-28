@@ -1,8 +1,5 @@
 {
   "devDependencies": {
     "prettier": "^3.2.5"
-  },
-  "dependencies": {
-    "threads-es": "^1.0.0"
   }
 }
