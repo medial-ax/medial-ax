@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize, Serializer};
 use wasm_bindgen::prelude::*;
+use wasm_bindgen_futures::spawn_local;
 
 use crate::{
     complex::Complex,
@@ -238,18 +239,25 @@ pub fn split_grid(grid: JsValue) -> Result<JsValue, JsValue> {
 }
 
 #[wasm_bindgen]
-pub fn run_without_prune(
+pub async fn run_without_prune(
     grid: JsValue,
     complex: JsValue,
     on_message: js_sys::Function,
 ) -> Result<(), JsValue> {
-    let send_message = |label: &str, i: usize, n: usize| {
-        on_message.call3(
-            &JsValue::NULL,
-            &JsValue::from_str(label),
-            &JsValue::from_f64(i as f64),
-            &JsValue::from_f64(n as f64),
-        )
+    let send_message = move |label: &str, i: usize, n: usize| {
+        let res = on_message
+            .call3(
+                &JsValue::NULL,
+                &JsValue::from_str(label),
+                &JsValue::from_f64(i as f64),
+                &JsValue::from_f64(n as f64),
+            )
+            .unwrap();
+        let promise = js_sys::Promise::resolve(&res);
+        let p: wasm_bindgen_futures::JsFuture = promise.into();
+        spawn_local(async move {
+            p.await.unwrap();
+        });
     };
 
     let grid: Grid = serde_wasm_bindgen::from_value(grid)?;
@@ -258,16 +266,16 @@ pub fn run_without_prune(
 
     let p = grid.center(Index([0; 3]));
 
-    send_message("Reduce from scratch", 0, 0).unwrap();
+    send_message("Reduce from scratch", 0, 0);
     let s0 = reduce_from_scratch(&complex, p, false);
-    send_message("Run vineyards", 0, 0).unwrap();
+    send_message("Run vineyards", 0, 0);
     let results = grid.run_vineyards_in_grid(&complex, s0, |i, n| {
         if i & 15 == 0 {
-            send_message("Vineyards", i, n).unwrap();
+            send_message("Vineyards", i, n);
         }
     });
 
-    send_message("Move state to global", 0, 1).unwrap();
+    send_message("Move state to global", 0, 1);
     let mut state = STATE.lock().unwrap();
 
     fn filter_dim(v: &[(Index, Index, Swaps)], dim: usize) -> Vec<(Index, Index, Swaps)> {

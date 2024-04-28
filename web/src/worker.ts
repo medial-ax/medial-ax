@@ -1,67 +1,94 @@
-import * as Comlink from "comlink";
+import { exposeApi } from "threads-es/worker";
 import wasm_init, {
   my_init_function,
-  run,
   run_without_prune,
-  get_barcode_for_point,
   prune_dimension,
-  get_state,
-  load_state,
   make_complex_from_obj,
 } from "ma-rs";
-import { Complex, Grid, Index, PruningParam } from "./types";
+import { Complex, Grid, PruningParam } from "./types";
+import { TransferDescriptor } from "threads-es/shared";
 import { wait } from "./utils";
 
-export class Mars {
-  async init() {
+type S = TransferDescriptor<
+  WritableStream<{
+    label: string;
+    i: number;
+    n: number;
+  }>
+>;
+
+const api = {
+  init: async () => {
     console.log("before wasm init");
     await wasm_init();
     console.log("after wasm init");
-  }
-
-  myInitFunction() {
     console.log("before my init function");
     my_init_function();
     console.log("after my init function");
-  }
+  },
 
   makeComplexFromObj(obj: string) {
     return make_complex_from_obj(obj);
-  }
+  },
 
-  getBarcodeForPoint(point: Index) {
-    return get_barcode_for_point(point);
-  }
+  compute: async (grid: Grid, complex: Complex, stream: S) => {
+    console.log("compute: get writer");
+    const writer = stream.send.getWriter();
+    console.log("compute: await ready");
+    await writer.ready;
+    console.log("compute: write sample data");
+    await writer.write({ label: "dumb", i: 0, n: 1 });
+    console.log("compute: run rust");
+    for (let i = 0; i < 100; i++) {
+      setTimeout(() => {
+        console.log("timeout i = ", i * 10);
+      }, i * 10);
+    }
+    const ret = await run_without_prune(
+      grid,
+      complex,
+      async (label: string, i: number, n: number) => {
+        console.log("compute: callback", { label, i, n });
+        await writer.write({ label, i, n });
+        console.log("compute: callback after", { label, i, n });
+      },
+    );
+    console.log("compute: close");
+    await writer.close();
+    console.log("compute: return");
+    return ret;
+  },
 
-  async compute(
-    grid: Grid,
-    complex: Complex,
-    cb: (label: string, i: number, n: number) => void,
-  ) {
-    await wait(10);
-    return run_without_prune(grid, complex, cb);
-  }
-
-  async pruneDimension(
-    dim: number,
-    params: PruningParam,
-    cb: (label: string, i: number, n: number) => Promise<void>,
-  ) {
-    await wait(10);
+  pruneDimension: async (dim: number, params: PruningParam, stream: S) => {
+    const writer = stream.send.getWriter();
     const ret = prune_dimension(
       dim,
       params,
       async (label: string, i: number, n: number) => {
-        await cb(label, i, n);
+        await writer.write({ label, i, n });
       },
     );
-    console.log("worker done");
+    await writer.close();
     return ret;
-  }
-}
+  },
+};
 
-Comlink.expose(Mars);
+export type Api = typeof api;
+exposeApi(api);
 
+// export class Mars {
+//   makeComplexFromObj(obj: string) {
+//     return make_complex_from_obj(obj);
+//   }
+//
+//   getBarcodeForPoint(point: Index) {
+//     return get_barcode_for_point(point);
+//   }
+//
+// }
+//
+// Comlink.expose(Mars);
+//
 // function _run(fn: string, args: any) {
 //   const onMessage = (label: string, i: number, n: number) => {
 //     postMessage({

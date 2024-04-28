@@ -1,4 +1,5 @@
-import * as Comlink from "comlink";
+import { EsThread } from "threads-es/controller";
+import { Api } from "./worker.ts";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import {
   Dim,
@@ -31,11 +32,11 @@ import maze_2 from "../inputs/maze_2.obj?raw";
 import { Complex, Grid, Index, PruningParam, defaultGrid } from "./types";
 import { make_complex_from_obj, split_grid } from "ma-rs";
 import { RESET } from "jotai/utils";
-import { Mars, resetComlink } from "./work";
 import "./Controls.css";
 import { HoverTooltip } from "./HoverTooltip";
 import { toast } from "./Toast";
 import WasmWorker from "./worker?worker";
+import { Transfer } from "threads-es/shared";
 
 const EXAMPLE_OBJS = [
   { name: "Squished cylinder", string: squished_cylinder },
@@ -538,21 +539,21 @@ const PruningParameters = ({
           <button
             disabled={workerProgress !== undefined || disabled}
             onClick={async () => {
-              const res = await Mars.pruneDimension(
-                dim,
-                params,
-                Comlink.proxy((_, i, n) => {
-                  setWorkerProgress({ i, n });
-                }),
-              ).catch((e: any) => {
-                toast("error", e.message, 10);
-                throw e;
-              });
-              setSwaps((c) => ({
-                ...c,
-                [dim]: res,
-              }));
-              setWorkerProgress(undefined);
+              // const res = await Mars.pruneDimension(
+              //   dim,
+              //   params,
+              //   Comlink.proxy((_, i, n) => {
+              //     setWorkerProgress({ i, n });
+              //   }),
+              // ).catch((e: any) => {
+              //   toast("error", e.message, 10);
+              //   throw e;
+              // });
+              // setSwaps((c) => ({
+              //   ...c,
+              //   [dim]: res,
+              // }));
+              // setWorkerProgress(undefined);
             }}
           >
             Re-prune
@@ -768,95 +769,16 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
         <button
           disabled={grid === undefined}
           onClick={async () => {
-            const res = split_grid(grid);
-
             console.log("start");
-            const results = await Promise.all(
-              res.map(([grid, offset]: [Grid, Index]) =>
-                runVineyards(grid, cplx.complex, allPruningParams).then(
-                  (state) => ({
-                    state,
-                    offset,
-                  }),
-                ),
-              ),
+
+            const thread = await EsThread.Spawn<Api>(
+              new Worker(new URL("./worker.ts", import.meta.url), {
+                type: "module",
+              }),
             );
-            console.log({ results });
-            wasmWorker.onmessage = () => {
-              console.log("done");
-            };
-            for (const res of results) {
-              wasmWorker.postMessage({
-                fn: "load-state",
-                args: {
-                  bytes: res.state,
-                  index: res.offset,
-                },
-              });
-            }
+
+            await thread.methods.init();
             console.log("loaded");
-
-            //
-            //
-            // const worker = new WasmWorker();
-            // setTimeout(() => {
-            //   worker.onerror = (e: any) => {
-            //     e.preventDefault();
-            //     toast("error", e.message, 10);
-            //   };
-            //   worker.onmessage = (msg: any) => {
-            //     if (msg.data.type === "progress") {
-            //       // console.log("progress", msg.data.data);
-            //       // setWorkerProgress(msg.data.data);
-            //     } else {
-            //       const res = msg.data.data;
-            //       console.log(res);
-            //       // setSwaps({
-            //       //   0: res.dim0,
-            //       //   1: res.dim1,
-            //       //   2: res.dim2,
-            //       // });
-            //       // setGridForSwaps(grid);
-            //     }
-            //   };
-            //   worker.postMessage({
-            //     fn: "run",
-            //     args: {
-            //       grid,
-            //       complex: cplx.complex,
-            //       allPruningParams,
-            //     },
-            //   });
-            // }, 0);
-            // }
-
-            // wasmWorker.postMessage({
-            //   fn: "get-state",
-            //   args: {},
-            // });
-            // wasmWorker.onerror = (e: any) => {
-            //   e.preventDefault();
-            //   console.error(e);
-            //   toast("error", e.message, 10);
-            // };
-            // wasmWorker.onmessage = (msg: any) => {
-            //   console.log(msg);
-            //   if (msg.data.type === "progress") {
-            //     setWorkerProgress(msg.data.data);
-            //   } else {
-            //     const res = msg.data.data;
-            //     console.log(res);
-            //     wasmWorker.postMessage({
-            //       fn: "load-state",
-            //       args: {
-            //         bytes: res,
-            //       },
-            //     });
-            //     wasmWorker.onmessage = () => {
-            //       console.log("all done");
-            //     };
-            //   }
-            // };
           }}
         >
           debug
@@ -879,7 +801,17 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
                   )
                 )
                   return;
-                const value = await Mars.makeComplexFromObj(obj.string);
+
+                const thread = await EsThread.Spawn<Api>(
+                  new Worker(new URL("./worker.ts", import.meta.url), {
+                    type: "module",
+                  }),
+                );
+                await thread.methods.init();
+
+                const value = await thread.methods.makeComplexFromObj(
+                  obj.string,
+                );
                 setComplex({ complex: value, filename: obj.name });
                 setSwaps({ 0: [], 1: [], 2: [] });
                 setGrid(undefined);
@@ -953,38 +885,53 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
               if (!grid) return;
               setWorkerRunning(true);
 
-              const callback = (nn: number) =>
-                Comlink.proxy(async (label: string, i: number, n: number) => {
-                  console.log("set worker progress", nn);
-                  setWorkerProgress({ label, i, n });
-                });
+              const thread = await EsThread.Spawn<Api>(
+                new Worker(new URL("./worker.ts", import.meta.url), {
+                  type: "module",
+                }),
+              );
+              await thread.methods.init();
 
-              await Mars.compute(grid, cplx.complex, callback(1)).catch(
-                (e: any) => {
+              const stream = () =>
+                Transfer(
+                  new WritableStream<{
+                    label: string;
+                    i: number;
+                    n: number;
+                  }>({
+                    write({ label, i, n }) {
+                      console.log("set worker progress");
+                      setWorkerProgress({ label, i, n });
+                    },
+                  }),
+                );
+
+              console.log("call compute");
+              await thread.methods
+                .compute(grid, cplx.complex, stream())
+                .catch((e: any) => {
                   toast("error", e.message, 10);
                   throw e;
-                },
-              );
+                });
+              console.log("after compute");
 
-              const pruned0 = await Mars.pruneDimension(
+              const pruned0 = await thread.methods.pruneDimension(
                 0,
                 allPruningParams[0],
-                callback(2),
+                stream(),
               );
-              const pruned1 = await Mars.pruneDimension(
+              const pruned1 = await thread.methods.pruneDimension(
                 1,
                 allPruningParams[1],
-                callback(3),
+                stream(),
               );
-              const pruned2 = await Mars.pruneDimension(
+              console.log("before third prune dim");
+              const pruned2 = await thread.methods.pruneDimension(
                 2,
                 allPruningParams[2],
-                callback(4),
+                stream(),
               );
-
-              console.log("before wait");
-              await wait(50);
-              console.log("after wait");
+              console.log("after third prune dim");
 
               setSwaps({
                 0: pruned0,
@@ -1007,7 +954,7 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
               onClick={async () => {
                 setWorkerRunning(false);
                 setWorkerProgress(undefined);
-                await resetComlink();
+                // await resetComlink();
               }}
             >
               Abort

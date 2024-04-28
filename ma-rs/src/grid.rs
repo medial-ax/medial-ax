@@ -1,6 +1,10 @@
-use std::collections::{HashMap, VecDeque};
+use std::{
+    collections::{HashMap, VecDeque},
+    future::Future,
+};
 
 use rayon::iter::{IntoParallelIterator, ParallelExtend, ParallelIterator};
+use wasm_bindgen_futures::spawn_local;
 
 use crate::{
     complex::{Complex, Pos},
@@ -269,56 +273,56 @@ impl Grid {
         (hm, all_swaps)
     }
 
-    /// Divide up the grid, and when the volume of each subgrid is small enough,
-    /// run vineyards on each subgrid in parallel.
-    pub fn run_state(
-        &mut self,
-        max_volume: isize,
-        complex: &Complex,
-        noisy: bool,
-    ) -> (HashMap<Index, Reduction>, Vec<(Index, Index, Swaps)>) {
-        let mut ready = Vec::new();
-        let mut queue = VecDeque::new();
-        queue.push_back((self.clone(), Index([0; 3])));
-        println!(
-            "Reduce around {} states from scratch ...",
-            self.volume().div_euclid(max_volume)
-        );
-
-        while let Some((grid, offset)) = queue.pop_front() {
-            println!("pop grid volume {}", grid.volume());
-            if grid.volume() <= max_volume {
-                let p = grid.center(Index([0; 3]));
-                let state = reduce_from_scratch(complex, p, noisy);
-                ready.push((grid, state, offset));
-            } else {
-                let (left, right, rel_offset) = grid.split_with_overlap();
-                queue.push_back((left, offset));
-                queue.push_back((right, offset + rel_offset));
-            }
-        }
-        let mut swaps = Vec::<(HashMap<Index, Reduction>, Vec<(Index, Index, Swaps)>)>::new();
-        swaps.extend(ready.into_iter().map(|(grid, state, offset)| {
-            let (states, mut swaps) = grid.run_vineyards_in_grid(complex, state, |_, _| {});
-            for (i, j, _) in swaps.iter_mut() {
-                *i = *i + offset;
-                *j = *j + offset;
-            }
-
-            let states = states.into_iter().map(|(i, s)| (i + offset, s)).collect();
-
-            (states, swaps)
-        }));
-
-        let mut all_swaps = Vec::new();
-        let mut all_states = HashMap::new();
-        for (states, swaps) in swaps.into_iter() {
-            all_states.extend(states);
-            all_swaps.extend(swaps);
-        }
-
-        (all_states, all_swaps)
-    }
+    // /// Divide up the grid, and when the volume of each subgrid is small enough,
+    // /// run vineyards on each subgrid in parallel.
+    // pub fn run_state(
+    //     &mut self,
+    //     max_volume: isize,
+    //     complex: &Complex,
+    //     noisy: bool,
+    // ) -> (HashMap<Index, Reduction>, Vec<(Index, Index, Swaps)>) {
+    //     let mut ready = Vec::new();
+    //     let mut queue = VecDeque::new();
+    //     queue.push_back((self.clone(), Index([0; 3])));
+    //     println!(
+    //         "Reduce around {} states from scratch ...",
+    //         self.volume().div_euclid(max_volume)
+    //     );
+    //
+    //     while let Some((grid, offset)) = queue.pop_front() {
+    //         println!("pop grid volume {}", grid.volume());
+    //         if grid.volume() <= max_volume {
+    //             let p = grid.center(Index([0; 3]));
+    //             let state = reduce_from_scratch(complex, p, noisy);
+    //             ready.push((grid, state, offset));
+    //         } else {
+    //             let (left, right, rel_offset) = grid.split_with_overlap();
+    //             queue.push_back((left, offset));
+    //             queue.push_back((right, offset + rel_offset));
+    //         }
+    //     }
+    //     let mut swaps = Vec::<(HashMap<Index, Reduction>, Vec<(Index, Index, Swaps)>)>::new();
+    //     swaps.extend(ready.into_iter().map(|(grid, state, offset)| {
+    //         let (states, mut swaps) = grid.run_vineyards_in_grid(complex, state, |_, _| {});
+    //         for (i, j, _) in swaps.iter_mut() {
+    //             *i = *i + offset;
+    //             *j = *j + offset;
+    //         }
+    //
+    //         let states = states.into_iter().map(|(i, s)| (i + offset, s)).collect();
+    //
+    //         (states, swaps)
+    //     }));
+    //
+    //     let mut all_swaps = Vec::new();
+    //     let mut all_states = HashMap::new();
+    //     for (states, swaps) in swaps.into_iter() {
+    //         all_states.extend(states);
+    //         all_swaps.extend(swaps);
+    //     }
+    //
+    //     (all_states, all_swaps)
+    // }
 }
 
 impl Grid {
