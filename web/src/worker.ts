@@ -8,7 +8,11 @@ import init, {
   load_state,
 } from "ma-rs";
 
-function _run(id: string, fn: string, args: any) {
+let _init = false;
+const wait = () => new Promise((res) => setTimeout(() => res(0), 10));
+
+async function _run(id: string, fn: string, args: any) {
+  while (!_init) await wait();
   const onMessage = (label: string, i: number, n: number) => {
     postMessage({
       id,
@@ -20,12 +24,13 @@ function _run(id: string, fn: string, args: any) {
       },
     });
   };
+
   if (fn === "run") {
     const { grid, complex, allPruningParams } = args;
     return run(grid, complex, allPruningParams, onMessage);
   } else if (fn === "run-and-dump") {
-    const { grid, complex } = args;
-    run_without_prune(grid, complex, onMessage);
+    const { grid, complex, allPruningParams } = args;
+    run_without_prune(grid, complex, allPruningParams, onMessage);
     return get_state();
   } else if (fn === "get-barcode-for-point") {
     const { grid_point } = args;
@@ -38,6 +43,9 @@ function _run(id: string, fn: string, args: any) {
   } else if (fn === "load-state") {
     const { bytes, index } = args;
     return load_state(bytes, index, (s: any) => console.log(s));
+  } else if (fn === "sleep") {
+    await new Promise((res) => setTimeout(() => res(0), args.time));
+    return "awake";
   } else if (fn === "ping") {
     return "pong";
   } else {
@@ -45,30 +53,18 @@ function _run(id: string, fn: string, args: any) {
   }
 }
 
-const queue: { id: string; fn: string; args: any }[] = [];
-onmessage = (e) => {
-  const { id, fn, args } = e.data;
-  queue.push({ id, fn, args });
-};
-
-await init().then(() => {
-  my_init_function();
-  while (queue.length) {
-    const { id, fn, args } = queue.shift()!;
-    _run(id, fn, args);
-  }
-});
-
 onmessage = (e) => {
   const { id, fn, args } = e.data;
   try {
-    const result = _run(id, fn, args);
-    postMessage({
-      id,
-      type: "finished",
-      data: result,
+    _run(id, fn, args).then((result) => {
+      postMessage({
+        id,
+        type: "finished",
+        data: result,
+      });
     });
   } catch (e: any) {
+    console.log("error in worker", e);
     postMessage({
       id,
       type: "error",
@@ -76,3 +72,8 @@ onmessage = (e) => {
     });
   }
 };
+
+await init().then(() => {
+  my_init_function();
+  _init = true;
+});

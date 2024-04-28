@@ -30,11 +30,10 @@ import maze_2 from "../inputs/maze_2.obj?raw";
 import { Complex, Grid, Index, PruningParam, defaultGrid } from "./types";
 import { make_complex_from_obj, split_grid } from "ma-rs";
 import { RESET } from "jotai/utils";
-import { resetWasmWorker, run } from "./work";
+import { resetWasmWorker, run, makeWorker } from "./work";
 import "./Controls.css";
 import { HoverTooltip } from "./HoverTooltip";
 import { toast } from "./Toast";
-import WasmWorker from "./worker?worker";
 
 const EXAMPLE_OBJS = [
   { name: "Squished cylinder", string: squished_cylinder },
@@ -42,36 +41,6 @@ const EXAMPLE_OBJS = [
   { name: "Cube", string: cube_subdiv_2 },
   { name: "Maze", string: maze_2 },
 ];
-
-const runVineyards = (
-  grid: Grid,
-  complex: Complex,
-  params: { 0: PruningParam; 1: PruningParam; 2: PruningParam },
-  progress?: (a: any) => void,
-) =>
-  new Promise((res, rej) => {
-    const worker = new WasmWorker();
-    worker.onerror = (e: any) => {
-      e.preventDefault();
-      rej(e.message);
-    };
-    worker.onmessage = (msg: any) => {
-      if (msg.data.type === "progress") {
-        progress?.(msg.data.data);
-      } else {
-        worker.terminate();
-        res(msg.data.data);
-      }
-    };
-    worker.postMessage({
-      fn: "run-and-dump",
-      args: {
-        grid,
-        complex,
-        allPruningParams: params,
-      },
-    });
-  });
 
 const Loader = styled.span<{
   $w0: number;
@@ -774,17 +743,33 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
         <h3>Import / Export</h3>
         <button
           onClick={async () => {
-            console.log("before");
-            await run("ping", {}, ({ label, i, n }) => {
-              console.log("progress", { label, i, n });
-            })
-              .then((res) => {
-                console.log("successful result", res);
-              })
-              .catch((e) => {
-                console.log("error result", e);
-                toast("error", e);
+            const res = split_grid(grid);
+            console.log("start");
+            const results = await Promise.all(
+              res.map(([grid, offset]: [Grid, Index]) => {
+                const { worker, run } = makeWorker();
+                return run("run-and-dump", {
+                  grid,
+                  complex: cplx.complex,
+                  allPruningParams,
+                })
+                  .then((state) => {
+                    console.log("done");
+                    return { state, offset };
+                  })
+                  .finally(() => {
+                    worker.terminate();
+                  });
+              }),
+            );
+            console.log("done with runs");
+            for (const res of results) {
+              await run("load-state", {
+                bytes: res.state,
+                index: res.offset,
               });
+            }
+            console.log("done with loads");
           }}
         >
           debug
