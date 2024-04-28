@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize, Serializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use wasm_bindgen::prelude::*;
 
 use crate::{
@@ -6,7 +6,7 @@ use crate::{
     grid::{Grid, Index},
     reduce_from_scratch, Reduction, Swaps,
 };
-use log::warn;
+use log::{info, warn};
 
 use std::{collections::HashMap, panic, sync::Mutex};
 
@@ -15,11 +15,15 @@ struct State {
     grid: Grid,
     complex: Complex,
     p0: Index,
-
     grid_index_to_reduction: HashMap<Index, Reduction>,
+
     swaps0: Vec<(Index, Index, Swaps)>,
     swaps1: Vec<(Index, Index, Swaps)>,
     swaps2: Vec<(Index, Index, Swaps)>,
+
+    swaps0_pruned: Vec<(Index, Index, Swaps)>,
+    swaps1_pruned: Vec<(Index, Index, Swaps)>,
+    swaps2_pruned: Vec<(Index, Index, Swaps)>,
 }
 
 #[wasm_bindgen]
@@ -36,8 +40,9 @@ pub fn get_state() -> Result<JsValue, JsValue> {
 pub fn load_state(
     bytes: JsValue,
     grid_offset: JsValue,
-    _on_message: js_sys::Function,
+    on_message: js_sys::Function,
 ) -> Result<JsValue, JsValue> {
+    let send_message = |label: &str| on_message.call1(&JsValue::NULL, &JsValue::from_str(label));
     let offset: Index = serde_wasm_bindgen::from_value(grid_offset)?;
     let bytes: serde_bytes::ByteBuf = serde_wasm_bindgen::from_value(bytes)?;
     let mut state: State = rmp_serde::from_slice(&bytes).map_err(|e| e.to_string())?;
@@ -215,6 +220,14 @@ pub fn prune_dimension(
     let mut state = STATE.lock().unwrap();
     let st = state.as_mut().unwrap();
     let new_pruned = prune(st, &params, dim, send_message);
+
+    match dim {
+        0 => st.swaps0_pruned = new_pruned.clone(),
+        1 => st.swaps1_pruned = new_pruned.clone(),
+        2 => st.swaps2_pruned = new_pruned.clone(),
+        _ => return Err("bad dimension".into()),
+    }
+
     Ok(serde_wasm_bindgen::to_value(&new_pruned)?)
 }
 
@@ -241,6 +254,7 @@ pub fn split_grid(grid: JsValue) -> Result<JsValue, JsValue> {
 pub fn run_without_prune(
     grid: JsValue,
     complex: JsValue,
+    params: JsValue,
     on_message: js_sys::Function,
 ) -> Result<(), JsValue> {
     let send_message = |label: &str, i: usize, n: usize| {
@@ -252,6 +266,7 @@ pub fn run_without_prune(
         )
     };
 
+    let params: HashMap<String, PruningParam> = serde_wasm_bindgen::from_value(params)?;
     let grid: Grid = serde_wasm_bindgen::from_value(grid)?;
 
     let complex: Complex = serde_wasm_bindgen::from_value(complex)?;
@@ -292,7 +307,53 @@ pub fn run_without_prune(
         swaps0: filter_dim(&results.1, 0),
         swaps1: filter_dim(&results.1, 1),
         swaps2: filter_dim(&results.1, 2),
+        swaps0_pruned: Vec::new(),
+        swaps1_pruned: Vec::new(),
+        swaps2_pruned: Vec::new(),
     });
 
     Ok(())
+}
+
+#[wasm_bindgen]
+pub fn run(
+    grid: JsValue,
+    complex: JsValue,
+    params: JsValue,
+    on_message: js_sys::Function,
+) -> Result<JsValue, JsValue> {
+    run_without_prune(grid, complex, params.clone(), on_message.clone())?;
+    let send_message = |label: &str, i: usize, n: usize| {
+        on_message.call3(
+            &JsValue::NULL,
+            &JsValue::from_str(label),
+            &JsValue::from_f64(i as f64),
+            &JsValue::from_f64(n as f64),
+        )
+    };
+
+    let mut state = STATE.lock().unwrap();
+    let st = state.as_mut().unwrap();
+
+    let params: HashMap<String, PruningParam> = serde_wasm_bindgen::from_value(params)?;
+    st.swaps0_pruned = prune(&st, &params.get("0").unwrap(), 0, send_message);
+    st.swaps1_pruned = prune(&st, &params.get("1").unwrap(), 1, send_message);
+    st.swaps2_pruned = prune(&st, &params.get("2").unwrap(), 2, send_message);
+
+    #[derive(Serialize)]
+    struct Ret<'a> {
+        dim0: &'a Vec<(Index, Index, Swaps)>,
+        dim1: &'a Vec<(Index, Index, Swaps)>,
+        dim2: &'a Vec<(Index, Index, Swaps)>,
+    }
+    info!("after prune");
+
+    let value = serde_wasm_bindgen::to_value(&Ret {
+        dim0: &st.swaps0_pruned,
+        dim1: &st.swaps1_pruned,
+        dim2: &st.swaps2_pruned,
+    })?;
+
+    info!("after serialize");
+    Ok(value)
 }
