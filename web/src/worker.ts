@@ -1,5 +1,7 @@
 import init, {
+  create_empty_state,
   my_init_function,
+  get_results,
   run,
   run_without_prune,
   get_barcode_for_point,
@@ -29,8 +31,8 @@ async function _run(id: string, fn: string, args: any) {
     const { grid, complex, allPruningParams } = args;
     return run(grid, complex, allPruningParams, onMessage);
   } else if (fn === "run-and-dump") {
-    const { grid, complex, allPruningParams } = args;
-    run_without_prune(grid, complex, allPruningParams, onMessage);
+    const { grid, complex } = args;
+    run_without_prune(grid, complex, onMessage);
     return get_state();
   } else if (fn === "get-barcode-for-point") {
     const { grid_point } = args;
@@ -46,6 +48,11 @@ async function _run(id: string, fn: string, args: any) {
   } else if (fn === "sleep") {
     await new Promise((res) => setTimeout(() => res(0), args.time));
     return "awake";
+  } else if (fn === "get-results") {
+    return get_results();
+  } else if (fn === "create-empty-state") {
+    const { grid, complex } = args;
+    return create_empty_state(grid, complex);
   } else if (fn === "ping") {
     return "pong";
   } else {

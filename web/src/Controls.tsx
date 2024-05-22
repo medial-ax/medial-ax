@@ -27,7 +27,7 @@ import squished_cylinder from "../inputs/squished_cylinder.obj?raw";
 import extruded_ellipse from "../inputs/extruded_ellipse.obj?raw";
 import cube_subdiv_2 from "../inputs/cube-subdiv-2.obj?raw";
 import maze_2 from "../inputs/maze_2.obj?raw";
-import { Complex, Grid, Index, PruningParam, defaultGrid } from "./types";
+import { Grid, Index, defaultGrid } from "./types";
 import { make_complex_from_obj, split_grid } from "ma-rs";
 import { RESET } from "jotai/utils";
 import { resetWasmWorker, run, makeWorker } from "./work";
@@ -742,7 +742,10 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
 
         <h3>Import / Export</h3>
         <button
+          disabled={!grid}
           onClick={async () => {
+            await run("create-empty-state", { grid, complex: cplx.complex });
+
             const res = split_grid(grid);
             console.log("start");
             const results = await Promise.all(
@@ -770,6 +773,9 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
               });
             }
             console.log("done with loads");
+
+            const asd = await run("get-results", {});
+            console.log(asd);
           }}
         >
           debug

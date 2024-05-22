@@ -14,6 +14,8 @@ use std::{collections::HashMap, panic, sync::Mutex};
 struct State {
     grid: Grid,
     complex: Complex,
+    /// This is not used, and has a dummy value, depending on how it's initialized.
+    #[deprecated]
     p0: Index,
     grid_index_to_reduction: HashMap<Index, Reduction>,
 
@@ -34,6 +36,26 @@ pub fn get_state() -> Result<JsValue, JsValue> {
     let serializer = serde_wasm_bindgen::Serializer::new();
     let ret = serializer.serialize_bytes(&bytes)?;
     Ok(ret)
+}
+
+#[wasm_bindgen]
+pub fn create_empty_state(grid: JsValue, complex: JsValue) -> Result<(), JsValue> {
+    let complex: Complex = serde_wasm_bindgen::from_value(complex)?;
+    let grid: Grid = serde_wasm_bindgen::from_value(grid)?;
+    let mut guard = STATE.lock().map_err(|_| "STATE.lock failed")?;
+    *guard = Some(State {
+        grid,
+        complex,
+        p0: Index([0; 3]),
+        grid_index_to_reduction: HashMap::new(),
+        swaps0: Vec::new(),
+        swaps1: Vec::new(),
+        swaps2: Vec::new(),
+        swaps0_pruned: Vec::new(),
+        swaps1_pruned: Vec::new(),
+        swaps2_pruned: Vec::new(),
+    });
+    Ok(())
 }
 
 #[wasm_bindgen]
@@ -58,12 +80,12 @@ pub fn load_state(
         .map(|s| (s.0 + offset, s.1 + offset, s.2))
         .collect();
     let swaps1: Vec<_> = state
-        .swaps0
+        .swaps1
         .drain(0..)
         .map(|s| (s.0 + offset, s.1 + offset, s.2))
         .collect();
     let swaps2: Vec<_> = state
-        .swaps0
+        .swaps2
         .drain(0..)
         .map(|s| (s.0 + offset, s.1 + offset, s.2))
         .collect();
@@ -254,7 +276,6 @@ pub fn split_grid(grid: JsValue) -> Result<JsValue, JsValue> {
 pub fn run_without_prune(
     grid: JsValue,
     complex: JsValue,
-    params: JsValue,
     on_message: js_sys::Function,
 ) -> Result<(), JsValue> {
     let send_message = |label: &str, i: usize, n: usize| {
@@ -266,7 +287,6 @@ pub fn run_without_prune(
         )
     };
 
-    let params: HashMap<String, PruningParam> = serde_wasm_bindgen::from_value(params)?;
     let grid: Grid = serde_wasm_bindgen::from_value(grid)?;
 
     let complex: Complex = serde_wasm_bindgen::from_value(complex)?;
@@ -287,14 +307,9 @@ pub fn run_without_prune(
 
     fn filter_dim(v: &[(Index, Index, Swaps)], dim: usize) -> Vec<(Index, Index, Swaps)> {
         v.iter()
-            .map(|(i, j, s)| {
-                (
-                    *i,
-                    *j,
-                    Swaps {
-                        v: s.v.iter().filter(|s| s.dim == dim).cloned().collect(),
-                    },
-                )
+            .flat_map(|(i, j, s)| {
+                let v: Vec<_> = s.v.iter().filter(|s| s.dim == dim).cloned().collect();
+                (0 < v.len()).then(|| (*i, *j, Swaps { v }))
             })
             .collect()
     }
@@ -315,6 +330,25 @@ pub fn run_without_prune(
     Ok(())
 }
 
+#[derive(Serialize)]
+struct Ret<'a> {
+    dim0: &'a Vec<(Index, Index, Swaps)>,
+    dim1: &'a Vec<(Index, Index, Swaps)>,
+    dim2: &'a Vec<(Index, Index, Swaps)>,
+}
+
+#[wasm_bindgen]
+pub fn get_results() -> Result<JsValue, JsValue> {
+    let mut state = STATE.lock().unwrap();
+    let st = state.as_mut().ok_or("No state set")?;
+    let value = serde_wasm_bindgen::to_value(&Ret {
+        dim0: &st.swaps0,
+        dim1: &st.swaps1,
+        dim2: &st.swaps2,
+    })?;
+    Ok(value)
+}
+
 #[wasm_bindgen]
 pub fn run(
     grid: JsValue,
@@ -322,7 +356,7 @@ pub fn run(
     params: JsValue,
     on_message: js_sys::Function,
 ) -> Result<JsValue, JsValue> {
-    run_without_prune(grid, complex, params.clone(), on_message.clone())?;
+    run_without_prune(grid, complex, on_message.clone())?;
     let send_message = |label: &str, i: usize, n: usize| {
         on_message.call3(
             &JsValue::NULL,
@@ -340,12 +374,6 @@ pub fn run(
     st.swaps1_pruned = prune(&st, &params.get("1").unwrap(), 1, send_message);
     st.swaps2_pruned = prune(&st, &params.get("2").unwrap(), 2, send_message);
 
-    #[derive(Serialize)]
-    struct Ret<'a> {
-        dim0: &'a Vec<(Index, Index, Swaps)>,
-        dim1: &'a Vec<(Index, Index, Swaps)>,
-        dim2: &'a Vec<(Index, Index, Swaps)>,
-    }
     info!("after prune");
 
     let value = serde_wasm_bindgen::to_value(&Ret {
