@@ -1,8 +1,6 @@
 import init, {
   create_empty_state,
   my_init_function,
-  get_results,
-  run,
   run_without_prune,
   get_barcode_for_point,
   prune_dimension,
@@ -27,10 +25,7 @@ async function _run(id: string, fn: string, args: any) {
     });
   };
 
-  if (fn === "run") {
-    const { grid, complex, allPruningParams } = args;
-    return run(grid, complex, allPruningParams, onMessage);
-  } else if (fn === "run-and-dump") {
+  if (fn === "run-and-dump") {
     const { grid, complex } = args;
     run_without_prune(grid, complex, onMessage);
     return get_state();
@@ -40,21 +35,12 @@ async function _run(id: string, fn: string, args: any) {
   } else if (fn === "prune-dimension") {
     const { dim, params } = args;
     return prune_dimension(dim, params, onMessage);
-  } else if (fn === "get-state") {
-    return get_state();
   } else if (fn === "load-state") {
     const { bytes, index } = args;
     return load_state(bytes, index, (s: any) => console.log(s));
-  } else if (fn === "sleep") {
-    await new Promise((res) => setTimeout(() => res(0), args.time));
-    return "awake";
-  } else if (fn === "get-results") {
-    return get_results();
   } else if (fn === "create-empty-state") {
     const { grid, complex } = args;
     return create_empty_state(grid, complex);
-  } else if (fn === "ping") {
-    return "pong";
   } else {
     throw new Error(`unknown function ${fn}`);
   }

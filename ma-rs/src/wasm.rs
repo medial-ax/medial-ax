@@ -1,4 +1,4 @@
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Serialize, Serializer};
 use wasm_bindgen::prelude::*;
 
 use crate::{
@@ -10,12 +10,28 @@ use log::{info, warn};
 
 use std::{collections::HashMap, panic, sync::Mutex};
 
+/// Global state.
+static STATE: Mutex<Option<State>> = Mutex::new(None);
+
+/// Initializes logging and panic hooks for debugging.
+#[wasm_bindgen]
+pub fn my_init_function() {
+    static mut WAS_INIT: bool = false;
+    panic::set_hook(Box::new(console_error_panic_hook::hook));
+    unsafe {
+        if !WAS_INIT {
+            let _ = console_log::init_with_level(log::Level::Debug);
+            WAS_INIT = true;
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 struct State {
     grid: Grid,
     complex: Complex,
     /// This is not used, and has a dummy value, depending on how it's initialized.
-    #[deprecated]
+    #[deprecated = "Not used for anything here."]
     p0: Index,
     grid_index_to_reduction: HashMap<Index, Reduction>,
 
@@ -23,8 +39,11 @@ struct State {
     swaps1: Vec<(Index, Index, Swaps)>,
     swaps2: Vec<(Index, Index, Swaps)>,
 
+    #[deprecated = "Use prune_dimension instead"]
     swaps0_pruned: Vec<(Index, Index, Swaps)>,
+    #[deprecated = "Use prune_dimension instead"]
     swaps1_pruned: Vec<(Index, Index, Swaps)>,
+    #[deprecated = "Use prune_dimension instead"]
     swaps2_pruned: Vec<(Index, Index, Swaps)>,
 }
 
@@ -38,6 +57,7 @@ pub fn get_state() -> Result<JsValue, JsValue> {
     Ok(ret)
 }
 
+/// Create a new empty state.  Needs to be called before a bunch of the other functions.
 #[wasm_bindgen]
 pub fn create_empty_state(grid: JsValue, complex: JsValue) -> Result<(), JsValue> {
     let complex: Complex = serde_wasm_bindgen::from_value(complex)?;
@@ -58,6 +78,7 @@ pub fn create_empty_state(grid: JsValue, complex: JsValue) -> Result<(), JsValue
     Ok(())
 }
 
+/// Loads the state from a serialized byte buffer.
 #[wasm_bindgen]
 pub fn load_state(
     bytes: JsValue,
@@ -102,6 +123,7 @@ pub fn load_state(
     Ok(serde_wasm_bindgen::to_value("okay")?)
 }
 
+/// Get the barcode for a single grid point from the precomputed state.
 #[wasm_bindgen]
 pub fn get_barcode_for_point(grid_point: Vec<isize>) -> Result<JsValue, String> {
     let index = Index([grid_point[0], grid_point[1], grid_point[2]]);
@@ -123,8 +145,6 @@ pub fn get_barcode_for_point(grid_point: Vec<isize>) -> Result<JsValue, String> 
     Ok(js)
 }
 
-static STATE: Mutex<Option<State>> = Mutex::new(None);
-
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct PruningParam {
@@ -137,18 +157,7 @@ struct PruningParam {
 }
 
 #[wasm_bindgen]
-pub fn my_init_function() {
-    static mut WAS_INIT: bool = false;
-    panic::set_hook(Box::new(console_error_panic_hook::hook));
-    unsafe {
-        if !WAS_INIT {
-            let _ = console_log::init_with_level(log::Level::Debug);
-            WAS_INIT = true;
-        }
-    }
-}
-
-#[wasm_bindgen]
+/// Read a compelx from a `String` consisting of an .obj file.
 pub fn make_complex_from_obj(obj_body: String) -> Result<JsValue, JsValue> {
     let complex = Complex::read_from_obj_string(&obj_body)?;
     serde_wasm_bindgen::to_value(&complex).map_err(|e| JsValue::from_str(&format!("{}", e)))
@@ -320,60 +329,4 @@ pub fn run_without_prune(
     });
 
     Ok(())
-}
-
-#[derive(Serialize)]
-struct Ret<'a> {
-    dim0: &'a Vec<(Index, Index, Swaps)>,
-    dim1: &'a Vec<(Index, Index, Swaps)>,
-    dim2: &'a Vec<(Index, Index, Swaps)>,
-}
-
-#[wasm_bindgen]
-pub fn get_results() -> Result<JsValue, JsValue> {
-    let mut state = STATE.lock().unwrap();
-    let st = state.as_mut().ok_or("No state set")?;
-    let value = serde_wasm_bindgen::to_value(&Ret {
-        dim0: &st.swaps0,
-        dim1: &st.swaps1,
-        dim2: &st.swaps2,
-    })?;
-    Ok(value)
-}
-
-#[wasm_bindgen]
-pub fn run(
-    grid: JsValue,
-    complex: JsValue,
-    params: JsValue,
-    on_message: js_sys::Function,
-) -> Result<JsValue, JsValue> {
-    run_without_prune(grid, complex, on_message.clone())?;
-    let send_message = |label: &str, i: usize, n: usize| {
-        on_message.call3(
-            &JsValue::NULL,
-            &JsValue::from_str(label),
-            &JsValue::from_f64(i as f64),
-            &JsValue::from_f64(n as f64),
-        )
-    };
-
-    let mut state = STATE.lock().unwrap();
-    let st = state.as_mut().unwrap();
-
-    let params: HashMap<String, PruningParam> = serde_wasm_bindgen::from_value(params)?;
-    st.swaps0_pruned = prune(&st, &params.get("0").unwrap(), 0, send_message);
-    st.swaps1_pruned = prune(&st, &params.get("1").unwrap(), 1, send_message);
-    st.swaps2_pruned = prune(&st, &params.get("2").unwrap(), 2, send_message);
-
-    info!("after prune");
-
-    let value = serde_wasm_bindgen::to_value(&Ret {
-        dim0: &st.swaps0_pruned,
-        dim1: &st.swaps1_pruned,
-        dim2: &st.swaps2_pruned,
-    })?;
-
-    info!("after serialize");
-    Ok(value)
 }
