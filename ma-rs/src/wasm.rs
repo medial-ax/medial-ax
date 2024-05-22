@@ -242,14 +242,6 @@ pub fn prune_dimension(
     let mut state = STATE.lock().unwrap();
     let st = state.as_mut().unwrap();
     let new_pruned = prune(st, &params, dim, send_message);
-
-    match dim {
-        0 => st.swaps0_pruned = new_pruned.clone(),
-        1 => st.swaps1_pruned = new_pruned.clone(),
-        2 => st.swaps2_pruned = new_pruned.clone(),
-        _ => return Err("bad dimension".into()),
-    }
-
     Ok(serde_wasm_bindgen::to_value(&new_pruned)?)
 }
 

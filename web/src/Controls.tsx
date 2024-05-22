@@ -27,7 +27,7 @@ import squished_cylinder from "../inputs/squished_cylinder.obj?raw";
 import extruded_ellipse from "../inputs/extruded_ellipse.obj?raw";
 import cube_subdiv_2 from "../inputs/cube-subdiv-2.obj?raw";
 import maze_2 from "../inputs/maze_2.obj?raw";
-import { Grid, Index, defaultGrid } from "./types";
+import { Grid, Index, Swaps, defaultGrid } from "./types";
 import { make_complex_from_obj, split_grid } from "ma-rs";
 import { RESET } from "jotai/utils";
 import { resetWasmWorker, run, makeWorker } from "./work";
@@ -774,8 +774,23 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
             }
             console.log("done with loads");
 
-            const asd = await run("get-results", {});
-            console.log(asd);
+            const pruned = {
+              0: await run("prune-dimension", {
+                dim: 0,
+                params: allPruningParams[0],
+              }),
+              1: await run("prune-dimension", {
+                dim: 1,
+                params: allPruningParams[1],
+              }),
+              2: await run("prune-dimension", {
+                dim: 2,
+                params: allPruningParams[2],
+              }),
+            };
+
+            setSwaps(pruned);
+            setGridForSwaps(grid);
           }}
         >
           debug

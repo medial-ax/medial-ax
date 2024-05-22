@@ -202,7 +202,7 @@ impl Grid {
                     self.size,
                     [wmax, h, d],
                 ),
-                Index([wmax, 0, 0]),
+                Index([wmin, 0, 0]),
             )
         } else if w <= h && d <= h {
             let hmin = h / 2;
@@ -210,11 +210,11 @@ impl Grid {
             (
                 Self::new(self.corner, self.size, [w, hmin + 1, d]),
                 Self::new(
-                    self.coordinate(Index([0, hmax, 0])),
+                    self.coordinate(Index([0, hmin, 0])),
                     self.size,
                     [w, hmax, d],
                 ),
-                Index([0, hmax, 0]),
+                Index([0, hmin, 0]),
             )
         } else {
             let dmin = d / 2;
@@ -222,11 +222,11 @@ impl Grid {
             (
                 Self::new(self.corner, self.size, [w, h, dmin + 1]),
                 Self::new(
-                    self.coordinate(Index([0, 0, dmax])),
+                    self.coordinate(Index([0, 0, dmin])),
                     self.size,
                     [w, h, dmax],
                 ),
-                Index([0, 0, dmax]),
+                Index([0, 0, dmin]),
             )
         }
     }
