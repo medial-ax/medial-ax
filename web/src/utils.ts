@@ -1,3 +1,9 @@
+export const sum = <T>(array: T[], key: (t: T) => number): number => {
+  let sum = 0;
+  for (const x of array) sum += key(x);
+  return sum;
+};
+
 export const min = (array: number[]): number => {
   let min = Infinity;
   for (const x of array) if (x < min) min = x;

@@ -21,7 +21,7 @@ import {
 } from "./state";
 import { SetStateAction, useCallback, useRef, useState } from "react";
 import { dualFaceQuad } from "./medialaxes";
-import { downloadText } from "./utils";
+import { downloadText, sum } from "./utils";
 import styled from "styled-components";
 import squished_cylinder from "../inputs/squished_cylinder.obj?raw";
 import extruded_ellipse from "../inputs/extruded_ellipse.obj?raw";
@@ -710,6 +710,84 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
     downloadText(obj, "medial-axes.obj");
   }, [exportVisible, grid, shownMA, swaps]);
 
+  const compute_the_things = useCallback(async () => {
+    await run("create-empty-state", { grid, complex: cplx.complex }, (o) =>
+      setWorkerProgress(o),
+    );
+
+    const res = split_grid(grid);
+    const workerProgress = new Array(4).fill({ label: "Running", i: 0, n: 1 });
+    const results = await Promise.all(
+      res.map(([grid, offset]: [Grid, Index], i) => {
+        const { worker, run } = makeWorker();
+        return run(
+          "run-and-dump",
+          {
+            grid,
+            complex: cplx.complex,
+            allPruningParams,
+          },
+          (o) => {
+            workerProgress[i] = o;
+            const totalProgress = {
+              label: o.label,
+              i: sum(workerProgress, (o) => o.i),
+              n: sum(workerProgress, (o) => o.n),
+            };
+            setWorkerProgress(totalProgress);
+          },
+        )
+          .then((state) => {
+            return { state, offset };
+          })
+          .finally(() => {
+            worker.terminate();
+          });
+      }),
+    );
+
+    for (const res of results) {
+      await run(
+        "load-state",
+        {
+          bytes: res.state,
+          index: res.offset,
+        },
+        (o) => setWorkerProgress(o),
+      );
+    }
+
+    const pruned = {
+      0: await run(
+        "prune-dimension",
+        {
+          dim: 0,
+          params: allPruningParams[0],
+        },
+        (o) => setWorkerProgress(o),
+      ),
+      1: await run(
+        "prune-dimension",
+        {
+          dim: 1,
+          params: allPruningParams[1],
+        },
+        (o) => setWorkerProgress(o),
+      ),
+      2: await run(
+        "prune-dimension",
+        {
+          dim: 2,
+          params: allPruningParams[2],
+        },
+        (o) => setWorkerProgress(o),
+      ),
+    };
+
+    setSwaps(pruned);
+    setGridForSwaps(grid);
+  }, [allPruningParams, cplx?.complex, grid, setGridForSwaps, setSwaps]);
+
   return (
     <div id="controls">
       <button
@@ -741,60 +819,6 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
         </div>
 
         <h3>Import / Export</h3>
-        <button
-          disabled={!grid}
-          onClick={async () => {
-            await run("create-empty-state", { grid, complex: cplx.complex });
-
-            const res = split_grid(grid);
-            console.log("start");
-            const results = await Promise.all(
-              res.map(([grid, offset]: [Grid, Index]) => {
-                const { worker, run } = makeWorker();
-                return run("run-and-dump", {
-                  grid,
-                  complex: cplx.complex,
-                  allPruningParams,
-                })
-                  .then((state) => {
-                    console.log("done");
-                    return { state, offset };
-                  })
-                  .finally(() => {
-                    worker.terminate();
-                  });
-              }),
-            );
-            console.log("done with runs");
-            for (const res of results) {
-              await run("load-state", {
-                bytes: res.state,
-                index: res.offset,
-              });
-            }
-            console.log("done with loads");
-
-            const pruned = {
-              0: await run("prune-dimension", {
-                dim: 0,
-                params: allPruningParams[0],
-              }),
-              1: await run("prune-dimension", {
-                dim: 1,
-                params: allPruningParams[1],
-              }),
-              2: await run("prune-dimension", {
-                dim: 2,
-                params: allPruningParams[2],
-              }),
-            };
-
-            setSwaps(pruned);
-            setGridForSwaps(grid);
-          }}
-        >
-          debug
-        </button>
 
         <h4>Import</h4>
         <UploadObjFilePicker />
@@ -883,29 +907,16 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
           <button
             style={{ flex: 1 }}
             disabled={workerRunning || !grid || !cplx}
-            onClick={() => {
-              setWorkerRunning(true);
-              run(
-                "run",
-                {
-                  grid,
-                  complex: cplx.complex,
-                  allPruningParams,
-                },
-                (p) => setWorkerProgress(p),
-              )
-                .then((res) => {
-                  setSwaps({ 0: res.dim0, 1: res.dim1, 2: res.dim2 });
-                  setGridForSwaps(grid);
-                })
+            onClick={async () =>
+              compute_the_things()
                 .catch((err) => {
                   toast("error", err, 10);
                 })
                 .finally(() => {
                   setWorkerProgress(undefined);
                   setWorkerRunning(false);
-                });
-            }}
+                })
+            }
           >
             {workerRunning ? (
               <Loader $w0={20} $w1={60} />
