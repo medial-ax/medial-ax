@@ -4,6 +4,7 @@ use std::{
 };
 
 use complex::{Complex, Pos};
+use log::info;
 use permutation::Permutation;
 use serde::{Deserialize, Serialize};
 use sneaky_matrix::SneakyMatrix;
@@ -229,6 +230,14 @@ pub struct BirthDeathPair {
     pub birth: Option<(f64, usize)>,
     /// Birth time and canonical index of the simplex giving birth to the homology class.
     pub death: Option<(f64, usize)>,
+}
+
+impl BirthDeathPair {
+    pub fn lifetime(&self) -> f64 {
+        let birth = self.birth.map(|t| t.0).unwrap_or(f64::NEG_INFINITY);
+        let death = self.death.map(|t| t.0).unwrap_or(f64::INFINITY);
+        death - birth
+    }
 }
 
 #[cfg_attr(feature = "python", pyo3::pyclass(get_all))]
@@ -754,49 +763,47 @@ pub fn vineyards_123(
         }
     }
 
-    // Check that all pairs we've seen swapped actually has their ordering changed
-    // wrt. the two key points.  In addition, check that the ones we have NOT seen
-    // has their ordering the same.
-    // for i in 0..complex.simplices_per_dim[0].len() {
-    //     for j in 0..i {
-    //         let p_i = complex.simplices_per_dim[0][i].coords.unwrap();
-    //         let p_j = complex.simplices_per_dim[0][j].coords.unwrap();
-
-    //         let a = reduction.key_point;
-    //         let b = key_point;
-
-    //         let cmp_at_a = a.dist(&p_i).total_cmp(&a.dist(&p_j));
-    //         let cmp_at_b = b.dist(&p_i).total_cmp(&b.dist(&p_j));
-
-    //         if seen_swaps.contains(&(j, i)) {
-    //             assert!(
-    //                 (cmp_at_a.is_eq() && cmp_at_b.is_eq()) || (cmp_at_a != cmp_at_b),
-    //                 "Swapped, so ordering should have too: {:?} {:?}",
-    //                 cmp_at_a,
-    //                 cmp_at_b
-    //             );
-    //         } else {
-    //             assert!(
-    //                 cmp_at_a.is_eq() || cmp_at_b.is_eq() || cmp_at_a == cmp_at_b,
-    //                 "Ordering should be the same since they didn't swap: {:?} {:?}",
-    //                 cmp_at_a,
-    //                 cmp_at_b
-    //             );
-    //         }
-    //     }
-    // }
-
     stack0.ordering = v_perm;
-
-    // println!("vineyards_123");
-    // dbg!(&vine_ordering0);
-    // dbg!(&vine_ordering1);
-    // dbg!(&vine_ordering2);
 
     let state = Reduction {
         key_point,
         stacks: [stack0, stack1, stack2],
     };
+
+    // We now have a bunch of faustian swaps.  However, we only want the first "real" cycle for
+    // each dimension, meaning it has >0 persistence.  A swap consists of two simplices (A B) where
+    // A used to give death, and B used to give birth, that have changed in the new ordering (B A).
+    // We look at the persistence of the cycle that is given birth to.
+    //
+    // Since we're only interested in the first cycle (per dim), we precompute this to figure out
+    // which final simplices we're interested in.  For the used-to-give-birth simplex we check
+    // the initial input matrix.  For the is-now-giving-birth simplex we check the newly reduced
+    // matrix.  Then we go over the swaps and remove those that don't contain either.
+
+    /// Returns the canonical index of the simplex.
+    fn find_interesting(reduction: &Reduction, complex: &Complex, dim: usize) -> Option<usize> {
+        #[allow(non_snake_case)]
+        let Rup = &reduction.stacks[dim + 1].R;
+        for c in 0..Rup.cols {
+            let Some(max) = Rup.colmax(c) else {
+                continue;
+            };
+            let max_id = reduction.stacks[dim].ordering.inv(max);
+            let Some(p) = reduction.persistence(complex, dim, max_id) else {
+                continue;
+            };
+            if 1e-6 < p.lifetime() {
+                return Some(max_id);
+            }
+        }
+
+        None
+    }
+
+    let old_interesting_edge = find_interesting(reduction, complex, 1);
+    let new_interesting_edge = find_interesting(&state, complex, 1);
+
+    info!("{:?} {:?}", old_interesting_edge, new_interesting_edge);
 
     (
         state,
