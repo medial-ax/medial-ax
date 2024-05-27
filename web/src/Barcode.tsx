@@ -774,7 +774,7 @@ export const BarcodeTabs = ({ live }: { live: boolean }) => {
   useEffect(() => {
     if (!index || !live) return;
     if (!haveSwaps) return;
-    let stop = false;
+    // let stop = false;
     // wasmWorker.onmessage = (msg: any) => {
     //   if (stop) return;
     //   const array = msg.data.data;
@@ -799,7 +799,7 @@ export const BarcodeTabs = ({ live }: { live: boolean }) => {
     //   },
     // });
     return () => {
-      stop = true;
+      // stop = true;
     };
   }, [haveSwaps, index, live, setBarcodes, setLoading]);
 

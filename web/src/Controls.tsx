@@ -703,7 +703,7 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
     const res = split_grid(grid);
     const workerProgress = new Array(4).fill({ label: "Running", i: 0, n: 1 });
     const results = await Promise.all(
-      res.map(([grid, offset]: [Grid, Index], i) => {
+      res.map(([grid, offset]: [Grid, Index], i: number) => {
         const { worker, run } = makeWorker();
         return run(
           "run-and-dump",
