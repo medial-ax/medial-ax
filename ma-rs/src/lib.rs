@@ -780,30 +780,42 @@ pub fn vineyards_123(
     // the initial input matrix.  For the is-now-giving-birth simplex we check the newly reduced
     // matrix.  Then we go over the swaps and remove those that don't contain either.
 
+    /// Finds the simplex that creates the first homology class in a dimension.
+    ///
     /// Returns the canonical index of the simplex.
     fn find_interesting(reduction: &Reduction, complex: &Complex, dim: usize) -> Option<usize> {
         #[allow(non_snake_case)]
-        let Rup = &reduction.stacks[dim + 1].R;
-        for c in 0..Rup.cols {
-            let Some(max) = Rup.colmax(c) else {
+        let R = &reduction.stacks[dim].R;
+
+        for ord_i in 0..R.cols {
+            if R.col_is_not_empty(ord_i) {
                 continue;
-            };
-            let max_id = reduction.stacks[dim].ordering.inv(max);
-            let Some(p) = reduction.persistence(complex, dim, max_id) else {
+            }
+            let can_i = reduction.stacks[dim].ordering.inv(ord_i);
+            let Some(p) = reduction.persistence(complex, dim, can_i) else {
                 continue;
             };
             if 1e-6 < p.lifetime() {
-                return Some(max_id);
+                return Some(can_i);
             }
         }
 
         None
     }
 
-    let old_interesting_edge = find_interesting(reduction, complex, 1);
-    let new_interesting_edge = find_interesting(&state, complex, 1);
+    // TODO: range 0..3
+    for dim in 1..2 {
+        let old_interesting_edge = find_interesting(reduction, complex, dim);
+        let new_interesting_edge = find_interesting(&state, complex, dim);
 
-    info!("{:?} {:?}", old_interesting_edge, new_interesting_edge);
+        if let Some((min, max)) = old_interesting_edge
+            .zip(new_interesting_edge)
+            .map(|(o, n)| (o.min(n), o.max(n)))
+        {
+            faustian_swap_simplices
+                .retain(|p| p.dim != 1 || p.i.min(p.j) == min || p.i.max(p.j) == max);
+        }
+    }
 
     (
         state,
