@@ -11,7 +11,9 @@ export type Permutation = {
 
 export type BirthDeathPair = {
   dim: number;
+  /** [Birth time, simplex index] */
   birth: [number, number] | null;
+  /** [Death time, simplex index] */
   death: [number, number] | null;
 };
 

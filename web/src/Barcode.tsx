@@ -95,7 +95,6 @@ const Bar = ({
   pair,
   top,
   color,
-  label,
   dim,
 }: {
   width: number;
@@ -103,7 +102,6 @@ const Bar = ({
   pair: BirthDeathPair;
   top: number;
   color: string;
-  label: string;
   dim: number;
 }) => {
   const left = time2px(pair.birth == null ? 0 : pair.birth[0], xmax, width);
@@ -167,7 +165,7 @@ const Bar = ({
                 right: `100%`,
               }}
             >
-              {label}
+              {dim2label[dim]}
               {pair.birth[1]}
             </BarcodeLabels>
           )}
@@ -177,7 +175,7 @@ const Bar = ({
                 left: `100%`,
               }}
             >
-              {label}
+              {dim2label[dim + 1]}
               {pair.death[1]}
             </BarcodeLabels>
           )}
@@ -267,7 +265,6 @@ const BarcodeDim = ({
             pair={x}
             top={0}
             color={dim2color[dim]}
-            label={dim2label[dim]}
             dim={dim}
           />
         ))}
@@ -279,7 +276,6 @@ const BarcodeDim = ({
             pair={x}
             top={i + 1}
             color={dim2color[dim]}
-            label={dim2label[dim]}
             dim={dim}
           />
         ))}
