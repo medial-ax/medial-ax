@@ -19,7 +19,14 @@ import {
   wireframeAtom,
   workerRunningAtom,
 } from "./state";
-import { SetStateAction, useCallback, useRef, useState } from "react";
+import {
+  ComponentProps,
+  SetStateAction,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { dualFaceQuad } from "./medialaxes";
 import { downloadText, sum } from "./utils";
 import styled from "styled-components";
@@ -41,6 +48,36 @@ const EXAMPLE_OBJS = [
   { name: "Cube", string: cube_subdiv_2 },
   { name: "Maze", string: maze_2 },
 ];
+
+const Input = ({
+  onChange,
+  onBlur,
+  value,
+  ...props
+}: ComponentProps<"input">) => {
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (ref.current) {
+      ref.current.value = String(value);
+    }
+  }, [value]);
+
+  return (
+    <input
+      ref={ref}
+      defaultValue={value}
+      {...props}
+      onChange={(e) => {
+        if (!isNaN(parseFloat(e.target.value)) && e.target.value !== "")
+          onChange?.(e);
+      }}
+      onBlur={(e) => {
+        if (isNaN(parseFloat(e.target.value)) || e.target.value === "")
+          e.target.value = String(value);
+      }}
+    />
+  );
+};
 
 const Loader = styled.span<{
   $w0: number;
@@ -166,7 +203,16 @@ const GridControls = () => {
           }}
           disabled={!showGrid}
         />
-        <span>{grid.corner[0].toFixed(3)}</span>
+        <Input
+          type="number"
+          step={0.01}
+          style={{ width: "5rem" }}
+          value={grid.corner[0]}
+          onChange={(e) => {
+            const x = parseFloat(e.target.value);
+            setGrid({ ...grid, corner: [x, grid.corner[1], grid.corner[2]] });
+          }}
+        />
 
         <p>Grid corner y</p>
         <input
@@ -181,7 +227,16 @@ const GridControls = () => {
           }}
           disabled={!showGrid}
         />
-        <span>{grid.corner[1].toFixed(3)}</span>
+        <Input
+          type="number"
+          step={0.01}
+          style={{ width: "5rem" }}
+          value={grid.corner[1]}
+          onChange={(e) => {
+            const y = parseFloat(e.target.value);
+            setGrid({ ...grid, corner: [grid.corner[0], y, grid.corner[2]] });
+          }}
+        />
 
         <p>Grid corner z</p>
         <input
@@ -196,7 +251,16 @@ const GridControls = () => {
           }}
           disabled={!showGrid}
         />
-        <span>{grid.corner[2].toFixed(3)}</span>
+        <Input
+          type="number"
+          step={0.01}
+          style={{ width: "5rem" }}
+          value={grid.corner[2]}
+          onChange={(e) => {
+            const z = parseFloat(e.target.value);
+            setGrid({ ...grid, corner: [grid.corner[0], grid.corner[1], z] });
+          }}
+        />
 
         <p>Grid size</p>
         <input
