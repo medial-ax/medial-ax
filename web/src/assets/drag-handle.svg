@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg fill="#000000" viewBox="10 10 16 16" version="1.1"  preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <circle cx="12" cy="24" r="1.5"></circle>
+    <circle cx="18" cy="24" r="1.5" ></circle>
+    <circle cx="18" cy="18" r="1.5" ></circle>
+    <circle cx="24" cy="12" r="1.5" ></circle>
+    <circle cx="24" cy="24" r="1.5" ></circle>
+    <circle cx="24" cy="18" r="1.5" ></circle>
+</svg>

@@ -2,7 +2,7 @@ import styled from "styled-components";
 import "./App.css";
 import { Canvas } from "@react-three/fiber";
 import { Environment, OrbitControls } from "@react-three/drei";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import * as THREE from "three";
 import { useAtomValue, useSetAtom } from "jotai";
 import { BarcodeTabs } from "./Barcode";
@@ -25,6 +25,7 @@ import {
   RenderMedialAxis,
 } from "./Render";
 import { Menu } from "./Controls";
+import DragHandle from "./assets/drag-handle.svg";
 
 const ToggleBarcodeButton = styled.button`
   position: absolute;
@@ -47,6 +48,23 @@ const CanvasContainer = styled.div`
   display: flex;
   overflow-x: hidden;
   flex: 1;
+`;
+
+const GrabCorner = styled.div<{ $dragging: boolean }>`
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  user-select: none;
+  cursor: nesw-resize;
+  display: flex;
+  padding: 4px;
+
+  svg {
+    fill: #333;
+    width: 16px;
+    height: 16px;
+    transform: scale(-1, 1);
+  }
 `;
 
 const RenderCanvas = () => {
@@ -120,10 +138,54 @@ const RenderCanvas = () => {
 
 const RenderBarcodeSideThing = () => {
   const [open, setOpen] = useState(false);
+
+  const [size, setSize] = useState({ width: 560, height: 480 });
+
+  const [dragging, setDragging] = useState(false);
+  useEffect(() => {
+    if (!dragging) return;
+
+    let x0 = 0;
+    let y0 = 0;
+    function mousemove(e: MouseEvent) {
+      if (x0 === 0 && y0 === 0) {
+        x0 = e.x;
+        y0 = e.y;
+      }
+      const dx = e.x - x0;
+      const dy = e.y - y0;
+      setSize((c) => ({
+        width: c.width - dx,
+        height: c.height + dy,
+      }));
+
+      x0 = e.x;
+      y0 = e.y;
+    }
+    function mouseup() {
+      window.removeEventListener("mousemove", mousemove);
+      setDragging(false);
+    }
+
+    window.addEventListener("mousemove", mousemove);
+    window.addEventListener("mouseup", mouseup, { once: true });
+  }, [dragging]);
+
   return (
     <>
-      <div id="barcode" aria-hidden={!open}>
+      <div
+        id="barcode"
+        aria-hidden={!open}
+        style={{
+          minWidth: size.width,
+          maxWidth: size.width,
+          minHeight: size.height,
+        }}
+      >
         <BarcodeTabs live={open} />
+        <GrabCorner $dragging={dragging} onMouseDown={() => setDragging(true)}>
+          <DragHandle />
+        </GrabCorner>
       </div>
       <ToggleBarcodeButton
         onClick={() => {
