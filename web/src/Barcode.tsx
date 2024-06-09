@@ -633,7 +633,6 @@ const Table = () => {
       )
     : [...(fullBarcode ?? [])];
 
-  console.log(barcode);
   const sortedBarcode = (() => {
     if (sortmode === undefined) return barcode;
     if (sortmode.key === "birth")

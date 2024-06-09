@@ -392,6 +392,7 @@ const CollapseH4 = ({
 const UploadObjFilePicker = () => {
   const setComplex = useSetAtom(complexAtom);
   const setGrid = useSetAtom(gridAtom);
+  const setSwaps = useSetAtom(swapsAtom);
   return (
     <label className="file">
       <p>
@@ -406,6 +407,7 @@ const UploadObjFilePicker = () => {
             .then((text) => {
               const value = make_complex_from_obj(text);
               setComplex({ complex: value, filename: f.name });
+              setSwaps({ 0: [], 1: [], 2: [] });
               setGrid(undefined);
             })
             .catch((err: string) => {
