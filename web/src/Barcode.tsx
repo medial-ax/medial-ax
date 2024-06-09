@@ -22,9 +22,9 @@ import {
 } from "react";
 import { clamp, max } from "./utils";
 import { colors } from "./constants";
-// import { wasmWorker } from "./work";
 import { Tabs } from "./Tab";
 import "./Barcode.css";
+import { run } from "./work";
 
 const _width = 4;
 const barSpacing = 20;
@@ -765,7 +765,7 @@ const Table = () => {
 export const BarcodeTabs = ({ live }: { live: boolean }) => {
   const index = useAtomValue(selectedGridIndex);
   const [barcodes, setBarcodes] = useAtom(barcodeAtom);
-  const [, setLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
   const swaps = useAtomValue(swapsAtom);
   const haveSwaps =
     swaps[0].length > 0 || swaps[1].length > 0 || swaps[2].length > 0;
@@ -773,34 +773,34 @@ export const BarcodeTabs = ({ live }: { live: boolean }) => {
   useEffect(() => {
     if (!index || !live) return;
     if (!haveSwaps) return;
-    // let stop = false;
-    // wasmWorker.onmessage = (msg: any) => {
-    //   if (stop) return;
-    //   const array = msg.data.data;
-    //   setBarcodes({
-    //     "-1": array[0],
-    //     0: array[1],
-    //     1: array[2],
-    //     2: array[3],
-    //   });
-    //   setLoading(false);
-    // };
-    // wasmWorker.onerror = (err: any) => {
-    //   setLoading(false);
-    //   err.preventDefault();
-    //   window.alert(err.message);
-    // };
-    // setLoading(true);
-    // wasmWorker.postMessage({
-    //   fn: "get-barcode-for-point",
-    //   args: {
-    //     grid_point: index,
-    //   },
-    // });
+
+    let stop = false;
+    setLoading(true);
+    run("get-barcode-for-point", {
+      grid_point: index,
+    })
+      .then((arr) => {
+        if (!stop)
+          setBarcodes({
+            "-1": arr[0],
+            0: arr[1],
+            1: arr[2],
+            2: arr[3],
+          });
+      })
+      .catch((e) => {
+        window.alert(`bad: ${e.message}`);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+
     return () => {
-      // stop = true;
+      stop = true;
     };
   }, [haveSwaps, index, live, setBarcodes, setLoading]);
+
+  if (loading) return null;
 
   return (
     <Tabs titles={["Barcodes", "Diagram", "Vineyards", "Table"]}>
