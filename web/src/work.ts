@@ -1,6 +1,8 @@
 import init, { my_init_function } from "ma-rs";
 import WasmWorker from "./worker?worker";
 
+let activeWorkers: Worker[] = [];
+
 export const makeWorker = () => {
   const localWorker = new WasmWorker();
 
@@ -56,7 +58,20 @@ export const makeWorker = () => {
       callbacks[id] = { res, rej, progress };
     });
   };
-  return { worker: localWorker, run };
+
+  activeWorkers.push(localWorker);
+
+  return {
+    run,
+    terminate: () => {
+      console.log("terminate local worker manually");
+      localWorker.terminate();
+      const i = activeWorkers.indexOf(localWorker);
+      activeWorkers = activeWorkers
+        .slice(0, i)
+        .concat(activeWorkers.slice(i + 1));
+    },
+  };
 };
 
 type Message = {
@@ -128,6 +143,11 @@ export const resetWasmWorker = () => {
   worker = new WasmWorker();
   worker.onmessage = onmessage;
   worker.onerror = onerror;
+  console.log("terminate all workers", activeWorkers);
+  for (const w of activeWorkers) {
+    w.terminate();
+  }
+  activeWorkers = [];
 };
 
 await init().then(() => {

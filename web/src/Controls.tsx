@@ -696,6 +696,7 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
   }, [exportVisible, grid, shownMA, swaps]);
 
   const compute_the_things = useCallback(async () => {
+    setWorkerRunning(true);
     await run("create-empty-state", { grid, complex: cplx.complex }, (o) =>
       setWorkerProgress(o),
     );
@@ -704,7 +705,7 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
     const workerProgress = new Array(4).fill({ label: "Running", i: 0, n: 1 });
     const results = await Promise.all(
       res.map(([grid, offset]: [Grid, Index], i: number) => {
-        const { worker, run } = makeWorker();
+        const { terminate, run } = makeWorker();
         return run(
           "run-and-dump",
           {
@@ -726,7 +727,7 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
             return { state, offset };
           })
           .finally(() => {
-            worker.terminate();
+            terminate();
           });
       }),
     );
@@ -771,7 +772,14 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
 
     setSwaps(pruned);
     setGridForSwaps(grid);
-  }, [allPruningParams, cplx?.complex, grid, setGridForSwaps, setSwaps]);
+  }, [
+    allPruningParams,
+    cplx,
+    grid,
+    setGridForSwaps,
+    setSwaps,
+    setWorkerRunning,
+  ]);
 
   return (
     <div id="controls">
