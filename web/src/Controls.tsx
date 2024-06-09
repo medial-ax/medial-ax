@@ -327,6 +327,7 @@ const CollapseH4 = ({
 
 const UploadObjFilePicker = () => {
   const setComplex = useSetAtom(complexAtom);
+  const setGrid = useSetAtom(gridAtom);
   return (
     <label className="file">
       <p>
@@ -341,6 +342,7 @@ const UploadObjFilePicker = () => {
             .then((text) => {
               const value = make_complex_from_obj(text);
               setComplex({ complex: value, filename: f.name });
+              setGrid(undefined);
             })
             .catch((err: string) => {
               toast("error", `Failed to parse .obj: ${err}`, 3);
@@ -937,7 +939,7 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
               <progress value={workerProgress.i / workerProgress.n} />
             )}
             <p className="percent">
-              {5 * Math.round((workerProgress.i / workerProgress.n) * 20)}%
+              {Math.floor((workerProgress.i / workerProgress.n) * 100)}%
             </p>
           </label>
         )}

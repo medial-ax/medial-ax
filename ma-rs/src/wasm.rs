@@ -87,8 +87,14 @@ pub fn load_state(
 ) -> Result<JsValue, JsValue> {
     let send_message = |label: &str| on_message.call1(&JsValue::NULL, &JsValue::from_str(label));
     let offset: Index = serde_wasm_bindgen::from_value(grid_offset)?;
-    let bytes: serde_bytes::ByteBuf = serde_wasm_bindgen::from_value(bytes)?;
-    let mut state: State = rmp_serde::from_slice(&bytes).map_err(|e| e.to_string())?;
+    let mut state: State = {
+        let bytes: serde_bytes::ByteBuf = serde_wasm_bindgen::from_value(bytes)?;
+        info!(
+            "load_state: bytes is {:.3} MB",
+            (bytes.len() as f64) / 1024.0 / 1024.0
+        );
+        rmp_serde::from_slice(&bytes).map_err(|e| e.to_string())?
+    };
 
     let grid_index_to_reduction = state
         .grid_index_to_reduction
@@ -294,9 +300,9 @@ pub fn run_without_prune(
 
     let p = grid.center(Index([0; 3]));
 
-    send_message("Reduce from scratch", 0, 0).unwrap();
+    send_message("Reduce from scratch", 0, 1).unwrap();
     let s0 = reduce_from_scratch(&complex, p, false);
-    send_message("Run vineyards", 0, 0).unwrap();
+    send_message("Run vineyards", 0, 1).unwrap();
     let results = grid.run_vineyards_in_grid(&complex, s0, |i, n| {
         if i & 15 == 0 {
             send_message("Vineyards", i, n).unwrap();
