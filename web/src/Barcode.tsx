@@ -482,6 +482,11 @@ const BarcodeInner = ({
 }) => {
   const ref = useRef<HTMLDivElement>(null);
   const setSelectedBDPair = useSetAtom(selectedBirthDeathPair);
+  useEffect(() => {
+    return () => {
+      setSelectedBDPair(undefined);
+    };
+  }, [setSelectedBDPair]);
 
   const [width, setWidth] = useState<number>(0);
 

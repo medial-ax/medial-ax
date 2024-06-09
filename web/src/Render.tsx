@@ -1,5 +1,12 @@
 import { MeshProps } from "@react-three/fiber";
-import { useCallback, useLayoutEffect, useMemo, useRef } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import * as THREE from "three";
 import { dedup } from "./utils";
 import { Wireframe } from "@react-three/drei";
@@ -10,6 +17,7 @@ import {
   gridRadiusAtom,
   highlightAtom,
   selectedGridIndex,
+  swapsAtom,
   swapsForMA,
 } from "./state";
 import { dualFaceQuad, gridCoordinate } from "./medialaxes";
@@ -100,11 +108,9 @@ export const RedTriangle = ({ points }: { points: THREE.Vector3[] }) => {
 export const RenderComplex = ({
   cplx,
   wireframe,
-  onClick,
 }: {
   cplx: any;
   wireframe?: boolean;
-  onClick: MeshProps["onClick"];
 }) => {
   const ref = useRef<THREE.BufferAttribute>(null);
 
@@ -129,16 +135,6 @@ export const RenderComplex = ({
   }, [getCoords]);
 
   const highlights = useAtomValue(highlightAtom);
-
-  // const {vertices, edges} = useMemo(() => {
-  //   const vertices = [];
-  //   const edges = [];
-  //   for (const h of highlights) {
-  //     if (h.dim === )
-  //
-  //   }
-  //
-  // }, []);
 
   const vertices = highlights
     .filter((h) => h.dim === 0)
@@ -167,7 +163,7 @@ export const RenderComplex = ({
 
   return (
     <>
-      <mesh onClick={onClick}>
+      <mesh>
         <bufferGeometry attach="geometry">
           <bufferAttribute
             ref={ref}
@@ -197,9 +193,18 @@ export const RenderGrid = () => {
   const radius = useAtomValue(gridRadiusAtom);
   const grid = useAtomValue(gridAtom);
   const meshref = useRef<THREE.InstancedMesh>(null);
+  const _swaps = useAtomValue(swapsAtom);
+
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    setTimeout(() => {
+      setCount((c) => c + 1);
+    }, 10);
+  }, [_swaps]);
 
   const points = useMemo(() => {
     if (!grid) return;
+    count; // refresh after computing MA
     const coords: [number, number, number][] = [];
     for (let x = 0; x < grid.shape[0]; x++) {
       for (let y = 0; y < grid.shape[1]; y++) {
@@ -210,7 +215,7 @@ export const RenderGrid = () => {
       }
     }
     return coords;
-  }, [grid]);
+  }, [grid, count]);
 
   useLayoutEffect(() => {
     const m = meshref.current;

@@ -10,7 +10,6 @@ import {
   Dim,
   complexAtom,
   gridForSwapsAtom,
-  selectedBirthDeathPair,
   selectedGridIndex,
   showGridAtom,
   showMAAtom,
@@ -62,9 +61,6 @@ const RenderCanvas = () => {
   const gridForSwaps = useAtomValue(gridForSwapsAtom);
   const setSelectedGridIndex = useSetAtom(selectedGridIndex);
 
-  const selectedBDPair = useAtomValue(selectedBirthDeathPair);
-  console.log({ selectedBDPair });
-
   return (
     <CanvasContainer id="canvas-container">
       <Canvas
@@ -90,7 +86,6 @@ const RenderCanvas = () => {
             wireframe={wireframe}
             cplx={cplx.complex}
             key={cplx.filename}
-            onClick={() => {}}
           />
         )}
 
