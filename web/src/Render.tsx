@@ -284,7 +284,7 @@ export const RenderComplex = ({
 };
 
 const GRID_COLOR = new THREE.Color(0x888888);
-const GRID_SELECTED_COLOR = new THREE.Color(0xff0000);
+const GRID_SELECTED_COLOR = new THREE.Color(0x000000);
 
 export const RenderGrid = () => {
   const radius = useAtomValue(gridRadiusAtom);

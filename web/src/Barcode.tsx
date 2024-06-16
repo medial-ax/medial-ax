@@ -428,12 +428,11 @@ const TimelineBar = ({ xmax }: { xmax: number }) => {
     [isDragging, setTimelinePosition, xmax],
   );
 
+  const { width } = redRef.current?.getBoundingClientRect() ?? { width: 0 };
   const x = useMemo(() => {
-    if (!redRef.current) return 0;
-    const { width } = redRef.current.getBoundingClientRect();
     const px = time2px(timelinePosition, xmax, width - 2 * barcodePaddingPx);
     return px + barcodePaddingPx;
-  }, [timelinePosition, xmax]);
+  }, [timelinePosition, width, xmax]);
 
   useEffect(() => {
     if (!isDragging) return;
