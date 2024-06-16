@@ -52,11 +52,6 @@ export const highlightAtom = atom<{ dim: number; index: number }[]>((get) => {
     if (table.upper)
       highlights.push({ dim: table.dim + 1, index: table.upper });
   }
-  const sel = get(selectedBirthDeathPair);
-  if (sel) {
-    if (sel.birth) highlights.push({ dim: sel.dim, index: sel.birth[1] });
-    if (sel.death) highlights.push({ dim: sel.dim + 1, index: sel.death[1] });
-  }
 
   return highlights;
 });

@@ -5,7 +5,6 @@ import {
   barcodeAtom,
   gridForSwapsAtom,
   gridOutOfSync,
-  persistenceTableHighlight,
   selectedBirthDeathPair,
   selectedGridIndex,
   swapsAtom,
@@ -17,6 +16,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -137,14 +137,30 @@ const Bar = ({
     style.marginRight = "0";
   }
 
+  const [timeline, setTimeline] = useAtom(timelinePositionAtom);
   const setSelectedBDPair = useSetAtom(selectedBirthDeathPair);
 
   return (
     <BarDiv
       color={dim2color[dim]}
       onClick={(e) => {
-        setSelectedBDPair(pair);
         e.stopPropagation();
+        setSelectedBDPair(pair);
+
+        if (pair.birth) {
+          const f = pair.birth[0];
+          if (2e-3 < Math.abs(timeline - f)) {
+            setTimeline(f + 0.001);
+            return;
+          }
+        }
+        if (pair.death) {
+          const f = pair.death[0];
+          if (2e-3 < Math.abs(timeline - f)) {
+            setTimeline(f + 0.001);
+            return;
+          }
+        }
       }}
       style={{
         ...style,
@@ -386,7 +402,6 @@ const TimelinePositionLabel = styled.div`
 
 const TimelineBar = ({ xmax }: { xmax: number }) => {
   const [timelinePosition, setTimelinePosition] = useAtom(timelinePositionAtom);
-  const [x, setX] = useState<number>(barcodePaddingPx);
 
   const redRef = useRef<HTMLDivElement>(null);
   const ref = useRef<HTMLDivElement>(null);
@@ -407,19 +422,18 @@ const TimelineBar = ({ xmax }: { xmax: number }) => {
         const width = bounds.width;
         const widthMinusPadding = width - 2 * barcodePaddingPx;
         const pos = px2time(layerX - barcodePaddingPx, xmax, widthMinusPadding);
-
-        const clampedX = clamp(
-          layerX,
-          barcodePaddingPx,
-          width - barcodePaddingPx,
-        );
-        setX(clampedX);
-
         setTimelinePosition(clamp(pos, 0, xmax));
       }
     },
     [isDragging, setTimelinePosition, xmax],
   );
+
+  const x = useMemo(() => {
+    if (!redRef.current) return 0;
+    const { width } = redRef.current.getBoundingClientRect();
+    const px = time2px(timelinePosition, xmax, width - 2 * barcodePaddingPx);
+    return px + barcodePaddingPx;
+  }, [timelinePosition, xmax]);
 
   useEffect(() => {
     if (!isDragging) return;
@@ -625,7 +639,7 @@ const Table = () => {
   const [hideZero, setHideZero] = useState<boolean>(false);
   const [dim, setDim] = useState<0 | 1 | 2>(0);
   const fullBarcode = useAtomValue(barcodeAtom)?.[dim];
-  const setHighlight = useSetAtom(persistenceTableHighlight);
+  const [timeline, setTimeline] = useAtom(timelinePositionAtom);
 
   const [sortmode, setSortmode] = useState<
     | {
@@ -749,11 +763,14 @@ const Table = () => {
                 <tr
                   key={i}
                   onClick={() => {
-                    setHighlight({
-                      dim,
-                      lower: s.birth?.[1],
-                      upper: s.death?.[1],
-                    });
+                    if (s.birth) {
+                      const f = s.birth[1];
+                      if (1e-3 < Math.abs(timeline - f)) setTimeline(f);
+                    }
+                    if (s.death) {
+                      const f = s.death[1];
+                      if (1e-3 < Math.abs(timeline - f)) setTimeline(f);
+                    }
                   }}
                 >
                   <td>{birth}</td>
