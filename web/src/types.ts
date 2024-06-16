@@ -68,11 +68,13 @@ export type PruningParam = {
 };
 
 // TODO: type this up
-export type Complex = any;
+export type Complex = {
+  simplices_per_dim: Simplex[][];
+};
 
 export const bboxFromComplex = (cplx: Complex) => {
-  const [vertices] = cplx["simplices_per_dim"];
-  const coords = vertices.map((v: any) => v.coords);
+  const [vertices] = cplx.simplices_per_dim;
+  const coords = vertices.map((v) => v.coords!);
   const xs = coords.map((c: number[]) => c[0]);
   const ys = coords.map((c: number[]) => c[1]);
   const zs = coords.map((c: number[]) => c[2]);

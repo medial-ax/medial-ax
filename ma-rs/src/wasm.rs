@@ -48,6 +48,13 @@ struct State {
 }
 
 #[wasm_bindgen]
+pub fn reset_state() -> Result<(), JsValue> {
+    let mut guard = STATE.lock().map_err(|_| "STATE.lock failed")?;
+    *guard = None;
+    Ok(())
+}
+
+#[wasm_bindgen]
 pub fn get_state() -> Result<JsValue, JsValue> {
     let guard = STATE.lock().map_err(|_| "STATE.lock failed")?;
     let state = guard.as_ref().ok_or("No global state")?;
@@ -147,6 +154,33 @@ pub fn get_barcode_for_point(grid_point: Vec<isize>) -> Result<JsValue, String> 
     let swaps2 = reduction.barcode(&state.complex, 2);
 
     let js: JsValue = serde_wasm_bindgen::to_value(&vec![swaps_1, swaps0, swaps1, swaps2])
+        .map_err(|e| e.to_string())?;
+    Ok(js)
+}
+
+/// Get the barcode for a single grid point from the precomputed state.
+#[wasm_bindgen]
+pub fn get_filtration_values_for_point(grid_point: Vec<isize>) -> Result<JsValue, String> {
+    let index = Index([grid_point[0], grid_point[1], grid_point[2]]);
+    let guard = STATE.lock().map_err(|_| "STATE.lock failed")?;
+    let state = guard.as_ref().ok_or("No global state")?;
+
+    let reduction = state
+        .grid_index_to_reduction
+        .get(&index)
+        .ok_or("Index not in map")?;
+
+    let filtration_0 = (0..state.complex.simplices_per_dim[0].len())
+        .map(|id| reduction.simplex_entering_value(&state.complex, 0, id))
+        .collect::<Vec<_>>();
+    let filtration_1 = (0..state.complex.simplices_per_dim[1].len())
+        .map(|id| reduction.simplex_entering_value(&state.complex, 1, id))
+        .collect::<Vec<_>>();
+    let filtration_2 = (0..state.complex.simplices_per_dim[2].len())
+        .map(|id| reduction.simplex_entering_value(&state.complex, 2, id))
+        .collect::<Vec<_>>();
+
+    let js: JsValue = serde_wasm_bindgen::to_value(&vec![filtration_0, filtration_1, filtration_2])
         .map_err(|e| e.to_string())?;
     Ok(js)
 }

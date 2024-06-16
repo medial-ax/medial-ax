@@ -185,7 +185,7 @@ const GridControls = () => {
           onChange={(e) => {
             const n = Number(e.target.value);
             setNumDots(n);
-            setGrid(defaultGrid(cplx.complex, n));
+            setGrid(defaultGrid(cplx!.complex, n));
           }}
         />
         <span>{numDots}</span>
@@ -765,7 +765,7 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
 
   const compute_the_things = useCallback(async () => {
     setWorkerRunning(true);
-    await run("create-empty-state", { grid, complex: cplx.complex }, (o) =>
+    await run("create-empty-state", { grid, complex: cplx!.complex }, (o) =>
       setWorkerProgress(o),
     );
 
@@ -778,7 +778,7 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
           "run-and-dump",
           {
             grid,
-            complex: cplx.complex,
+            complex: cplx!.complex,
             allPruningParams,
           },
           (o) => {
@@ -902,6 +902,7 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
                 setComplex({ complex: value, filename: obj.name });
                 setSwaps({ 0: [], 1: [], 2: [] });
                 setGrid(undefined);
+                run("reset-state", {});
               }}
             >
               {obj.name}

@@ -3,8 +3,10 @@ import init, {
   my_init_function,
   run_without_prune,
   get_barcode_for_point,
+  get_filtration_values_for_point,
   prune_dimension,
   get_state,
+  reset_state,
   load_state,
 } from "ma-rs";
 
@@ -32,9 +34,14 @@ async function _run(id: string, fn: string, args: any) {
   } else if (fn === "get-barcode-for-point") {
     const { grid_point } = args;
     return get_barcode_for_point(grid_point);
+  } else if (fn === "get-filtration-values-for-point") {
+    const { grid_point } = args;
+    return get_filtration_values_for_point(grid_point);
   } else if (fn === "prune-dimension") {
     const { dim, params } = args;
     return prune_dimension(dim, params, onMessage);
+  } else if (fn === "reset-state") {
+    return reset_state();
   } else if (fn === "load-state") {
     const { bytes, index } = args;
     return load_state(bytes, index, (s: any) => console.log(s));

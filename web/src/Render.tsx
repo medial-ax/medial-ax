@@ -1,4 +1,3 @@
-import { MeshProps } from "@react-three/fiber";
 import {
   useCallback,
   useEffect,
@@ -8,21 +7,24 @@ import {
   useState,
 } from "react";
 import * as THREE from "three";
-import { dedup } from "./utils";
+import { dedup, repeat } from "./utils";
 import { Wireframe } from "@react-three/drei";
 import { useAtom, useAtomValue } from "jotai";
 import {
   Dim,
   gridAtom,
   gridRadiusAtom,
+  hasAnySwaps,
   highlightAtom,
   selectedGridIndex,
   swapsAtom,
   swapsForMA,
+  timelinePositionAtom,
 } from "./state";
 import { dualFaceQuad, gridCoordinate } from "./medialaxes";
-import { Grid } from "./types";
+import { Complex, Grid } from "./types";
 import { colors } from "./constants";
+import { run } from "./work";
 
 export const RedSphere = ({
   pos,
@@ -109,10 +111,10 @@ export const RenderComplex = ({
   cplx,
   wireframe,
 }: {
-  cplx: any;
+  cplx: Complex;
   wireframe?: boolean;
 }) => {
-  const ref = useRef<THREE.BufferAttribute>(null);
+  const timeline = useAtomValue(timelinePositionAtom);
 
   const getCoords = useCallback(() => {
     const [vertices, edges, triangles] = cplx["simplices_per_dim"];
@@ -120,7 +122,7 @@ export const RenderComplex = ({
       const vis: number[] = dedup(
         t["boundary"].map((ei: number) => edges[ei].boundary).flat(),
       );
-      const coords = vis.flatMap((i: number) => vertices[i].coords);
+      const coords = vis.flatMap((i: number) => vertices[i].coords!);
       return coords;
     });
     return new Float32Array(out);
@@ -128,18 +130,70 @@ export const RenderComplex = ({
 
   const coords = useMemo(() => getCoords(), [getCoords]);
 
+  const hasSwaps = useAtomValue(hasAnySwaps);
+  const index = useAtomValue(selectedGridIndex);
+  const [filtration, setFiltration] = useState<number[][] | undefined>(
+    undefined,
+  );
+
+  useEffect(() => {
+    if (!index || !hasSwaps) return;
+    let stop = false;
+    run("get-filtration-values-for-point", {
+      grid_point: index,
+    })
+      .then((data) => {
+        if (stop) return;
+        setFiltration(data);
+      })
+      .catch((e) => {
+        window.alert(`bad: ${e.message}`);
+      });
+
+    return () => {
+      stop = true;
+    };
+  }, [hasSwaps, index]);
+
+  const colors = useMemo(() => {
+    const triangles = cplx.simplices_per_dim[2];
+    const gray = [0.953, 0.953, 0.953];
+    const red = [1.0, 0.0, 0.0];
+    if (!filtration) {
+      const n = triangles.length * 3;
+      return new Float32Array(repeat(gray, n));
+    }
+    const floats = triangles.flatMap((_, i: number) => {
+      const value = filtration[2][i];
+      if (value <= timeline) {
+        return repeat(red, 3);
+      } else {
+        return repeat(gray, 3);
+      }
+    });
+    return new Float32Array(floats);
+  }, [cplx.simplices_per_dim, filtration, timeline]);
+
+  const ref = useRef<THREE.BufferAttribute>(null);
   useLayoutEffect(() => {
     if (!ref.current) return;
     ref.current.array = new Float32Array(getCoords());
     ref.current.needsUpdate = true;
   }, [getCoords]);
 
+  const colorRef = useRef<THREE.BufferAttribute>(null);
+  useLayoutEffect(() => {
+    if (!colorRef.current) return;
+    colorRef.current.array = new Float32Array(colors);
+    colorRef.current.needsUpdate = true;
+  }, [colors]);
+
   const highlights = useAtomValue(highlightAtom);
 
   const vertices = highlights
     .filter((h) => h.dim === 0)
     .map((h, i) => {
-      const pos = cplx.simplices_per_dim[0][h.index].coords;
+      const pos = cplx.simplices_per_dim[0][h.index].coords!;
       return (
         <RedSphere key={i} pos={new THREE.Vector3(...pos)} radius={0.04} />
       );
@@ -154,8 +208,8 @@ export const RenderComplex = ({
       return (
         <RedEdge
           key={i}
-          from={new THREE.Vector3(...p.coords)}
-          to={new THREE.Vector3(...q.coords)}
+          from={new THREE.Vector3(...p.coords!)}
+          to={new THREE.Vector3(...q.coords!)}
           radius={0.02}
         />
       );
@@ -172,9 +226,17 @@ export const RenderComplex = ({
             array={coords}
             itemSize={3}
           />
+          <bufferAttribute
+            ref={colorRef}
+            attach="attributes-color"
+            count={colors.length / 3}
+            array={colors}
+            itemSize={3}
+          />
         </bufferGeometry>
         <meshLambertMaterial
-          color="#f3f3f3"
+          vertexColors
+          // color="#f3f3f3"
           flatShading
           side={THREE.DoubleSide}
         />

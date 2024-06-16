@@ -46,3 +46,11 @@ export const downloadText = (text: string, filename: string) => {
   element.click();
   document.body.removeChild(element);
 };
+
+export const repeat = <T>(array: T[], n: number): T[] => {
+  const ret = [];
+  for (let i = 0; i < n; i++) {
+    ret.push(...array);
+  }
+  return ret;
+};
