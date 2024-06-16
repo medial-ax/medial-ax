@@ -54,3 +54,10 @@ export const repeat = <T>(array: T[], n: number): T[] => {
   }
   return ret;
 };
+
+export const range = (from: number, to: number): number[] => {
+  if (to < from) return [];
+  const ret = new Array(to - from).fill(0);
+  for (let i = from; i < to; i++) ret[i] = i;
+  return ret;
+};

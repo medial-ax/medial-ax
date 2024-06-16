@@ -7,7 +7,7 @@ import {
   useState,
 } from "react";
 import * as THREE from "three";
-import { dedup, repeat } from "./utils";
+import { dedup, range, repeat } from "./utils";
 import { Wireframe } from "@react-three/drei";
 import { useAtom, useAtomValue } from "jotai";
 import {
@@ -158,7 +158,7 @@ export const RenderComplex = ({
   const colors = useMemo(() => {
     const triangles = cplx.simplices_per_dim[2];
     const gray = [0.953, 0.953, 0.953];
-    const red = [1.0, 0.0, 0.0];
+    const red = [1.0, 0.5, 0.5];
     if (!filtration) {
       const n = triangles.length * 3;
       return new Float32Array(repeat(gray, n));
@@ -189,6 +189,39 @@ export const RenderComplex = ({
   }, [colors]);
 
   const highlights = useAtomValue(highlightAtom);
+
+  const filteredVertices = useMemo(() => {
+    if (!filtration) return [];
+    const n = cplx.simplices_per_dim[0].length;
+    return range(0, n)
+      .filter((i) => filtration[0][i] < timeline)
+      .map((id) => {
+        const pos = cplx.simplices_per_dim[0][id].coords!;
+        return (
+          <RedSphere key={id} pos={new THREE.Vector3(...pos)} radius={0.015} />
+        );
+      });
+  }, [cplx.simplices_per_dim, filtration, timeline]);
+
+  const filteredEdges = useMemo(() => {
+    if (!filtration) return [];
+    const n = cplx.simplices_per_dim[1].length;
+    return range(0, n)
+      .filter((i) => filtration[1][i] < timeline)
+      .map((id) => {
+        const edge = cplx.simplices_per_dim[1][id];
+        const p = cplx.simplices_per_dim[0][edge.boundary[0]];
+        const q = cplx.simplices_per_dim[0][edge.boundary[1]];
+        return (
+          <RedEdge
+            key={id}
+            from={new THREE.Vector3(...p.coords!)}
+            to={new THREE.Vector3(...q.coords!)}
+            radius={0.005}
+          />
+        );
+      });
+  }, [cplx.simplices_per_dim, filtration, timeline]);
 
   const vertices = highlights
     .filter((h) => h.dim === 0)
@@ -244,6 +277,8 @@ export const RenderComplex = ({
       </mesh>
       {vertices}
       {edges}
+      {filteredVertices}
+      {filteredEdges}
     </>
   );
 };
