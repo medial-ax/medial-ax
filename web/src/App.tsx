@@ -2,7 +2,7 @@ import styled from "styled-components";
 import "./App.css";
 import { Canvas } from "@react-three/fiber";
 import { Environment, OrbitControls } from "@react-three/drei";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import * as THREE from "three";
 import { useAtomValue, useSetAtom } from "jotai";
 import { BarcodeTabs } from "./Barcode";

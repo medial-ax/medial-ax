@@ -25,6 +25,7 @@ import { colors } from "./constants";
 import { Tabs } from "./Tab";
 import "./Barcode.css";
 import { run } from "./work";
+import { HoverTooltip } from "./HoverTooltip";
 
 const _width = 4;
 const barSpacing = 20;
@@ -532,8 +533,14 @@ const BarcodeInner = ({
         <BarcodeDim width={width} xmax={xmax} pairs={barcodes[-1]} dim={-1} />
       </BarcodePlot>
       <BarcodeXAxis width={width} xmax={xmax} />
-
       <TimelineBar xmax={xmax} />
+      <div style={{ display: "flex", justifyContent: "center", gap: "0.3rem" }}>
+        <span>Distance squared</span>
+        <HoverTooltip>
+          The distance square function is everywhere differentiable so we use it
+          as the filtration function.
+        </HoverTooltip>
+      </div>
     </div>
   );
 };
