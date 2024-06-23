@@ -237,6 +237,7 @@ const BarcodeDimDiv = styled.div`
 `;
 
 const BarcodeLabels = styled.div`
+  background: white;
   position: absolute;
   transform: translateY(-40%);
   font-size: 10px;
@@ -273,7 +274,12 @@ const BarcodeDim = ({
       <h4>
         H<sub>{dim}</sub>
       </h4>
-      <div style={{ position: "relative", height: "4rem" }}>
+      <div
+        style={{
+          position: "relative",
+          height: `${(0.5 + nontrivials.length) * barSpacing}px`,
+        }}
+      >
         {trivials.map((x, i) => (
           <Bar
             key={i}
