@@ -70,6 +70,7 @@ const Inner = ({ barcodes }: { index: Index; barcodes: BarcodeType }) => {
         scale={px2t(1)}
         ref={ref}
         viewBox={`${-padding} ${-padding} ${xmax2 + 2 * padding} ${xmax2 + 2 * padding}`}
+        onClick={() => setSelected([])}
       >
         <g transform={`translate(0, ${xmax2}) scale(1, -1)`}>
           <line
@@ -147,6 +148,7 @@ const Inner = ({ barcodes }: { index: Index; barcodes: BarcodeType }) => {
               r={px2t(7)}
               data-selected={selected.includes(b)}
               onClick={(e) => {
+                e.stopPropagation();
                 if (e.shiftKey) {
                   if (selected.includes(b)) {
                     setSelected(selected.filter((bb) => bb != b));
@@ -190,6 +192,7 @@ const Inner = ({ barcodes }: { index: Index; barcodes: BarcodeType }) => {
                   r={px2t(7)}
                   data-selected={selected.includes(b)}
                   onClick={(e) => {
+                    e.stopPropagation();
                     if (e.shiftKey) {
                       if (selected.includes(b)) {
                         setSelected(selected.filter((bb) => bb != b));
