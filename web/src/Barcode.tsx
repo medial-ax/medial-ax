@@ -769,11 +769,11 @@ const Table = () => {
                   key={i}
                   onClick={() => {
                     if (s.birth) {
-                      const f = s.birth[1];
+                      const f = s.birth[0];
                       if (1e-3 < Math.abs(timeline - f)) setTimeline(f);
                     }
                     if (s.death) {
-                      const f = s.death[1];
+                      const f = s.death[0];
                       if (1e-3 < Math.abs(timeline - f)) setTimeline(f);
                     }
                   }}
