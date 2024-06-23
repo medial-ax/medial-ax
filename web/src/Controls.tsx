@@ -760,7 +760,8 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
       }
     }
 
-    downloadText(obj, "medial-axes.obj");
+    let filename = cplx?.filename ?? "complex";
+    downloadText(obj, `export-${filename}`);
   }, [exportVisible, grid, shownMA, swaps]);
 
   const compute_the_things = useCallback(async () => {
@@ -899,7 +900,10 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
                 )
                   return;
                 const value = make_complex_from_obj(obj.string);
-                setComplex({ complex: value, filename: obj.name });
+                setComplex({
+                  complex: value,
+                  filename: obj.name.replace(" ", "-") + ".obj",
+                });
                 setSwaps({ 0: [], 1: [], 2: [] });
                 setGrid(undefined);
                 run("reset-state", {});
