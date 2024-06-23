@@ -85,10 +85,12 @@ const BarDiv = styled.div<{ color: string }>`
   }
 `;
 
+const LEFT_GRACE_ZONE_PX = 10; // pixels on the left side to show -1 homology bar
+
 const time2px = (time: number, xmax: number, width: number): number =>
-  (time / xmax) * width;
+  (time / xmax) * width + LEFT_GRACE_ZONE_PX;
 const px2time = (px: number, xmax: number, width: number): number =>
-  (px / width) * xmax;
+  ((px - LEFT_GRACE_ZONE_PX) / width) * xmax;
 
 const Bar = ({
   width,
@@ -105,7 +107,7 @@ const Bar = ({
   color: string;
   dim: number;
 }) => {
-  const left = time2px(pair.birth == null ? 0 : pair.birth[0], xmax, width);
+  const left = pair.birth == null ? 0 : time2px(pair.birth[0], xmax, width);
   const right =
     width - time2px(pair.death == null ? xmax : pair.death[0], xmax, width);
 
@@ -244,6 +246,7 @@ const BarcodeLabels = styled.div`
   margin: 0 2px;
   font-family: monospace;
   pointer-events: none;
+  user-select: none;
 `;
 
 const BarcodeDim = ({
@@ -297,7 +300,7 @@ const BarcodeDim = ({
             key={i}
             xmax={xmax}
             pair={x}
-            top={i + 1}
+            top={i + (0 < trivials.length ? 1 : 0)}
             color={dim2color[dim]}
             dim={dim}
           />
@@ -770,11 +773,11 @@ const Table = () => {
                   onClick={() => {
                     if (s.birth) {
                       const f = s.birth[0];
-                      if (1e-3 < Math.abs(timeline - f)) setTimeline(f);
+                      if (2e-3 < Math.abs(timeline - f)) setTimeline(f + 0.001);
                     }
                     if (s.death) {
                       const f = s.death[0];
-                      if (1e-3 < Math.abs(timeline - f)) setTimeline(f);
+                      if (2e-3 < Math.abs(timeline - f)) setTimeline(f + 0.001);
                     }
                   }}
                 >
