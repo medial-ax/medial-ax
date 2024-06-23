@@ -26,6 +26,7 @@ import { Tabs } from "./Tab";
 import "./Barcode.css";
 import { run } from "./work";
 import { HoverTooltip } from "./HoverTooltip";
+import { Diagram } from "./Diagram";
 
 const _width = 4;
 const barSpacing = 20;
@@ -217,10 +218,10 @@ const BarcodePlot = styled.div`
 `;
 
 const dim2color: Record<number, string> = {
-  "-1": "gray",
-  0: "orange",
-  1: "pink",
-  2: "blue",
+  "-1": colors.dim_1,
+  0: colors.dim0,
+  1: colors.dim1,
+  2: colors.dim2,
 };
 
 const BarcodeDimDiv = styled.div`
@@ -838,9 +839,7 @@ export const BarcodeTabs = ({ live }: { live: boolean }) => {
   return (
     <Tabs titles={["Barcodes", "Diagram", "Vineyards", "Table"]}>
       <Barcode index={index} barcodes={barcodes} />
-      <div>
-        <p>hello</p>
-      </div>
+      <Diagram index={index} barcodes={barcodes} />
       <div>
         <p>Sånn er det {`\u{1F377}`}</p>
       </div>

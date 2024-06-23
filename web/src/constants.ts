@@ -4,4 +4,9 @@ export const colors = {
   sliderBackground: "#e5e5e5",
 
   barcodeBackground: "#e5e5e5",
+
+  dim0: "orange",
+  dim1: "pink",
+  dim_1: "gray",
+  dim2: "#8cadf1",
 };
