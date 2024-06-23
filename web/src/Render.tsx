@@ -43,6 +43,33 @@ export const RedSphere = ({
   );
 };
 
+const WireframeEdge = ({
+  from,
+  to,
+}: {
+  from: THREE.Vector3;
+  to: THREE.Vector3;
+}) => {
+  const len = from.distanceTo(to);
+  const ref = useRef<THREE.Mesh>(null);
+  useLayoutEffect(() => {
+    if (!ref.current) return;
+
+    const middle = to.clone().add(from).multiplyScalar(0.5);
+    ref.current.position.set(middle.x, middle.y, middle.z);
+
+    ref.current.lookAt(to);
+    ref.current.rotateOnAxis(new THREE.Vector3(1, 0, 0), Math.PI / 2);
+  }, [from, to]);
+
+  return (
+    <mesh position={from} ref={ref}>
+      <cylinderGeometry args={[0.004, 0.004, len]} />
+      <meshLambertMaterial attach="material" color="#000000" />
+    </mesh>
+  );
+};
+
 export const RedEdge = ({
   from,
   to,
@@ -269,11 +296,23 @@ export const RenderComplex = ({
         </bufferGeometry>
         <meshLambertMaterial
           vertexColors
-          // color="#f3f3f3"
+          color="#f3f3f3"
           flatShading
           side={THREE.DoubleSide}
         />
-        {wireframe && <Wireframe />}
+        {wireframe &&
+          range(0, cplx.simplices_per_dim[1].length).map((id) => {
+            const edge = cplx.simplices_per_dim[1][id];
+            const p = cplx.simplices_per_dim[0][edge.boundary[0]];
+            const q = cplx.simplices_per_dim[0][edge.boundary[1]];
+            return (
+              <WireframeEdge
+                key={id}
+                from={new THREE.Vector3(...p.coords!)}
+                to={new THREE.Vector3(...q.coords!)}
+              />
+            );
+          })}
       </mesh>
       {vertices}
       {edges}
