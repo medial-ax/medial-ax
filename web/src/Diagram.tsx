@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { BarcodeType, gridForSwapsAtom, gridOutOfSync } from "./state";
 import { BirthDeathPair, Index } from "./types";
 import { max, range } from "./utils";
@@ -166,6 +166,7 @@ const Inner = ({ barcodes }: { index: Index; barcodes: BarcodeType }) => {
           {selected.map((b, i) => {
             const x = b.birth?.[0] ?? 0;
             const y = b.death?.[0] ?? xmax2;
+            const yy = b.death ? b.death[0].toFixed(2) : "∞";
             return (
               <React.Fragment key={i}>
                 <line
@@ -206,12 +207,52 @@ const Inner = ({ barcodes }: { index: Index; barcodes: BarcodeType }) => {
                     }
                   }}
                 />
+                <g>
+                  <rect
+                    fill="white"
+                    stroke="black"
+                    strokeWidth={px2t(1)}
+                    x={x - 1.4 * px2t(14)}
+                    y={-px2t(9)}
+                    width={3 * px2t(14)}
+                    height={1.3 * px2t(14)}
+                  />
+                  <text
+                    transform={`scale(1, -1)`}
+                    fontSize={px2t(14)}
+                    textAnchor="middle"
+                    x={x}
+                    y={px2t(5)}
+                  >
+                    {x.toFixed(2)}
+                  </text>
+                </g>
+
+                <g>
+                  <rect
+                    fill="white"
+                    stroke="black"
+                    strokeWidth={px2t(1)}
+                    x={-1.4 * px2t(14)}
+                    y={y - px2t(9)}
+                    width={3 * px2t(14)}
+                    height={1.3 * px2t(14)}
+                  />
+                  <text
+                    transform={`scale(1, -1)`}
+                    fontSize={px2t(14)}
+                    textAnchor="middle"
+                    x={0}
+                    y={-y + 0.35 * px2t(14)}
+                  >
+                    {yy}
+                  </text>
+                </g>
               </React.Fragment>
             );
           })}
         </g>
       </Svg>
-      <span>hello</span>
     </div>
   );
 };
