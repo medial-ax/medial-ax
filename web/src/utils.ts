@@ -57,7 +57,7 @@ export const repeat = <T>(array: T[], n: number): T[] => {
 
 export const range = (from: number, to: number): number[] => {
   if (to < from) return [];
-  const ret = new Array(to - from).fill(0);
-  for (let i = from; i < to; i++) ret[i] = i;
+  const ret = new Array(to - from - 1).fill(0);
+  for (let k = 0, i = from; i < to; k++, i++) ret[k] = i;
   return ret;
 };

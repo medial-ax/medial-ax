@@ -5,7 +5,15 @@ import { max, range } from "./utils";
 import React from "react";
 import styled from "styled-components";
 import { colors } from "./constants";
-import { useAtomValue } from "jotai";
+import { atom, useAtom, useAtomValue } from "jotai";
+
+const CheckboxRow = styled.div`
+  display: flex;
+  gap: 1rem;
+  label {
+    gap: 0.25rem;
+  }
+`;
 
 const Svg = styled.svg<{ scale: number }>`
   .point {
@@ -33,14 +41,24 @@ const Svg = styled.svg<{ scale: number }>`
   }
 `;
 
+const filterTrivialAtom = atom(false);
+const showDimAtom = atom<Record<string, boolean>>({
+  "-1": true,
+  "0": true,
+  "1": true,
+  "2": true,
+});
+
 const Inner = ({ barcodes }: { index: Index; barcodes: BarcodeType }) => {
   const [selected, setSelected] = useState<BirthDeathPair[]>([]);
+
+  const [filterTrivial, setFilterTrivial] = useAtom(filterTrivialAtom);
+  const [showDim, setShowDim] = useAtom(showDimAtom);
 
   const allPairs = (barcodes[-1] ?? [])
     .concat(barcodes[0] ?? [])
     .concat(barcodes[1] ?? [])
     .concat(barcodes[2] ?? []);
-
   const xmax = max(
     allPairs.flatMap((x) => {
       if (x.death == null) return [];
@@ -63,9 +81,47 @@ const Inner = ({ barcodes }: { index: Index; barcodes: BarcodeType }) => {
   const actualNumberOfTicks = Math.floor(xmax / tickRounded) + 1;
   const tickheight = px2t(4);
 
+  const showPairs = allPairs.filter((b) => {
+    if (!showDim[b.dim as any]) return false;
+    if (
+      filterTrivial &&
+      b.birth &&
+      b.death &&
+      Math.abs(b.birth[0] - b.death[0]) < 1e-5
+    ) {
+      return false;
+    }
+    return true;
+  });
+
   return (
     <div style={{ padding: "1rem" }}>
       <h3>Persistence diagram</h3>
+      <label>
+        <input
+          type="checkbox"
+          checked={filterTrivial}
+          onChange={(e) => setFilterTrivial(e.target.checked)}
+        />
+        <span>Hide points on the diagonal</span>
+      </label>
+      <CheckboxRow>
+        <span>Show dimensions:</span>
+
+        {range(-1, 3).map((dim) => (
+          <label>
+            <input
+              type="checkbox"
+              checked={showDim[dim]}
+              onChange={(e) =>
+                setShowDim((c) => ({ ...c, [dim]: e.target.checked }))
+              }
+            />
+            <span>{dim}</span>
+          </label>
+        ))}
+      </CheckboxRow>
+
       <Svg
         scale={px2t(1)}
         ref={(r) => {
@@ -141,7 +197,7 @@ const Inner = ({ barcodes }: { index: Index; barcodes: BarcodeType }) => {
             );
           })}
 
-          {allPairs.map((b, i) => (
+          {showPairs.map((b, i) => (
             <circle
               key={i}
               className={`point dim-${b.dim}`}
