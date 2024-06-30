@@ -34,7 +34,6 @@ const Svg = styled.svg<{ scale: number }>`
 `;
 
 const Inner = ({ barcodes }: { index: Index; barcodes: BarcodeType }) => {
-  const ref = useRef<SVGSVGElement>(null);
   const [selected, setSelected] = useState<BirthDeathPair[]>([]);
 
   const allPairs = (barcodes[-1] ?? [])
@@ -50,7 +49,7 @@ const Inner = ({ barcodes }: { index: Index; barcodes: BarcodeType }) => {
   );
   const xmax2 = xmax * 1.1;
 
-  const { width } = ref.current?.getBoundingClientRect() ?? { width: 500 };
+  const [width, setWidth] = useState(1);
 
   // const t2px = (t: number): number => (t / xmax) * width;
   const px2t = (px: number): number => (px / width) * xmax2;
@@ -69,7 +68,9 @@ const Inner = ({ barcodes }: { index: Index; barcodes: BarcodeType }) => {
       <h3>Persistence diagram</h3>
       <Svg
         scale={px2t(1)}
-        ref={ref}
+        ref={(r) => {
+          if (r) setWidth(r.getBoundingClientRect()?.width ?? 0);
+        }}
         viewBox={`${-padding} ${-padding} ${xmax2 + 2 * padding} ${xmax2 + 2 * padding}`}
         onClick={() => setSelected([])}
       >
