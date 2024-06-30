@@ -796,7 +796,11 @@ const Table = () => {
   );
 };
 
+const barcodeTabNames = ["Barcodes", "Diagram", "Vineyards", "Table"];
+
 export const BarcodeTabs = ({ live }: { live: boolean }) => {
+  const [tab, setTab] = useState(0);
+
   const index = useAtomValue(selectedGridIndex);
   const [barcodes, setBarcodes] = useAtom(barcodeAtom);
   const [loading, setLoading] = useState(false);
@@ -837,7 +841,7 @@ export const BarcodeTabs = ({ live }: { live: boolean }) => {
   if (loading) return null;
 
   return (
-    <Tabs titles={["Barcodes", "Diagram", "Vineyards", "Table"]}>
+    <Tabs tab={tab} setTab={setTab} titles={barcodeTabNames}>
       <Barcode index={index} barcodes={barcodes} />
       <Diagram index={index} barcodes={barcodes} />
       <div>

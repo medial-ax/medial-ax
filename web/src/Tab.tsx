@@ -1,5 +1,4 @@
 import React from "react";
-import { useState } from "react";
 import styled, { CSSProperties } from "styled-components";
 
 const Frame = styled.div`
@@ -41,11 +40,17 @@ const Headers = styled.div`
 `;
 
 export const Tabs = ({
+  tab,
+  setTab,
   titles,
   style,
   children,
-}: React.PropsWithChildren<{ titles: string[]; style?: CSSProperties }>) => {
-  const [tab, setTab] = useState(0);
+}: React.PropsWithChildren<{
+  tab: number;
+  setTab: (n: number) => void;
+  titles: string[];
+  style?: CSSProperties;
+}>) => {
   const array = React.Children.toArray(children);
   const child = array[tab];
   return (

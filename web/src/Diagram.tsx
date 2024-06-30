@@ -1,10 +1,11 @@
 import { useRef, useState } from "react";
-import { BarcodeType } from "./state";
+import { BarcodeType, gridForSwapsAtom, gridOutOfSync } from "./state";
 import { BirthDeathPair, Index } from "./types";
 import { max, range } from "./utils";
 import React from "react";
 import styled from "styled-components";
 import { colors } from "./constants";
+import { useAtomValue } from "jotai";
 
 const Svg = styled.svg<{ scale: number }>`
   .point {
@@ -122,7 +123,7 @@ const Inner = ({ barcodes }: { index: Index; barcodes: BarcodeType }) => {
                   x2={x}
                   y2={-tickheight}
                   stroke="#444444"
-                  stroke-width={px2t(2)}
+                  strokeWidth={px2t(2)}
                 />
                 <g transform={`translate(${x}, ${-9 * tickheight})`}>
                   <text
@@ -165,7 +166,7 @@ const Inner = ({ barcodes }: { index: Index; barcodes: BarcodeType }) => {
             const x = b.birth?.[0] ?? 0;
             const y = b.death?.[0] ?? xmax2;
             return (
-              <React.Fragment>
+              <React.Fragment key={i}>
                 <line
                   x1={x}
                   x2={x}
@@ -214,6 +215,17 @@ const Inner = ({ barcodes }: { index: Index; barcodes: BarcodeType }) => {
   );
 };
 
+const Center = styled.div`
+  flex: 1;
+  margin: 1rem;
+  text-align: center;
+  align-self: center;
+  margin-bottom: 50%;
+  p {
+    color: #888;
+  }
+`;
+
 export const Diagram = ({
   index,
   barcodes,
@@ -221,7 +233,41 @@ export const Diagram = ({
   index: Index | undefined;
   barcodes: BarcodeType | undefined;
 }) => {
-  if (!index) return "no index";
-  if (!barcodes) return "no barcodes";
+  const haveComputed = useAtomValue(gridForSwapsAtom) !== undefined;
+  const gridIsOutOfSync = useAtomValue(gridOutOfSync);
+
+  if (!haveComputed)
+    return (
+      <Center>
+        <p>
+          Compute the medial axes from the Controls panel to see the persistence
+          diagram.
+        </p>
+      </Center>
+    );
+
+  if (gridIsOutOfSync)
+    return (
+      <Center>
+        <p>
+          Grid was changed after computing the medial axes.{" "}
+          <strong>Recompute</strong> to see the persistence diagram.
+        </p>
+      </Center>
+    );
+
+  if (!index)
+    return (
+      <Center>
+        <p>Click on a grid point to see the persistence diagram</p>
+      </Center>
+    );
+
+  if (!barcodes)
+    return (
+      <Center>
+        <p>No persistence diagram</p>
+      </Center>
+    );
   return <Inner index={index} barcodes={barcodes} />;
 };
