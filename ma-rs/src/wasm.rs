@@ -31,21 +31,11 @@ pub fn my_init_function() {
 struct State {
     grid: Grid,
     complex: Complex,
-    /// This is not used, and has a dummy value, depending on how it's initialized.
-    #[deprecated = "Not used for anything here."]
-    p0: Index,
     grid_index_to_reduction: HashMap<Index, Reduction>,
 
     swaps0: Vec<(Index, Index, Swaps)>,
     swaps1: Vec<(Index, Index, Swaps)>,
     swaps2: Vec<(Index, Index, Swaps)>,
-
-    #[deprecated = "Use prune_dimension instead"]
-    swaps0_pruned: Vec<(Index, Index, Swaps)>,
-    #[deprecated = "Use prune_dimension instead"]
-    swaps1_pruned: Vec<(Index, Index, Swaps)>,
-    #[deprecated = "Use prune_dimension instead"]
-    swaps2_pruned: Vec<(Index, Index, Swaps)>,
 }
 
 #[wasm_bindgen]
@@ -74,14 +64,10 @@ pub fn create_empty_state(grid: JsValue, complex: JsValue) -> Result<(), JsValue
     *guard = Some(State {
         grid,
         complex,
-        p0: Index([0; 3]),
         grid_index_to_reduction: HashMap::new(),
         swaps0: Vec::new(),
         swaps1: Vec::new(),
         swaps2: Vec::new(),
-        swaps0_pruned: Vec::new(),
-        swaps1_pruned: Vec::new(),
-        swaps2_pruned: Vec::new(),
     });
     Ok(())
 }
@@ -91,9 +77,8 @@ pub fn create_empty_state(grid: JsValue, complex: JsValue) -> Result<(), JsValue
 pub fn load_state(
     bytes: JsValue,
     grid_offset: JsValue,
-    on_message: js_sys::Function,
+    _: js_sys::Function,
 ) -> Result<JsValue, JsValue> {
-    let send_message = |label: &str| on_message.call1(&JsValue::NULL, &JsValue::from_str(label));
     let offset: Index = serde_wasm_bindgen::from_value(grid_offset)?;
     let mut state: State = {
         let bytes: serde_bytes::ByteBuf = serde_wasm_bindgen::from_value(bytes)?;
@@ -104,6 +89,7 @@ pub fn load_state(
         rmp_serde::from_slice(&bytes).map_err(|e| e.to_string())?
     };
 
+    info!("Collect all swaps");
     let grid_index_to_reduction = state
         .grid_index_to_reduction
         .drain()
@@ -125,6 +111,7 @@ pub fn load_state(
         .map(|s| (s.0 + offset, s.1 + offset, s.2))
         .collect();
 
+    info!("Extend worker state");
     let mut guard = STATE.lock().map_err(|_| "STATE.lock failed")?;
     let state = guard.as_mut().ok_or("No global state")?;
     state
@@ -134,7 +121,10 @@ pub fn load_state(
     state.swaps1.extend(swaps1);
     state.swaps2.extend(swaps2);
 
-    Ok(serde_wasm_bindgen::to_value("okay")?)
+    info!("convert output value");
+    let out = serde_wasm_bindgen::to_value("okay")?;
+
+    Ok(out)
 }
 
 /// Get the barcode for a single grid point from the precomputed state.
@@ -339,17 +329,23 @@ pub fn run_without_prune(
 
     let grid: Grid = serde_wasm_bindgen::from_value(grid)?;
     let complex: Complex = serde_wasm_bindgen::from_value(complex)?;
+    let options: RunOptions = serde_wasm_bindgen::from_value(options)?;
 
     let p = grid.center(Index([0; 3]));
 
     send_message("Reduce from scratch", 0, 1).unwrap();
     let s0 = reduce_from_scratch(&complex, p, false);
     send_message("Run vineyards", 0, 1).unwrap();
-    let results = grid.run_vineyards_in_grid(&complex, s0, |i, n| {
-        if i & 15 == 0 {
-            send_message("Vineyards", i, n).unwrap();
-        }
-    });
+    let results = grid.run_vineyards_in_grid(
+        &complex,
+        s0,
+        options.require_hom_birth_to_be_first,
+        |i, n| {
+            if i & 15 == 0 {
+                send_message("Vineyards", i, n).unwrap();
+            }
+        },
+    );
 
     send_message("Move state to global", 0, 1).unwrap();
     let mut state = STATE.lock().unwrap();
@@ -366,14 +362,10 @@ pub fn run_without_prune(
     *state = Some(State {
         grid,
         complex,
-        p0: Index([0; 3]),
         grid_index_to_reduction: results.0,
         swaps0: filter_dim(&results.1, 0),
         swaps1: filter_dim(&results.1, 1),
         swaps2: filter_dim(&results.1, 2),
-        swaps0_pruned: Vec::new(),
-        swaps1_pruned: Vec::new(),
-        swaps2_pruned: Vec::new(),
     });
 
     Ok(())
