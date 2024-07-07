@@ -577,10 +577,11 @@ fn compute_permutations(
 /// Returns a [Vec] with one element per faustian swap. The elements are `(dim,
 /// (i, j))` where `dim` is the dimension of the simplices that were swapped,
 /// and `i` and `j` are the canonical indices of the swapped simplices.
-pub fn vineyards_123(
+pub fn vineyards_step(
     complex: &Complex,
     reduction: &Reduction,
     key_point: Pos,
+    require_hom_birth_to_be_first: bool,
 ) -> (Reduction, Swaps) {
     let (mut v_perm, mut e_perm, mut t_perm) = compute_permutations(complex, key_point);
 
@@ -770,50 +771,52 @@ pub fn vineyards_123(
         stacks: [stack0, stack1, stack2],
     };
 
-    // We now have a bunch of faustian swaps.  However, we only want the first "real" cycle for
-    // each dimension, meaning it has >0 persistence.  A swap consists of two simplices (A B) where
-    // A used to give death, and B used to give birth, that have changed in the new ordering (B A).
-    // We look at the persistence of the cycle that is given birth to.
-    //
-    // Since we're only interested in the first cycle (per dim), we precompute this to figure out
-    // which final simplices we're interested in.  For the used-to-give-birth simplex we check
-    // the initial input matrix.  For the is-now-giving-birth simplex we check the newly reduced
-    // matrix.  Then we go over the swaps and remove those that don't contain either.
+    if require_hom_birth_to_be_first {
+        // We now have a bunch of faustian swaps.  However, we only want the first "real" cycle for
+        // each dimension, meaning it has >0 persistence.  A swap consists of two simplices (A B) where
+        // A used to give death, and B used to give birth, that have changed in the new ordering (B A).
+        // We look at the persistence of the cycle that is given birth to.
+        //
+        // Since we're only interested in the first cycle (per dim), we precompute this to figure out
+        // which final simplices we're interested in.  For the used-to-give-birth simplex we check
+        // the initial input matrix.  For the is-now-giving-birth simplex we check the newly reduced
+        // matrix.  Then we go over the swaps and remove those that don't contain either.
 
-    /// Finds the simplex that creates the first homology class in a dimension.
-    ///
-    /// Returns the canonical index of the simplex.
-    fn find_interesting(reduction: &Reduction, complex: &Complex, dim: usize) -> Option<usize> {
-        #[allow(non_snake_case)]
-        let R = &reduction.stacks[dim].R;
+        /// Finds the simplex that creates the first homology class in a dimension.
+        ///
+        /// Returns the canonical index of the simplex.
+        fn find_interesting(reduction: &Reduction, complex: &Complex, dim: usize) -> Option<usize> {
+            #[allow(non_snake_case)]
+            let R = &reduction.stacks[dim].R;
 
-        for ord_i in 0..R.cols {
-            if R.col_is_not_empty(ord_i) {
-                continue;
+            for ord_i in 0..R.cols {
+                if R.col_is_not_empty(ord_i) {
+                    continue;
+                }
+                let can_i = reduction.stacks[dim].ordering.inv(ord_i);
+                let Some(p) = reduction.persistence(complex, dim, can_i) else {
+                    continue;
+                };
+                if 1e-6 < p.lifetime() {
+                    return Some(can_i);
+                }
             }
-            let can_i = reduction.stacks[dim].ordering.inv(ord_i);
-            let Some(p) = reduction.persistence(complex, dim, can_i) else {
-                continue;
-            };
-            if 1e-6 < p.lifetime() {
-                return Some(can_i);
-            }
+
+            None
         }
 
-        None
-    }
+        // TODO: range 0..3
+        for dim in 1..2 {
+            let old_interesting_edge = find_interesting(reduction, complex, dim);
+            let new_interesting_edge = find_interesting(&state, complex, dim);
 
-    // TODO: range 0..3
-    for dim in 1..2 {
-        let old_interesting_edge = find_interesting(reduction, complex, dim);
-        let new_interesting_edge = find_interesting(&state, complex, dim);
-
-        if let Some((min, max)) = old_interesting_edge
-            .zip(new_interesting_edge)
-            .map(|(o, n)| (o.min(n), o.max(n)))
-        {
-            faustian_swap_simplices
-                .retain(|p| p.dim != 1 || p.i.min(p.j) == min || p.i.max(p.j) == max);
+            if let Some((min, max)) = old_interesting_edge
+                .zip(new_interesting_edge)
+                .map(|(o, n)| (o.min(n), o.max(n)))
+            {
+                faustian_swap_simplices
+                    .retain(|p| p.dim != 1 || p.i.min(p.j) == min || p.i.max(p.j) == max);
+            }
         }
     }
 
@@ -829,23 +832,6 @@ pub fn vineyards_123(
 #[cfg_attr(feature = "python", pyfunction)]
 pub fn reduce_from_scratch(complex: &Complex, key_point: Pos, noisy: bool) -> Reduction {
     let (mut v_perm, mut e_perm, mut t_perm) = compute_permutations(complex, key_point);
-    // dbg!(&key_point);
-    // println!(
-    //     "Position of the closest vertex is {:?} (dist={})",
-    //     complex.simplices_per_dim[0][v_perm.map(0)].coords.unwrap(),
-    //     complex.simplices_per_dim[0][v_perm.map(0)]
-    //         .coords
-    //         .unwrap()
-    //         .dist(&key_point)
-    // );
-    // println!(
-    //     "INV Position of the closest vertex is {:?} dist({})",
-    //     complex.simplices_per_dim[0][v_perm.inv(0)].coords.unwrap(),
-    //     complex.simplices_per_dim[0][v_perm.inv(0)]
-    //         .coords
-    //         .unwrap()
-    //         .dist(&key_point)
-    // );
 
     let mut boundary_0 = complex.boundary_matrix(0);
     boundary_0.col_perm = v_perm.clone();
@@ -1094,56 +1080,6 @@ fn perform_one_swap(
             // U_t.add_cols(i, i + 1)  # W (P W U P)
             stack.U_t.add_cols(i, i + 1);
             // return (R, U_t, True)
-
-            // NOTE: We also need to check that the swapped simplices
-            // corresponpds to the first birth in this dim.
-
-            // let EPS = 0.01;
-            // let our_old_persistence = {
-            //     // NOTE: the stored order of these matrices is actually ALSO the canonical ordering.
-            //     let can_index = stack.D.col_perm.map(i + 1);
-            //     let old_stack_index = old_stack.ordering.map(can_index);
-            //     if let Some(old_stack_tri) = old_stack_above.R.col_with_low(old_stack_index) {
-            //         let can_tri = old_stack_above.ordering.inv(old_stack_tri);
-            //         let killed_at = complex.simplex_entering_value(dim + 1, can_tri, key_point);
-            //         let born_at = complex.simplex_entering_value(dim, can_index, key_point);
-            //         Some(killed_at - born_at)
-            //     } else {
-            //         None
-            //     }
-            // };
-
-            // let our_new_persistence = {
-            //     let can_index = stack.D.col_perm.map(i);
-            //     if let Some(up_stack_tri) = up_stack.R.col_with_low(i) {
-            //         let can_tri = up_stack.D.row_perm.map(up_stack_tri);
-            //         let killed_at = complex.simplex_entering_value(dim + 1, can_tri, key_point);
-            //         let born_at = complex.simplex_entering_value(dim, can_index, key_point);
-            //         Some(killed_at - born_at)
-            //     } else {
-            //         None
-            //     }
-            // };
-
-            // if our_old_persistence.is_some_and(|p| p < EPS)
-            //     && our_new_persistence.is_some_and(|p| p < EPS)
-            // {
-            //     // return Some(false);
-            // }
-
-            // for k in 0..i {
-            //     if stack.R.col_is_empty(k) {
-            //         // we have swapped i, i+1
-            //         let old_persistence = { 0.0 };
-
-            //         let new_perstence = { 0.0 };
-
-            //         if old_persistence < EPS && new_perstence < EPS {
-            //             return Some(false);
-            //         }
-            //     }
-            // }
-
             return Some(true);
         // else:
         } else {
@@ -1354,7 +1290,7 @@ fn test_three_points() {
         let mut state = reduce_from_scratch(&complex, point, false);
         for _ in 0..10 {
             let pt = point + Pos([0.1, 0.0, 0.0]);
-            let (next_state, swaps) = vineyards_123(&complex, &state, pt);
+            let (next_state, swaps) = vineyards_step(&complex, &state, pt);
             assert_eq!(swaps.v.len(), 0);
             state = next_state;
             point = pt;
@@ -1369,7 +1305,7 @@ fn test_three_points() {
         for k in 0..10 {
             let pt = point - Pos([0.0, 0.1, 0.0]);
             println!("between {:?} and {:?}", point, pt);
-            let (next_state, swaps) = vineyards_123(&complex, &state, pt);
+            let (next_state, swaps) = vineyards_step(&complex, &state, pt);
             println!("swaps: {:?}", swaps);
             if k == 2 {
                 // k=0: 0.75 -- 0.65
@@ -1394,7 +1330,7 @@ fn test_three_points_test1() {
     let pt_b = Pos([0.8, 0.35, 0.0]);
 
     let state = reduce_from_scratch(&complex, pt_a, false);
-    let (_next_state, swaps) = vineyards_123(&complex, &state, pt_b);
+    let (_next_state, swaps) = vineyards_step(&complex, &state, pt_b);
     assert_eq!(swaps.v.len(), 0);
 }
 

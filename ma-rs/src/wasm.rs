@@ -24,6 +24,7 @@ pub fn my_init_function() {
             WAS_INIT = true;
         }
     }
+    info!("initialized logging in wasm worker");
 }
 
 #[derive(Serialize, Deserialize)]
@@ -313,10 +314,18 @@ pub fn split_grid(grid: JsValue) -> Result<JsValue, JsValue> {
     Ok(serde_wasm_bindgen::to_value(&grids)?)
 }
 
+#[derive(Deserialize)]
+pub struct RunOptions {
+    /// Require that the faustian swaps involve the first birth of a given
+    /// dimension.
+    require_hom_birth_to_be_first: bool,
+}
+
 #[wasm_bindgen]
 pub fn run_without_prune(
     grid: JsValue,
     complex: JsValue,
+    options: JsValue,
     on_message: js_sys::Function,
 ) -> Result<(), JsValue> {
     let send_message = |label: &str, i: usize, n: usize| {
@@ -329,7 +338,6 @@ pub fn run_without_prune(
     };
 
     let grid: Grid = serde_wasm_bindgen::from_value(grid)?;
-
     let complex: Complex = serde_wasm_bindgen::from_value(complex)?;
 
     let p = grid.center(Index([0; 3]));

@@ -4,7 +4,7 @@ use rayon::iter::{IntoParallelIterator, ParallelExtend, ParallelIterator};
 
 use crate::{
     complex::{Complex, Pos},
-    reduce_from_scratch, vineyards_123, Reduction, Swaps,
+    reduce_from_scratch, vineyards_step, Reduction, Swaps,
 };
 
 #[derive(
@@ -242,6 +242,7 @@ impl Grid {
         &self,
         complex: &Complex,
         state: Reduction,
+        require_hom_birth_to_be_first: bool,
         on_visit: F,
     ) -> (HashMap<Index, Reduction>, Vec<(Index, Index, Swaps)>) {
         let mut hm = HashMap::new();
@@ -259,7 +260,8 @@ impl Grid {
                     .get(&old_cell)
                     .expect("prev_cell should have state in the map.");
                 let p = self.center(new_cell);
-                let (new_state, swaps) = vineyards_123(complex, old_state, p);
+                let (new_state, swaps) =
+                    vineyards_step(complex, old_state, p, require_hom_birth_to_be_first);
                 all_swaps.push((old_cell, new_cell, swaps));
                 hm.insert(new_cell, new_state);
             } else {
