@@ -14,6 +14,10 @@ impl Col {
         Col(Vec::new())
     }
 
+    fn mem_usage(&self) -> usize {
+        self.0.capacity() * std::mem::size_of::<usize>()
+    }
+
     /// Checks if the column contains an entry at the given row.
     fn has(&self, a: usize) -> bool {
         self.0.binary_search(&a).is_ok()
@@ -107,6 +111,13 @@ pub struct SneakyMatrix {
 }
 
 impl SneakyMatrix {
+    pub fn mem_usage(&self) -> usize {
+        self.columns.iter().map(|c| c.mem_usage()).sum::<usize>()
+            + 2 * std::mem::size_of::<usize>()
+            + self.col_perm.mem_usage()
+            + self.row_perm.mem_usage()
+    }
+
     /// Returns all entries that are set as `(row, col)` pairs.
     pub fn to_pairs(&self) -> Vec<(usize, usize)> {
         let mut pairs = Vec::new();

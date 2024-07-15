@@ -221,6 +221,24 @@ pub struct Stack {
     pub ordering: Permutation,
 }
 
+impl Stack {
+    pub fn mem_usage(&self) -> usize {
+        let (a, b, c, d) = (
+            self.D.mem_usage(),
+            self.R.mem_usage(),
+            self.U_t.mem_usage(),
+            self.ordering.mem_usage(),
+        );
+        let sum = (a + b + c + d) as f64;
+        let a = (a as f64 / sum * 100.0).round();
+        let b = (b as f64 / sum * 100.0).round();
+        let c = (c as f64 / sum * 100.0).round();
+        let d = (d as f64 / sum * 100.0).round();
+        info!("D={}  R={}  U_t={}  ord={}", a, b, c, d);
+        self.D.mem_usage() + self.R.mem_usage() + self.U_t.mem_usage() + self.ordering.mem_usage()
+    }
+}
+
 #[cfg_attr(feature = "python", pyo3::pyclass(get_all))]
 #[derive(Clone, Debug, serde::Serialize)]
 pub struct BirthDeathPair {

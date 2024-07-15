@@ -26,6 +26,10 @@ impl Permutation {
         }
     }
 
+    pub fn mem_usage(&self) -> usize {
+        std::mem::size_of::<usize>() * (self.forwards.capacity() + self.backwards.capacity())
+    }
+
     pub fn push_n(&mut self, n: usize) {
         let off = self.forwards.len();
         self.forwards.reserve(n);
