@@ -4,7 +4,9 @@ use wasm_bindgen::prelude::*;
 use crate::{
     complex::Complex,
     grid::{Grid, Index},
-    reduce_from_scratch, Reduction, Swaps,
+    reduce_from_scratch,
+    stats::StackMem,
+    Reduction, Stack, Swaps,
 };
 use log::{info, warn};
 
@@ -160,17 +162,16 @@ pub fn load_state(
     info_mem("after RMP");
 
     {
-        let mut s0 = 0;
-        let mut s1 = 0;
-        let mut s2 = 0;
-        for r in state.grid_index_to_reduction.values() {
-            s0 += r.stacks[0].mem_usage();
-            s1 += r.stacks[1].mem_usage();
-            s2 += r.stacks[2].mem_usage();
-        }
-        info!("s0: {} kB", s0 / 1024);
-        info!("s1: {} kB", s1 / 1024);
-        info!("s2: {} kB", s2 / 1024);
+        let out: StackMem = state
+            .grid_index_to_reduction
+            .values()
+            .flat_map(|r| &r.stacks)
+            .map(|s| {
+                let sm: StackMem = s.into();
+                sm
+            })
+            .sum();
+        info!("{:#?}", out);
     }
 
     info!("Collect all swaps");

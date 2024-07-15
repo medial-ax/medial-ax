@@ -14,7 +14,7 @@ impl Col {
         Col(Vec::new())
     }
 
-    fn mem_usage(&self) -> usize {
+    pub fn mem_usage(&self) -> usize {
         self.0.capacity() * std::mem::size_of::<usize>()
     }
 
@@ -100,7 +100,7 @@ impl From<Vec<usize>> for Col {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[cfg_attr(feature = "python", pyo3::pyclass(get_all))]
 pub struct SneakyMatrix {
-    columns: Vec<Col>,
+    pub columns: Vec<Col>,
     pub rows: usize,
     pub cols: usize,
 

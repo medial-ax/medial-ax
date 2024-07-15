@@ -26,6 +26,7 @@ pub mod grid;
 pub mod json;
 pub mod permutation;
 pub mod sneaky_matrix;
+pub mod stats;
 
 #[cfg_attr(feature = "python", pyo3::pyclass(get_all))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
