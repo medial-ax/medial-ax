@@ -5,8 +5,9 @@ use crate::{
     complex::Complex,
     grid::{Grid, Index},
     reduce_from_scratch,
+    sneaky_matrix::CI,
     stats::StackMem,
-    Reduction, Stack, Swaps,
+    Reduction, Swaps,
 };
 use log::{info, warn};
 
@@ -264,13 +265,13 @@ pub fn get_filtration_values_for_point(grid_point: Vec<isize>) -> Result<JsValue
         .get(&index)
         .ok_or("Index not in map")?;
 
-    let filtration_0 = (0..state.complex.simplices_per_dim[0].len())
+    let filtration_0 = (0..state.complex.simplices_per_dim[0].len() as CI)
         .map(|id| reduction.simplex_entering_value(&state.complex, 0, id))
         .collect::<Vec<_>>();
-    let filtration_1 = (0..state.complex.simplices_per_dim[1].len())
+    let filtration_1 = (0..state.complex.simplices_per_dim[1].len() as CI)
         .map(|id| reduction.simplex_entering_value(&state.complex, 1, id))
         .collect::<Vec<_>>();
-    let filtration_2 = (0..state.complex.simplices_per_dim[2].len())
+    let filtration_2 = (0..state.complex.simplices_per_dim[2].len() as CI)
         .map(|id| reduction.simplex_entering_value(&state.complex, 2, id))
         .collect::<Vec<_>>();
 

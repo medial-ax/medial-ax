@@ -34,7 +34,7 @@ async function _run(id: string, fn: string, args: any) {
       grid,
       complex,
       {
-        require_hom_birth_to_be_first: true,
+        require_hom_birth_to_be_first: false,
       },
       onMessage,
     );

@@ -7,7 +7,7 @@ use complex::{Complex, Pos};
 use log::info;
 use permutation::Permutation;
 use serde::{Deserialize, Serialize};
-use sneaky_matrix::SneakyMatrix;
+use sneaky_matrix::{SneakyMatrix, CI};
 
 #[cfg(feature = "python")]
 use pyo3::{exceptions::PyValueError, prelude::*};
@@ -34,9 +34,9 @@ pub struct Swap {
     /// Dimension in which the swap happened.
     dim: usize,
     /// Canonical index of the first simplex.
-    i: usize,
+    i: CI,
     /// Canonical index of the second simplex.
-    j: usize,
+    j: CI,
 }
 
 #[cfg_attr(feature = "python", pyo3::pyclass(get_all))]
@@ -58,21 +58,21 @@ impl Swaps {
     /// Useful for 0th MA.
     pub fn prune_euclidian(&mut self, complex: &Complex, min_dist: f64) {
         self.v.retain(|swap| {
-            let c1 = complex.simplices_per_dim[swap.dim][swap.i].center_point(complex);
-            let c2 = complex.simplices_per_dim[swap.dim][swap.j].center_point(complex);
+            let c1 = complex.simplices_per_dim[swap.dim][swap.i as usize].center_point(complex);
+            let c2 = complex.simplices_per_dim[swap.dim][swap.j as usize].center_point(complex);
             let dist = c1.dist2(&c2);
             min_dist < dist
         })
     }
 
     pub fn prune_common_face(&mut self, complex: &Complex) {
-        let mut simp_to_vertices: HashMap<(usize, usize), HashSet<usize>> = HashMap::new();
+        let mut simp_to_vertices: HashMap<(usize, CI), HashSet<CI>> = HashMap::new();
 
         for dim in 1..3 {
             for (i, s) in complex.simplices_per_dim[dim].iter().enumerate() {
                 if dim == 1 {
                     let set = simp_to_vertices
-                        .entry((dim, i))
+                        .entry((dim, i as CI))
                         .or_insert_with(|| HashSet::new());
                     for b in &s.boundary {
                         set.insert(*b);
@@ -84,7 +84,7 @@ impl Swaps {
                             .expect("Should have inserted this simplex before")
                             .clone();
                         let set = simp_to_vertices
-                            .entry((dim, i))
+                            .entry((dim, i as CI))
                             .or_insert_with(|| HashSet::new());
                         set.extend(face_set);
                     }
@@ -107,15 +107,15 @@ impl Swaps {
     /// with the two simplices in its boundary.
     pub fn prune_coboundary(&mut self, complex: &Complex) {
         // (dim, id) to [id].
-        let mut coboundary: HashMap<(usize, usize), HashSet<usize>> = HashMap::new();
+        let mut coboundary: HashMap<(CI, CI), HashSet<CI>> = HashMap::new();
 
-        for dim in 1..3 {
-            for (parent_i, s) in complex.simplices_per_dim[dim].iter().enumerate() {
+        for dim in 1..3 as CI {
+            for (parent_i, s) in complex.simplices_per_dim[dim as usize].iter().enumerate() {
                 for face_i in &s.boundary {
                     let v = coboundary
                         .entry((dim - 1, *face_i))
                         .or_insert_with(HashSet::new);
-                    v.insert(parent_i);
+                    v.insert(parent_i as CI);
                 }
             }
         }
@@ -125,8 +125,8 @@ impl Swaps {
                 return true;
             }
 
-            let cob_i = coboundary.get(&(swap.dim, swap.i));
-            let cob_j = coboundary.get(&(swap.dim, swap.j));
+            let cob_i = coboundary.get(&(swap.dim as CI, swap.i));
+            let cob_j = coboundary.get(&(swap.dim as CI, swap.j));
 
             if let (Some(cob_i), Some(cob_j)) = (cob_i, cob_j) {
                 let mut intersection = cob_i.intersection(cob_j);
@@ -155,16 +155,18 @@ impl Swaps {
         let (vd, ed, td) = complex.distances_to(reduction_to.key_point);
         let distances_to = [vd, ed, td];
 
-        fn find_killer(dim: usize, can_id: usize, reduction: &Reduction) -> Option<usize> {
+        fn find_killer(dim: usize, can_id: CI, reduction: &Reduction) -> Option<usize> {
             if reduction.stacks.len() <= dim + 1 {
                 return None;
             }
             let ordering = &reduction.stacks[dim].ordering;
-            let sorted_i = ordering.map(can_id);
-            let killer = reduction.stacks[dim + 1].R.col_with_low(sorted_i);
+            let sorted_i = ordering.map(can_id as CI);
+            let killer = reduction.stacks[dim + 1]
+                .R
+                .col_with_low((sorted_i as CI).try_into().unwrap());
             if let Some(k) = killer {
-                let can_k = reduction.stacks[dim + 1].ordering.inv(k);
-                Some(can_k)
+                let can_k = reduction.stacks[dim + 1].ordering.inv(k as CI);
+                Some(can_k as usize)
             } else {
                 None
             }
@@ -172,13 +174,13 @@ impl Swaps {
 
         fn persistence(
             dim: usize,
-            can_id: usize,
+            can_id: CI,
             reduction: &Reduction,
             distances: &[Vec<f64>],
         ) -> Option<f64> {
             let killer = find_killer(dim, can_id, reduction);
             if let Some(killer) = killer {
-                let dist = distances[dim][can_id];
+                let dist = distances[dim][can_id as usize];
                 let killer_dist = distances[dim + 1][killer];
                 let persistence = killer_dist - dist;
                 Some(persistence)
@@ -246,9 +248,9 @@ pub struct BirthDeathPair {
     /// Dimension of the homology class.
     pub dim: isize,
     /// Birth time and canonical index of the simplex giving birth to the homology class.
-    pub birth: Option<(f64, usize)>,
+    pub birth: Option<(f64, CI)>,
     /// Birth time and canonical index of the simplex giving birth to the homology class.
-    pub death: Option<(f64, usize)>,
+    pub death: Option<(f64, CI)>,
 }
 
 impl BirthDeathPair {
@@ -290,27 +292,27 @@ impl Reduction {
     /// Uses squared Euclidian distance.
     ///
     /// The `id` is a canonical index.
-    pub fn simplex_entering_value(&self, complex: &Complex, dim: usize, id: usize) -> f64 {
-        let simplex = &complex.simplices_per_dim[dim][id];
+    pub fn simplex_entering_value(&self, complex: &Complex, dim: usize, id: CI) -> f64 {
+        let simplex = &complex.simplices_per_dim[dim][id as usize];
         if dim == 0 {
             return simplex.coords.unwrap().dist2(&self.key_point);
         }
         simplex
             .boundary
             .iter()
-            .map(|&b| self.simplex_entering_value(complex, dim - 1, b))
+            .map(|&b| self.simplex_entering_value(complex, dim - 1, b as CI))
             .max_by(|a, b| a.partial_cmp(b).unwrap())
             .unwrap()
     }
 
     /// Find the killer of the given "simplex", if any.
     /// The `id` is a canonical index.
-    fn find_killer(&self, dim: usize, id: usize) -> Option<usize> {
+    fn find_killer(&self, dim: usize, id: CI) -> Option<CI> {
         if self.stacks.len() <= dim + 1 {
             return None;
         }
         let ordering = &self.stacks[dim].ordering;
-        let sorted_i = ordering.map(id);
+        let sorted_i = ordering.map(id as CI);
         let killer = self.stacks[dim + 1].R.col_with_low(sorted_i);
         if let Some(k) = killer {
             let can_k = self.stacks[dim + 1].ordering.inv(k);
@@ -328,18 +330,18 @@ impl Reduction {
             // Pretend that the empty set doesn't exist, since we don't represent it explicitly.
             return None;
         }
-        let sorted_id = self.stacks[dim].ordering.map(id);
+        let sorted_id = self.stacks[dim].ordering.map(id as CI);
         self.stacks[dim]
             .R
             .colmax(sorted_id)
-            .map(|sorted_r| self.stacks[dim - 1].ordering.inv(sorted_r))
+            .map(|sorted_r| self.stacks[dim - 1].ordering.inv(sorted_r) as usize)
     }
 
     /// Compute the persistence of the given "simplex".
     /// `id` is the canonical index.
     ///
     /// Returns [None] if the "simplex" is not killed.
-    pub fn persistence(&self, complex: &Complex, dim: usize, id: usize) -> Option<BirthDeathPair> {
+    pub fn persistence(&self, complex: &Complex, dim: usize, id: CI) -> Option<BirthDeathPair> {
         let killer = self.find_killer(dim, id);
         if let Some(killer) = killer {
             let dist = self.simplex_entering_value(complex, dim, id);
@@ -352,7 +354,7 @@ impl Reduction {
         } else {
             // If we're the top dimension we will never be killed, but we might
             // have births. Check if column is zero.
-            let ord_i = self.stacks[dim].ordering.map(id);
+            let ord_i = self.stacks[dim].ordering.map(id as CI);
             if self.stacks[dim].R.col_is_empty(ord_i) {
                 let dist = self.simplex_entering_value(complex, dim, id);
                 Some(BirthDeathPair {
@@ -427,9 +429,9 @@ impl Reduction {
     pub fn assert_ordering(&self, complex: &Complex) {
         let mut vertex_distance = HashMap::new();
 
-        let mut vertex_order = (0..complex.simplices_per_dim[0].len())
+        let mut vertex_order = (0..complex.simplices_per_dim[0].len() as CI)
             .map(|i| {
-                let s = &complex.simplices_per_dim[0][i];
+                let s = &complex.simplices_per_dim[0][i as usize];
                 let coords = s.coords.unwrap();
                 let dist = coords.dist2(&self.key_point);
                 vertex_distance.insert(i, dist);
@@ -446,11 +448,11 @@ impl Reduction {
         }
 
         let mut edge_dist = HashMap::new();
-        let mut edge_order = (0..complex.simplices_per_dim[1].len())
+        let mut edge_order = (0..complex.simplices_per_dim[1].len() as CI)
             .map(|i| {
-                let s = &complex.simplices_per_dim[1][i];
-                let ai = s.boundary[0] as usize;
-                let bi = s.boundary[1] as usize;
+                let s = &complex.simplices_per_dim[1][i as usize];
+                let ai = s.boundary[0];
+                let bi = s.boundary[1];
 
                 let adist = *vertex_distance.get(&ai).unwrap();
                 let bdist = *vertex_distance.get(&bi).unwrap();
@@ -470,13 +472,13 @@ impl Reduction {
             assert!(a.1 <= b.1, "a.1 = {:?}, b.1 = {:?}", a, b);
         }
 
-        let mut tri_order = (0..complex.simplices_per_dim[2].len())
+        let mut tri_order = (0..complex.simplices_per_dim[2].len() as CI)
             .map(|i| {
-                let s = &complex.simplices_per_dim[2][i];
+                let s = &complex.simplices_per_dim[2][i as usize];
 
-                let ai = s.boundary[0] as usize;
-                let bi = s.boundary[1] as usize;
-                let ci = s.boundary[1] as usize;
+                let ai = s.boundary[0];
+                let bi = s.boundary[1];
+                let ci = s.boundary[1];
 
                 let adist = *edge_dist.get(&ai).unwrap();
                 let bdist = *edge_dist.get(&bi).unwrap();
@@ -569,8 +571,8 @@ fn compute_permutations(
     let edge_distances = complex.simplices_per_dim[1]
         .iter()
         .map(|e| {
-            let dist_a = vertex_distances[e.boundary[0]];
-            let dist_b = vertex_distances[e.boundary[1]];
+            let dist_a = vertex_distances[e.boundary[0] as usize];
+            let dist_b = vertex_distances[e.boundary[1] as usize];
             dist_a.max(dist_b)
         })
         .collect::<Vec<_>>();
@@ -578,9 +580,9 @@ fn compute_permutations(
     let triangle_distances = complex.simplices_per_dim[2]
         .iter()
         .map(|f| {
-            let dist_a = edge_distances[f.boundary[0]];
-            let dist_b = edge_distances[f.boundary[1]];
-            let dist_c = edge_distances[f.boundary[2]];
+            let dist_a = edge_distances[f.boundary[0] as usize];
+            let dist_b = edge_distances[f.boundary[1] as usize];
+            let dist_c = edge_distances[f.boundary[2] as usize];
             dist_a.max(dist_b).max(dist_c)
         })
         .collect::<Vec<_>>();
@@ -685,14 +687,14 @@ pub fn vineyards_step(
             let (vd, ed, td) = complex.distances_to(b);
             let distances_b = [vd, ed, td];
 
-            for i in 0..complex.simplices_per_dim[1].len() {
+            for i in 0..complex.simplices_per_dim[1].len() as CI {
                 for j in 0..i {
-                    let dist_a_i = distances_a[1][i];
-                    let dist_a_j = distances_a[1][j];
+                    let dist_a_i = distances_a[1][i as usize];
+                    let dist_a_j = distances_a[1][j as usize];
                     let cmp_at_a = dist_a_i.total_cmp(&dist_a_j);
 
-                    let dist_b_i = distances_b[1][i];
-                    let dist_b_j = distances_b[1][j];
+                    let dist_b_i = distances_b[1][i as usize];
+                    let dist_b_j = distances_b[1][j as usize];
                     let cmp_at_b = dist_b_i.total_cmp(&dist_b_j);
 
                     if cmp_at_a.is_eq() || cmp_at_b.is_eq() {
@@ -804,7 +806,7 @@ pub fn vineyards_step(
         /// Finds the simplex that creates the first homology class in a dimension.
         ///
         /// Returns the canonical index of the simplex.
-        fn find_interesting(reduction: &Reduction, complex: &Complex, dim: usize) -> Option<usize> {
+        fn find_interesting(reduction: &Reduction, complex: &Complex, dim: usize) -> Option<CI> {
             #[allow(non_snake_case)]
             let R = &reduction.stacks[dim].R;
 
@@ -824,6 +826,7 @@ pub fn vineyards_step(
             None
         }
 
+        unimplemented!();
         // TODO: range 0..3
         for dim in 1..2 {
             let old_interesting_edge = find_interesting(reduction, complex, dim);
@@ -957,7 +960,7 @@ pub fn reduce_from_scratch(complex: &Complex, key_point: Pos, noisy: bool) -> Re
 
 #[allow(non_snake_case)]
 fn perform_one_swap(
-    i: usize,
+    i: CI,
     stack: &mut Stack,
     up_stack: &mut Stack,
     old_stack: &Stack,
@@ -967,17 +970,17 @@ fn perform_one_swap(
     key_point: Pos,
 ) -> Option<bool> {
     #[allow(non_snake_case)]
-    fn gives_death(R: &SneakyMatrix, c: usize) -> bool {
+    fn gives_death(R: &SneakyMatrix, c: CI) -> bool {
         R.col_is_not_empty(c)
     }
 
     #[allow(non_snake_case)]
-    fn low(R: &SneakyMatrix, c: usize) -> Option<usize> {
+    fn low(R: &SneakyMatrix, c: CI) -> Option<CI> {
         R.colmax(c)
     }
 
     #[allow(non_snake_case)]
-    fn low_inv(R: &SneakyMatrix, r: usize) -> Option<usize> {
+    fn low_inv(R: &SneakyMatrix, r: CI) -> Option<CI> {
         R.col_with_low(r)
     }
 
@@ -1129,14 +1132,14 @@ fn perform_one_swap(
 }
 
 #[allow(non_snake_case)]
-fn perform_one_swap_top_dim(i: usize, stack: &mut Stack) -> Option<bool> {
+fn perform_one_swap_top_dim(i: CI, stack: &mut Stack) -> Option<bool> {
     #[allow(non_snake_case)]
-    fn gives_death(R: &SneakyMatrix, c: usize) -> bool {
+    fn gives_death(R: &SneakyMatrix, c: CI) -> bool {
         R.col_is_not_empty(c)
     }
 
     #[allow(non_snake_case)]
-    fn low(R: &SneakyMatrix, c: usize) -> Option<usize> {
+    fn low(R: &SneakyMatrix, c: CI) -> Option<CI> {
         R.colmax(c)
     }
 
@@ -1256,20 +1259,24 @@ fn perform_one_swap_top_dim(i: usize, stack: &mut Stack) -> Option<bool> {
 /// Also return the "column value" of the simplices that were swapped. This is
 /// used to figure out which simplices the swap consisted of.
 #[cfg_attr(feature = "python", pyfunction)]
-pub fn compute_transpositions(mut b: Vec<usize>) -> (Vec<usize>, Vec<(usize, usize)>) {
+pub fn compute_transpositions(mut b: Vec<CI>) -> (Vec<CI>, Vec<(CI, CI)>) {
     // NOTE: The `this` ordering is implicitly `0..n`.
-    let n = b.len();
-    let n0 = zip(&b, 0..n).position(|(&aa, bb)| aa != bb).unwrap_or(n);
-    let n1 = zip(&b, 0..n).rposition(|(&aa, bb)| aa != bb).unwrap_or(n);
-    let mut ret = Vec::with_capacity(n);
-    let mut swapped_indices = Vec::with_capacity(n);
+    let n = b.len() as CI;
+    let n0 = zip(&b, 0..n)
+        .position(|(&aa, bb)| aa != bb)
+        .unwrap_or(n as usize) as CI;
+    let n1 = zip(&b, 0..n)
+        .rposition(|(&aa, bb)| aa != bb)
+        .unwrap_or(n as usize) as CI;
+    let mut ret = Vec::with_capacity(n as usize);
+    let mut swapped_indices = Vec::with_capacity(n as usize);
     for _ in n0..=n1 {
         let mut swap = false;
         for i in 0..(n - 1) {
-            if b[i] > b[i + 1] {
+            if b[i as usize] > b[i as usize + 1] {
                 ret.push(i);
-                b.swap(i, i + 1);
-                swapped_indices.push((b[i], b[i + 1]));
+                b.swap(i as usize, i as usize + 1);
+                swapped_indices.push((b[i as usize], b[i as usize + 1]));
                 swap = true;
             }
         }

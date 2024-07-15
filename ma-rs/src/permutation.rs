@@ -1,25 +1,27 @@
 use serde::{Deserialize, Serialize};
 
+use crate::sneaky_matrix::CI;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "python", pyo3::pyclass)]
 pub struct Permutation {
-    forwards: Vec<usize>,
-    backwards: Vec<usize>,
+    forwards: Vec<CI>,
+    backwards: Vec<CI>,
 }
 
 #[cfg_attr(feature = "python", pyo3::pymethods)]
 impl Permutation {
-    pub fn map(&self, a: usize) -> usize {
-        self.forwards[a]
+    pub fn map(&self, a: CI) -> CI {
+        self.forwards[a as usize]
     }
 
-    pub fn inv(&self, a: usize) -> usize {
-        self.backwards[a]
+    pub fn inv(&self, a: CI) -> CI {
+        self.backwards[a as usize]
     }
 }
 
 impl Permutation {
-    pub fn new(n: usize) -> Self {
+    pub fn new(n: CI) -> Self {
         Permutation {
             forwards: (0..n).collect(),
             backwards: (0..n).collect(),
@@ -27,23 +29,24 @@ impl Permutation {
     }
 
     pub fn mem_usage(&self) -> usize {
-        std::mem::size_of::<usize>() * (self.forwards.capacity() + self.backwards.capacity())
+        std::mem::size_of_val(&self.forwards[0])
+            * (self.forwards.capacity() + self.backwards.capacity())
     }
 
-    pub fn push_n(&mut self, n: usize) {
-        let off = self.forwards.len();
-        self.forwards.reserve(n);
-        self.backwards.reserve(n);
+    pub fn push_n(&mut self, n: CI) {
+        let off = self.forwards.len() as CI;
+        self.forwards.reserve(n as usize);
+        self.backwards.reserve(n as usize);
         for i in 0..n {
             self.forwards.push(off + i);
             self.backwards.push(off + i);
         }
     }
 
-    pub fn from_forwards(forwards: Vec<usize>) -> Self {
-        let mut backwards = vec![0; forwards.len()];
+    pub fn from_forwards(forwards: Vec<CI>) -> Self {
+        let mut backwards: Vec<CI> = vec![0; forwards.len()];
         for (i, &f) in forwards.iter().enumerate() {
-            backwards[f] = i;
+            backwards[f as usize] = i as CI;
         }
         Permutation {
             forwards,
@@ -71,9 +74,12 @@ impl Permutation {
     /// assert_eq!(p.map(2), 3);
     /// assert_eq!(p.map(3), 1);
     /// ```
-    pub fn swap(&mut self, a: usize, b: usize) {
-        self.forwards.swap(a, b);
-        self.backwards.swap(self.forwards[a], self.forwards[b]);
+    pub fn swap(&mut self, a: CI, b: CI) {
+        self.forwards.swap(a as usize, b as usize);
+        self.backwards.swap(
+            self.forwards[a as usize] as usize,
+            self.forwards[b as usize] as usize,
+        );
     }
 
     pub fn len(&self) -> usize {
@@ -90,10 +96,10 @@ impl Permutation {
         let mut v = es.into_iter().enumerate().collect::<Vec<_>>();
         v.sort_by_key(|&(_, e)| e);
 
-        let forwards = v.iter().map(|&(i, _)| i).collect::<Vec<_>>();
-        let mut backwards = vec![0; forwards.len()];
+        let forwards = v.iter().map(|&(i, _)| i as CI).collect::<Vec<CI>>();
+        let mut backwards: Vec<CI> = vec![0; forwards.len()];
         for (i, &f) in forwards.iter().enumerate() {
-            backwards[f] = i;
+            backwards[f as usize] = i as CI;
         }
         Permutation {
             forwards,
@@ -101,20 +107,20 @@ impl Permutation {
         }
     }
 
-    pub fn into_forwards(self) -> Vec<usize> {
+    pub fn into_forwards(self) -> Vec<CI> {
         self.forwards
     }
 
-    pub fn into_backwards(self) -> Vec<usize> {
+    pub fn into_backwards(self) -> Vec<CI> {
         self.backwards
     }
 
     /// Given two orderings `a` and `b`, return the permutation `p` such that
     /// `p[a[i]] == b[i]`.
     pub fn from_to(a: &Self, b: &Self) -> Self {
-        let mut v = vec![0; a.len()];
-        for i in 0..a.len() {
-            v[a.map(i)] = b.map(i);
+        let mut v: Vec<CI> = vec![0; a.len()];
+        for i in 0..(a.len() as CI) {
+            v[a.map(i) as usize] = b.map(i);
         }
         Self::from_forwards(v)
     }
@@ -125,7 +131,7 @@ mod tests {
     use super::*;
 
     fn test_inverse(p: &Permutation) {
-        for i in 0..p.len() {
+        for i in 0..p.len() as CI {
             assert_eq!(p.inv(p.map(i)), i);
             assert_eq!(p.map(p.inv(i)), i);
         }
@@ -135,7 +141,7 @@ mod tests {
     fn permutation() {
         let mut p = Permutation::new(10);
 
-        for i in 0..p.len() {
+        for i in 0..p.len() as CI {
             assert_eq!(p.map(i), i);
         }
         test_inverse(&p);
@@ -171,8 +177,8 @@ mod tests {
     fn from_ord() {
         let v = vec!['d', 'a', 'b', 'e', 'c'];
         let p = Permutation::from_ord(&v);
-        for i in 0..p.len() - 1 {
-            assert!(v[p.map(i)] <= v[p.map(i + 1)]);
+        for i in 0..(p.len() - 1) as CI {
+            assert!(v[p.map(i) as usize] <= v[p.map(i + 1) as usize]);
         }
         assert_eq!(p.map(0), 1);
         assert_eq!(p.map(1), 2);

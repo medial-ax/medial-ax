@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 #[cfg(feature = "python")]
 use pyo3::FromPyObject;
 
-use crate::SneakyMatrix;
+use crate::{sneaky_matrix::CI, SneakyMatrix};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Serialize, Deserialize)]
@@ -111,11 +111,11 @@ impl std::ops::Div<f64> for Pos {
 #[cfg_attr(feature = "python", pyo3::pyclass(get_all))]
 pub struct Simplex {
     /// Unique identifier of the simplex.  This is only unique within the dimension for the complex it is in.
-    pub id: usize,
+    pub id: CI,
     /// Coordinates of the simplex, if any.
     pub coords: Option<Pos>,
     /// The boundary of the simplex, i.e. the indices of the faces.
-    pub boundary: Vec<usize>,
+    pub boundary: Vec<CI>,
 }
 
 #[cfg_attr(feature = "python", pyo3::pymethods)]
@@ -144,14 +144,14 @@ impl Simplex {
         match self.dim() {
             0 => self.coords.unwrap(),
             1 => {
-                let a = &complex.simplices_per_dim[0][self.boundary[0]];
-                let b = &complex.simplices_per_dim[0][self.boundary[1]];
+                let a = &complex.simplices_per_dim[0][self.boundary[0] as usize];
+                let b = &complex.simplices_per_dim[0][self.boundary[1] as usize];
                 (a.coords.unwrap() + b.coords.unwrap()) * 0.5
             }
             2 => {
-                let a = &complex.simplices_per_dim[1][self.boundary[0]];
-                let b = &complex.simplices_per_dim[1][self.boundary[1]];
-                let c = &complex.simplices_per_dim[1][self.boundary[2]];
+                let a = &complex.simplices_per_dim[1][self.boundary[0] as usize];
+                let b = &complex.simplices_per_dim[1][self.boundary[1] as usize];
+                let c = &complex.simplices_per_dim[1][self.boundary[2] as usize];
                 (a.center_point(complex) + b.center_point(complex) + c.center_point(complex)) / 3.0
             }
             _ => panic!("Missing arms for simplex of dimension {}", self.dim()),
@@ -179,10 +179,10 @@ impl Complex {
         assert!(dim >= 0);
         let n = self.num_simplices_of_dim(dim);
         let m = self.num_simplices_of_dim(dim - 1);
-        let mut sm = SneakyMatrix::zeros(m, n);
+        let mut sm = SneakyMatrix::zeros(m as CI, n as CI);
         for s in self.simplices_per_dim[dim as usize].iter() {
             for j in &s.boundary {
-                sm.set(*j as usize, s.id as usize, true);
+                sm.set(*j as CI, s.id, true);
             }
         }
         sm
@@ -190,7 +190,7 @@ impl Complex {
 
     /// Return the vertex indices for each triangle. Sorts the indices, so any
     /// ordering information of the edges is lost.
-    pub fn triangle_indices(&self) -> Vec<[usize; 3]> {
+    pub fn triangle_indices(&self) -> Vec<[CI; 3]> {
         let mut tris = Vec::new();
         for t in &self.simplices_per_dim[2] {
             let mut s = HashSet::new();
@@ -221,7 +221,7 @@ impl Complex {
         let mut triangles: Vec<Simplex> = Vec::new();
 
         // Map (i, j) to edge simplex index.
-        let mut edge_map = HashMap::<(usize, usize), usize>::new();
+        let mut edge_map = HashMap::<(CI, CI), CI>::new();
 
         for line in input_str.lines() {
             let line = line.trim();
@@ -248,7 +248,7 @@ impl Complex {
                     .and_then(|n| n.parse::<f64>().map_err(|e| e.to_string()))?;
                 let coords = Pos([x, y, z]);
                 vertices.push(Simplex {
-                    id: vertices.len() as usize,
+                    id: vertices.len() as CI,
                     coords: Some(coords),
                     boundary: vec![0],
                 });
@@ -261,16 +261,16 @@ impl Complex {
                 let a = groups
                     .get(1)
                     .ok_or("missing field".to_string())
-                    .and_then(|n| n.parse::<usize>().map_err(|e| e.to_string()))?
+                    .and_then(|n| n.parse::<CI>().map_err(|e| e.to_string()))?
                     - 1; // NOTE: .obj is 1-indexed
 
                 let b = groups
                     .get(2)
                     .ok_or("missing field".to_string())
-                    .and_then(|n| n.parse::<usize>().map_err(|e| e.to_string()))?
+                    .and_then(|n| n.parse::<CI>().map_err(|e| e.to_string()))?
                     - 1; // NOTE: .obj is 1-indexed
 
-                let id = edges.len() as usize;
+                let id = edges.len() as CI;
 
                 let (a, b) = (a.min(b), a.max(b));
 
@@ -295,21 +295,21 @@ impl Complex {
                 let a = groups
                     .get(1)
                     .ok_or("missing field".to_string())
-                    .and_then(|n| n.parse::<usize>().map_err(|e| e.to_string()))?
+                    .and_then(|n| n.parse::<CI>().map_err(|e| e.to_string()))?
                     - 1;
                 let b = groups
                     .get(2)
                     .ok_or("missing field".to_string())
-                    .and_then(|n| n.parse::<usize>().map_err(|e| e.to_string()))?
+                    .and_then(|n| n.parse::<CI>().map_err(|e| e.to_string()))?
                     - 1;
                 let c = groups
                     .get(3)
                     .ok_or("missing field".to_string())
-                    .and_then(|n| n.parse::<usize>().map_err(|e| e.to_string()))?
+                    .and_then(|n| n.parse::<CI>().map_err(|e| e.to_string()))?
                     - 1;
 
                 triangles.push(Simplex {
-                    id: triangles.len() as usize,
+                    id: triangles.len() as CI,
                     coords: None,
                     boundary: vec![a, b, c], // NOTE: we insert vertex indices here, and fix them up later.
                 });
@@ -342,7 +342,7 @@ impl Complex {
                 let id = edge_map
                     .entry((a, b))
                     .or_insert_with(|| {
-                        let id = edges.len() as usize;
+                        let id = edges.len() as CI;
                         edges.push(Simplex {
                             id,
                             coords: None,
@@ -387,8 +387,8 @@ impl Complex {
     }
 
     /// Computes the entering value of the given simplex from the given key point.
-    pub fn simplex_entering_value(&self, dim: usize, id: usize, key_point: Pos) -> f64 {
-        let simplex = &self.simplices_per_dim[dim][id];
+    pub fn simplex_entering_value(&self, dim: usize, id: CI, key_point: Pos) -> f64 {
+        let simplex = &self.simplices_per_dim[dim][id as usize];
         if dim == 0 {
             return simplex.coords.unwrap().dist2(&key_point);
         }
@@ -410,14 +410,14 @@ mod tests {
         let path = "../input/cube-subdiv-1.obj";
         let c = Complex::read_from_obj(path).unwrap();
 
-        let num_verts = c.num_simplices_of_dim(0) as usize;
+        let num_verts = c.num_simplices_of_dim(0) as CI;
         for e in &c.simplices_per_dim[1] {
             for &vi in &e.boundary {
                 assert!(vi < num_verts);
             }
         }
 
-        let num_edges = c.num_simplices_of_dim(1) as usize;
+        let num_edges = c.num_simplices_of_dim(1) as CI;
         for t in &c.simplices_per_dim[2] {
             for &vi in &t.boundary {
                 assert!(vi < num_edges);
