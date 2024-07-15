@@ -29,7 +29,15 @@ async function _run(id: string, fn: string, args: any) {
 
   if (fn === "run-and-dump") {
     const { grid, complex } = args;
-    run_without_prune(grid, complex, onMessage);
+    console.log(WebAssembly.Memory);
+    run_without_prune(
+      grid,
+      complex,
+      {
+        require_hom_birth_to_be_first: true,
+      },
+      onMessage,
+    );
     return get_state();
   } else if (fn === "get-barcode-for-point") {
     const { grid_point } = args;
@@ -73,7 +81,14 @@ onmessage = (e) => {
   }
 };
 
-await init().then(() => {
+await init().then((res) => {
+  // setInterval(() => {
+  //   const memB = res.memory.buffer.byteLength;
+  //   const memMB = memB / 1024 / 1024;
+  //   console.log(
+  //     `worker wasm memory usage: ${memMB.toFixed(1)} MB (${Math.floor((memMB / 4096) * 100)}%)`,
+  //   );
+  // }, 1000);
   my_init_function();
   _init = true;
 });

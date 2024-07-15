@@ -150,6 +150,13 @@ export const resetWasmWorker = () => {
   activeWorkers = [];
 };
 
-await init().then(() => {
+await init().then((res) => {
+  // setInterval(() => {
+  //   const memB = res.memory.buffer.byteLength;
+  //   const memMB = memB / 1024 / 1024;
+  //   console.log(
+  //     `foreground wasm memory usage: ${memMB.toFixed(1)} MB (${Math.floor((memMB / 4096) * 100)}%)`,
+  //   );
+  // }, 1000);
   my_init_function();
 });

@@ -10,6 +10,73 @@ use log::{info, warn};
 
 use std::{collections::HashMap, panic, sync::Mutex};
 
+use std::alloc::{GlobalAlloc, Layout, System};
+use std::sync::atomic::{AtomicIsize, Ordering};
+
+struct CountingAllocator<A> {
+    inner: A,
+    allocated_now: AtomicIsize,
+}
+
+impl<A> CountingAllocator<A> {
+    const fn new(inner: A) -> Self {
+        Self {
+            inner,
+            allocated_now: AtomicIsize::new(0),
+        }
+    }
+
+    fn allocated_now(&self) -> usize {
+        self.allocated_now
+            .load(Ordering::Relaxed)
+            .try_into()
+            .unwrap_or(0)
+    }
+}
+
+unsafe impl<A: GlobalAlloc> GlobalAlloc for CountingAllocator<A> {
+    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+        self.allocated_now
+            .fetch_add(layout.size() as isize, Ordering::Relaxed);
+        self.inner.alloc(layout)
+    }
+
+    unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
+        self.allocated_now
+            .fetch_sub(layout.size() as isize, Ordering::Relaxed);
+        self.inner.dealloc(ptr, layout);
+    }
+
+    unsafe fn alloc_zeroed(&self, layout: Layout) -> *mut u8 {
+        self.allocated_now
+            .fetch_add(layout.size() as isize, Ordering::Relaxed);
+        self.inner.alloc_zeroed(layout)
+    }
+
+    unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
+        self.allocated_now.fetch_add(
+            new_size as isize - layout.size() as isize,
+            Ordering::Relaxed,
+        );
+        self.inner.realloc(ptr, layout, new_size)
+    }
+}
+
+#[global_allocator]
+static ALLOCATOR: CountingAllocator<System> = CountingAllocator::new(System);
+
+fn info_mem(label: &str) {
+    let bytes = ALLOCATOR.allocated_now();
+    info!(
+        "🐊 {}: {} / {} kB / {} MB / {}% 🐊  ",
+        label,
+        bytes,
+        bytes / 1024,
+        bytes / 1024 / 1024,
+        100.0 * (bytes / 1024 / 1024) as f64 / 4096.0,
+    );
+}
+
 /// Global state.
 static STATE: Mutex<Option<State>> = Mutex::new(None);
 
@@ -80,14 +147,17 @@ pub fn load_state(
     _: js_sys::Function,
 ) -> Result<JsValue, JsValue> {
     let offset: Index = serde_wasm_bindgen::from_value(grid_offset)?;
+    info_mem("load-state");
     let mut state: State = {
         let bytes: serde_bytes::ByteBuf = serde_wasm_bindgen::from_value(bytes)?;
+        info_mem("after ByteBuf");
         info!(
             "load_state: bytes is {:.3} MB",
             (bytes.len() as f64) / 1024.0 / 1024.0
         );
         rmp_serde::from_slice(&bytes).map_err(|e| e.to_string())?
     };
+    info_mem("after RMP");
 
     info!("Collect all swaps");
     let grid_index_to_reduction = state
@@ -95,21 +165,34 @@ pub fn load_state(
         .drain()
         .map(|(k, v)| (k + offset, v))
         .collect::<HashMap<_, _>>();
+    info_mem("after red drain");
+    info!("reductions: {}", grid_index_to_reduction.len());
+
     let swaps0: Vec<_> = state
         .swaps0
         .drain(0..)
         .map(|s| (s.0 + offset, s.1 + offset, s.2))
         .collect();
+    info_mem("after state0 drain");
     let swaps1: Vec<_> = state
         .swaps1
         .drain(0..)
         .map(|s| (s.0 + offset, s.1 + offset, s.2))
         .collect();
+    info_mem("after state1 drain");
     let swaps2: Vec<_> = state
         .swaps2
         .drain(0..)
         .map(|s| (s.0 + offset, s.1 + offset, s.2))
         .collect();
+    info_mem("after state2 drain");
+
+    info!(
+        "swaps: dim0={}  dim1={}  dim2={}",
+        swaps0.len(),
+        swaps1.len(),
+        swaps2.len(),
+    );
 
     info!("Extend worker state");
     let mut guard = STATE.lock().map_err(|_| "STATE.lock failed")?;
@@ -117,12 +200,17 @@ pub fn load_state(
     state
         .grid_index_to_reduction
         .extend(grid_index_to_reduction);
+    info_mem("after red extend");
     state.swaps0.extend(swaps0);
+    info_mem("after state0 extend");
     state.swaps1.extend(swaps1);
+    info_mem("after state1 extend");
     state.swaps2.extend(swaps2);
+    info_mem("after state2 extend");
 
     info!("convert output value");
     let out = serde_wasm_bindgen::to_value("okay")?;
+    info_mem("end");
 
     Ok(out)
 }

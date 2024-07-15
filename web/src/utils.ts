@@ -40,6 +40,20 @@ export const downloadText = (text: string, filename: string) => {
     "href",
     "data:text/plain;charset=utf-8," + encodeURIComponent(text),
   );
+
+  element.setAttribute("download", filename);
+  element.style.display = "none";
+  document.body.appendChild(element);
+  element.click();
+  document.body.removeChild(element);
+};
+
+export const downloadBinary = (bytes: Uint8Array, filename: string) => {
+  const element = document.createElement("a");
+  console.log("bytes", bytes.length);
+  const blob = new Blob([bytes], { type: "application/msgpack" });
+  console.log(blob);
+  element.setAttribute("href", URL.createObjectURL(blob));
   element.setAttribute("download", filename);
   element.style.display = "none";
   document.body.appendChild(element);

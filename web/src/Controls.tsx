@@ -28,7 +28,7 @@ import {
   useState,
 } from "react";
 import { dualFaceQuad } from "./medialaxes";
-import { downloadText, sum } from "./utils";
+import { downloadBinary, downloadText, sum } from "./utils";
 import styled from "styled-components";
 import squished_cylinder from "../inputs/squished_cylinder.obj?raw";
 import extruded_ellipse from "../inputs/extruded_ellipse.obj?raw";
@@ -760,9 +760,9 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
       }
     }
 
-    let filename = cplx?.filename ?? "complex";
+    const filename = cplx?.filename ?? "complex";
     downloadText(obj, `export-${filename}`);
-  }, [exportVisible, grid, shownMA, swaps]);
+  }, [cplx?.filename, exportVisible, grid, shownMA, swaps]);
 
   const compute_the_things = useCallback(async () => {
     setWorkerRunning(true);
@@ -801,7 +801,9 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
       }),
     );
 
-    for (const res of results) {
+    results.forEach(async (res, i) => {
+      downloadBinary(res.state, `result-${i}`);
+
       await run(
         "load-state",
         {
@@ -810,7 +812,7 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
         },
         (o) => setWorkerProgress(o),
       );
-    }
+    });
 
     const pruned = {
       0: await run(
@@ -1014,6 +1016,82 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
             </p>
           </label>
         )}
+
+        <button
+          onClick={async () => {
+            await run(
+              "create-empty-state",
+              { grid, complex: cplx!.complex },
+              (o) => setWorkerProgress(o),
+            );
+          }}
+        >
+          init
+        </button>
+
+        <label className="file">
+          <p>Upload state</p>
+          <input
+            type="file"
+            multiple
+            onChange={async (e) => {
+              const files = [...(e.target.files ?? [])];
+              console.log(files);
+              const byteBuffers = await Promise.all(
+                files.map(async (f) => f.arrayBuffer()),
+              );
+              for (const bytes of byteBuffers) {
+                await run(
+                  "load-state",
+                  {
+                    bytes,
+                    index: [0, 0, 0],
+                  },
+                  (o) => setWorkerProgress(o),
+                );
+              }
+              const pruned = {
+                0: await run(
+                  "prune-dimension",
+                  {
+                    dim: 0,
+                    params: allPruningParams[0],
+                  },
+                  (o) => setWorkerProgress(o),
+                ),
+                1: await run(
+                  "prune-dimension",
+                  {
+                    dim: 1,
+                    params: allPruningParams[1],
+                  },
+                  (o) => setWorkerProgress(o),
+                ),
+                2: await run(
+                  "prune-dimension",
+                  {
+                    dim: 2,
+                    params: allPruningParams[2],
+                  },
+                  (o) => setWorkerProgress(o),
+                ),
+              };
+
+              setSwaps(pruned);
+              setGridForSwaps(grid);
+            }}
+          />
+        </label>
+
+        <button
+          onClick={async () => {
+            await run("get-filtration-values-for-point", {
+              grid_point: [0, 0, 0],
+            });
+          }}
+        >
+          print stuff
+        </button>
 
         <div className="pruning-param-list">
           {([0, 1, 2] satisfies Dim[]).map((dim) => (
