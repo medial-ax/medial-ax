@@ -226,17 +226,6 @@ pub struct Stack {
 
 impl Stack {
     pub fn mem_usage(&self) -> usize {
-        let (a, b, c, d) = (
-            self.D.mem_usage(),
-            self.R.mem_usage(),
-            self.U_t.mem_usage(),
-            self.ordering.mem_usage(),
-        );
-        let sum = (a + b + c + d) as f64;
-        let a = (a as f64 / sum * 100.0).round();
-        let b = (b as f64 / sum * 100.0).round();
-        let c = (c as f64 / sum * 100.0).round();
-        let d = (d as f64 / sum * 100.0).round();
         self.D.mem_usage() + self.R.mem_usage() + self.U_t.mem_usage() + self.ordering.mem_usage()
     }
 }
@@ -855,17 +844,17 @@ pub fn reduce_from_scratch(complex: &Complex, key_point: Pos, noisy: bool) -> Re
     let (mut v_perm, mut e_perm, mut t_perm) = compute_permutations(complex, key_point);
 
     let mut boundary_0 = complex.boundary_matrix(0);
-    boundary_0.col_perm = v_perm.clone();
+    boundary_0.col_perm = Some(v_perm.clone());
     let D0 = boundary_0.clone();
 
     let mut boundary_1 = complex.boundary_matrix(1);
-    boundary_1.col_perm = e_perm.clone();
-    boundary_1.row_perm = v_perm.clone();
+    boundary_1.col_perm = Some(e_perm.clone());
+    boundary_1.row_perm = Some(v_perm.clone());
     let D1 = boundary_1.clone();
 
     let mut boundary_2 = complex.boundary_matrix(2);
-    boundary_2.col_perm = t_perm.clone();
-    boundary_2.row_perm = e_perm.clone();
+    boundary_2.col_perm = Some(t_perm.clone());
+    boundary_2.row_perm = Some(e_perm.clone());
     let D2 = boundary_2.clone();
 
     if noisy {

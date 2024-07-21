@@ -29,8 +29,8 @@ impl Into<SneakyMatrixMem> for &crate::sneaky_matrix::SneakyMatrix {
             columns: self.columns.iter().map(|v| v.mem_usage()).sum::<usize>(),
             rows: std::mem::size_of_val(&self.rows),
             cols: std::mem::size_of_val(&self.cols),
-            col_perm: self.col_perm.mem_usage(),
-            row_perm: self.col_perm.mem_usage(),
+            col_perm: self.col_perm.as_ref().map(|p| p.mem_usage()).unwrap_or(0),
+            row_perm: self.col_perm.as_ref().map(|p| p.mem_usage()).unwrap_or(0),
         }
     }
 }

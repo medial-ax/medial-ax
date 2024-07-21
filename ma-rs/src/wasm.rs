@@ -447,7 +447,7 @@ pub fn run_without_prune(
     send_message("Reduce from scratch", 0, 1).unwrap();
     let s0 = reduce_from_scratch(&complex, p, false);
     send_message("Run vineyards", 0, 1).unwrap();
-    let results = grid.run_vineyards_in_grid(
+    let mut results = grid.run_vineyards_in_grid(
         &complex,
         s0,
         options.require_hom_birth_to_be_first,
@@ -457,6 +457,15 @@ pub fn run_without_prune(
             }
         },
     );
+
+    let _ = send_message("Bake data 🧑‍🍳", 0, 1);
+    for reduction in results.0.values_mut() {
+        for st in reduction.stacks.iter_mut() {
+            st.D.bake_in_permutations();
+            st.R.bake_in_permutations();
+            st.U_t.bake_in_permutations();
+        }
+    }
 
     send_message("Move state to global", 0, 1).unwrap();
     let mut state = STATE.lock().unwrap();
