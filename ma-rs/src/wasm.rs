@@ -173,6 +173,13 @@ pub fn load_state(
             })
             .sum();
         info!("{:#?}", out);
+        let total_mem: usize = state
+            .grid_index_to_reduction
+            .values()
+            .flat_map(|r| &r.stacks)
+            .map(|s| s.mem_usage())
+            .sum();
+        info!("total: {}", total_mem)
     }
 
     info!("Collect all swaps");

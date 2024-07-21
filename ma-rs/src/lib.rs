@@ -237,7 +237,6 @@ impl Stack {
         let b = (b as f64 / sum * 100.0).round();
         let c = (c as f64 / sum * 100.0).round();
         let d = (d as f64 / sum * 100.0).round();
-        info!("D={}  R={}  U_t={}  ord={}", a, b, c, d);
         self.D.mem_usage() + self.R.mem_usage() + self.U_t.mem_usage() + self.ordering.mem_usage()
     }
 }
