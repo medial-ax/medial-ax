@@ -208,6 +208,22 @@ impl SneakyMatrix {
         let result = sm_t.extract_bottom_block_transpose();
         return result;
     }
+
+    pub fn bake_in_permutations(&mut self) {
+        let mut cols = vec![Col::new(); self.cols as usize];
+        for c in 0..self.cols {
+            let cc = self.col_perm.map(c);
+            let mut col = self.columns[cc as usize].as_vec();
+            for rr in col.iter_mut() {
+                *rr = self.row_perm.inv(*rr);
+            }
+            col.sort();
+            cols[c as usize] = col.into();
+        }
+        self.columns = cols;
+        self.col_perm = Permutation::new(self.cols);
+        self.row_perm = Permutation::new(self.rows);
+    }
 }
 
 #[cfg_attr(feature = "python", pyo3::pymethods)]
@@ -469,6 +485,67 @@ mod tests {
         assert!(sm.get(0, 0));
         sm.swap_rows(0, 4);
         assert!(sm.get(4, 0));
+    }
+
+    #[test]
+    fn baking_permutations_works() {
+        let mut sm = SneakyMatrix::zeros(6, 1);
+        sm.set(0, 0, true);
+
+        sm.swap_rows(0, 1);
+        assert!(sm.get(1, 0));
+        sm.swap_rows(0, 2);
+        assert!(sm.get(1, 0));
+        sm.swap_rows(2, 1);
+        assert!(sm.get(2, 0));
+        sm.swap_rows(2, 3);
+        assert!(sm.get(3, 0));
+        sm.swap_rows(0, 3);
+        assert!(sm.get(0, 0));
+        sm.swap_rows(1, 4);
+        assert!(sm.get(0, 0));
+        sm.swap_rows(0, 4);
+        assert!(sm.get(4, 0));
+
+        let mut baked = sm.clone();
+        baked.bake_in_permutations();
+
+        for r in 0..6 {
+            assert_eq!(sm.get(r, 0), baked.get(r, 0));
+        }
+    }
+
+    #[test]
+    fn baking_gauss_test_works() {
+        let mut sm = SneakyMatrix::zeros(4, 4);
+        sm.set(0, 0, true);
+        sm.set(0, 1, true);
+        sm.set(0, 2, false);
+        sm.set(0, 3, true);
+        sm.set(1, 0, true);
+        sm.set(1, 1, true);
+        sm.set(1, 2, true);
+        sm.set(1, 3, false);
+        sm.set(2, 0, false);
+        sm.set(2, 1, true);
+        sm.set(2, 2, true);
+        sm.set(2, 3, false);
+        sm.set(3, 0, true);
+        sm.set(3, 1, false);
+        sm.set(3, 2, false);
+        sm.set(3, 3, true);
+
+        let mut sm_t = sm.transpose();
+        sm_t.bottom_pad_with_identity();
+        sm_t.gauss_jordan();
+
+        let mut baked = sm_t.clone();
+        baked.bake_in_permutations();
+        for c in 0..4 {
+            for r in 0..4 {
+                assert_eq!(sm_t.get(r, c), baked.get(r, c));
+            }
+        }
     }
 
     #[test]
