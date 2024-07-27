@@ -78,21 +78,13 @@ export const range = (from: number, to: number): number[] => {
   return ret;
 };
 
-/** Given two grid indices, return them in sorted order. */
-export const gridIndexSort = ([a, b]: [Index, Index]): [Index, Index] => {
-  for (let i = 0; i < 3; i++) if (a[i] < b[i]) return [a, b];
-  return [b, a];
-};
-
 const arreq = <T>(a: T[], b: T[]): boolean => {
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
   return true;
 };
-export const swapHasGridIndices = (
-  swap: Swaps[number],
-  [a, b]: [Index, Index],
-) => {
+
+export const swapHasGridIndices = (swap: Swaps[number], a: Index, b: Index) => {
   return (
     (arreq(swap[0], a) && arreq(swap[1], b)) ||
     (arreq(swap[0], b) && arreq(swap[1], a))

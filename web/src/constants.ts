@@ -5,6 +5,8 @@ export const colors = {
 
   barcodeBackground: "#e5e5e5",
 
+  surfaceSelected: "#d7f0ff",
+
   dim0: "orange",
   dim1: "pink",
   dim_1: "gray",

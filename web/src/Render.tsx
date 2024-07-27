@@ -17,7 +17,6 @@ import {
   hasAnySwaps,
   highlightAtom,
   maFaceSelection,
-  maFaceSelectionSwaps,
   selectedGridIndex,
   swapsAtom,
   swapsForMA,
@@ -256,7 +255,7 @@ export const RenderComplex = ({
     .map((h, i) => {
       const pos = cplx.simplices_per_dim[0][h.index].coords!;
       return (
-        <RedSphere key={i} pos={new THREE.Vector3(...pos)} radius={0.04} />
+        <RedSphere key={i} pos={new THREE.Vector3(...pos)} radius={0.03} />
       );
     });
 
@@ -443,10 +442,10 @@ export const RenderMedialAxis = ({
   }, [grid, swaps]);
 
   const colors = useMemo(() => {
-    const blue = [0.6, 0.9, 1.0];
+    const blue = [0.53, 0.66, 1.0];
     const red = [1.0, 0.5, 0.5];
     const floats = swaps.flatMap((s) => {
-      if (selected && swapHasGridIndices(s, selected)) {
+      if (selected && swapHasGridIndices(s, selected.a, selected.b)) {
         return repeat(red, 6);
       } else {
         return repeat(blue, 6);
@@ -468,9 +467,6 @@ export const RenderMedialAxis = ({
     ref.current.needsUpdate = true;
   }, [coordBuffer]);
 
-  const swapsss = useAtomValue(maFaceSelectionSwaps);
-  console.log(swapsss);
-
   if (numberOfVertices === 0) return null;
 
   return (
@@ -480,7 +476,7 @@ export const RenderMedialAxis = ({
         if (e.faceIndex === undefined) return;
         const i = Math.floor(e.faceIndex / 2);
         const s = swaps[i];
-        setSelected([s[0], s[1]]);
+        setSelected({ a: s[0], b: s[1], selection: [] });
         e.stopPropagation();
       }}
     >

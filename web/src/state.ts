@@ -5,10 +5,11 @@ import {
   Grid,
   Index,
   PruningParam,
+  Swap,
   Swaps,
 } from "./types";
 import { atomFamily, atomWithReset } from "jotai/utils";
-import { gridIndexSort, swapHasGridIndices } from "./utils";
+import { swapHasGridIndices } from "./utils";
 
 export const timelinePositionAtom = atom<number>(0);
 export const selectedBirthDeathPair = atom<BirthDeathPair | undefined>(
@@ -36,17 +37,23 @@ export const gridOutOfSync = atom((get) => {
   return g1 !== g2;
 });
 
-export const maFaceSelection = atom<undefined | [Index, Index]>(undefined);
+export const maFaceSelection = atom<
+  | undefined
+  | {
+      a: Index;
+      b: Index;
+      selection: Swap["v"][number][];
+    }
+>(undefined);
 
 export const maFaceSelectionSwaps = atom((get) => {
-  const _sel = get(maFaceSelection);
-  if (!_sel) return undefined;
-  const sel = gridIndexSort(_sel);
+  const sel = get(maFaceSelection);
+  if (!sel) return undefined;
   const o = get(swapsAtom);
   return o[0]
-    .filter((s) => swapHasGridIndices(s, sel))
-    .concat(o[1].filter((s) => swapHasGridIndices(s, sel)))
-    .concat(o[2].filter((s) => swapHasGridIndices(s, sel)));
+    .filter((s) => swapHasGridIndices(s, sel.a, sel.b))
+    .concat(o[1].filter((s) => swapHasGridIndices(s, sel.a, sel.b)))
+    .concat(o[2].filter((s) => swapHasGridIndices(s, sel.a, sel.b)));
 });
 
 export const persistenceTableHighlight = atom<
@@ -65,6 +72,18 @@ export const highlightAtom = atom<{ dim: number; index: number }[]>((get) => {
     if (table.lower) highlights.push({ dim: table.dim, index: table.lower });
     if (table.upper)
       highlights.push({ dim: table.dim + 1, index: table.upper });
+  }
+
+  const fs = get(maFaceSelection)?.selection ?? [];
+  for (const f of fs) {
+    highlights.push({
+      dim: f.dim,
+      index: f.i,
+    });
+    highlights.push({
+      dim: f.dim,
+      index: f.j,
+    });
   }
 
   return highlights;

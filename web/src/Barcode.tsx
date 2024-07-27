@@ -27,6 +27,7 @@ import "./Barcode.css";
 import { run } from "./work";
 import { HoverTooltip } from "./HoverTooltip";
 import { Diagram } from "./Diagram";
+import { FaceInfo } from "./FaceInfo";
 
 const _width = 4;
 const barSpacing = 20;
@@ -796,7 +797,13 @@ const Table = () => {
   );
 };
 
-const barcodeTabNames = ["Barcodes", "Diagram", "Vineyards", "Table"];
+const barcodeTabNames = [
+  "Barcodes",
+  "Diagram",
+  "Face info",
+  "Vineyards",
+  "Table",
+];
 
 export const BarcodeTabs = ({ live }: { live: boolean }) => {
   const [tab, setTab] = useState(0);
@@ -844,6 +851,7 @@ export const BarcodeTabs = ({ live }: { live: boolean }) => {
     <Tabs tab={tab} setTab={setTab} titles={barcodeTabNames}>
       <Barcode index={index} barcodes={barcodes} />
       <Diagram index={index} barcodes={barcodes} />
+      <FaceInfo />
       <div>
         <p>Sånn er det {`\u{1F377}`}</p>
       </div>
