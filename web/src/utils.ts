@@ -1,3 +1,5 @@
+import { Index, Swaps } from "./types";
+
 export const sum = <T>(array: T[], key: (t: T) => number): number => {
   let sum = 0;
   for (const x of array) sum += key(x);
@@ -74,4 +76,25 @@ export const range = (from: number, to: number): number[] => {
   const ret = new Array(to - from - 1).fill(0);
   for (let k = 0, i = from; i < to; k++, i++) ret[k] = i;
   return ret;
+};
+
+/** Given two grid indices, return them in sorted order. */
+export const gridIndexSort = ([a, b]: [Index, Index]): [Index, Index] => {
+  for (let i = 0; i < 3; i++) if (a[i] < b[i]) return [a, b];
+  return [b, a];
+};
+
+const arreq = <T>(a: T[], b: T[]): boolean => {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+};
+export const swapHasGridIndices = (
+  swap: Swaps[number],
+  [a, b]: [Index, Index],
+) => {
+  return (
+    (arreq(swap[0], a) && arreq(swap[1], b)) ||
+    (arreq(swap[0], b) && arreq(swap[1], a))
+  );
 };

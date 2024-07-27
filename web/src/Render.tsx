@@ -7,7 +7,7 @@ import {
   useState,
 } from "react";
 import * as THREE from "three";
-import { dedup, range, repeat } from "./utils";
+import { dedup, range, repeat, swapHasGridIndices } from "./utils";
 import { Wireframe } from "@react-three/drei";
 import { useAtom, useAtomValue } from "jotai";
 import {
@@ -16,6 +16,8 @@ import {
   gridRadiusAtom,
   hasAnySwaps,
   highlightAtom,
+  maFaceSelection,
+  maFaceSelectionSwaps,
   selectedGridIndex,
   swapsAtom,
   swapsForMA,
@@ -23,7 +25,6 @@ import {
 } from "./state";
 import { dualFaceQuad, gridCoordinate } from "./medialaxes";
 import { Complex, Grid } from "./types";
-import { colors } from "./constants";
 import { run } from "./work";
 
 export const RedSphere = ({
@@ -429,7 +430,7 @@ export const RenderMedialAxis = ({
   wireframe?: boolean;
 }) => {
   const swaps = useAtomValue(swapsForMA(dim));
-  const ref = useRef<THREE.BufferAttribute>(null);
+  const [selected, setSelected] = useAtom(maFaceSelection);
 
   const [coordBuffer, numberOfVertices] = useMemo(() => {
     let allCoords: number[] = [];
@@ -441,22 +442,61 @@ export const RenderMedialAxis = ({
     return [new Float32Array(allCoords), swaps.length * 2 * 3];
   }, [grid, swaps]);
 
+  const colors = useMemo(() => {
+    const blue = [0.6, 0.9, 1.0];
+    const red = [1.0, 0.5, 0.5];
+    const floats = swaps.flatMap((s) => {
+      if (selected && swapHasGridIndices(s, selected)) {
+        return repeat(red, 6);
+      } else {
+        return repeat(blue, 6);
+      }
+    });
+    return new Float32Array(floats);
+  }, [selected, swaps]);
+  const colorRef = useRef<THREE.BufferAttribute>(null);
+  useLayoutEffect(() => {
+    if (!colorRef.current) return;
+    colorRef.current.array = new Float32Array(colors);
+    colorRef.current.needsUpdate = true;
+  }, [colors]);
+
+  const ref = useRef<THREE.BufferAttribute>(null);
   useLayoutEffect(() => {
     if (!ref.current) return;
     ref.current.array = coordBuffer;
     ref.current.needsUpdate = true;
   }, [coordBuffer]);
 
+  const swapsss = useAtomValue(maFaceSelectionSwaps);
+  console.log(swapsss);
+
   if (numberOfVertices === 0) return null;
 
   return (
-    <mesh key={numberOfVertices}>
+    <mesh
+      key={numberOfVertices}
+      onClick={(e) => {
+        if (e.faceIndex === undefined) return;
+        const i = Math.floor(e.faceIndex / 2);
+        const s = swaps[i];
+        setSelected([s[0], s[1]]);
+        e.stopPropagation();
+      }}
+    >
       <bufferGeometry attach="geometry">
         <bufferAttribute
           ref={ref}
           attach="attributes-position"
           count={numberOfVertices}
           array={coordBuffer}
+          itemSize={3}
+        />
+        <bufferAttribute
+          ref={colorRef}
+          attach="attributes-color"
+          count={numberOfVertices}
+          array={colors}
           itemSize={3}
         />
       </bufferGeometry>
@@ -467,11 +507,7 @@ export const RenderMedialAxis = ({
         transparent
         opacity={0.5}
       />
-      <meshLambertMaterial
-        color={colors.blue}
-        flatShading
-        side={THREE.DoubleSide}
-      />
+      <meshLambertMaterial vertexColors flatShading side={THREE.DoubleSide} />
       {wireframe && <Wireframe />}
     </mesh>
   );

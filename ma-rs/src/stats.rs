@@ -2,7 +2,10 @@ use std::ops::Add;
 
 #[derive(Debug, Default)]
 pub struct SneakyMatrixMem {
-    pub columns: usize,
+    /// The size of the [Col] objects, as stored in [SneakyMatrix::columns].
+    pub column_meta: usize,
+    /// The size of the [Vec]s in [Col].
+    pub column_items: usize,
     pub rows: usize,
     pub cols: usize,
     pub col_perm: usize,
@@ -14,7 +17,8 @@ impl Add for SneakyMatrixMem {
 
     fn add(self, rhs: Self) -> Self::Output {
         Self {
-            columns: self.columns + rhs.columns,
+            column_meta: self.column_meta + rhs.column_meta,
+            column_items: self.column_items + rhs.column_items,
             rows: self.rows + rhs.rows,
             cols: self.cols + rhs.cols,
             col_perm: self.col_perm + rhs.col_perm,
@@ -26,7 +30,8 @@ impl Add for SneakyMatrixMem {
 impl Into<SneakyMatrixMem> for &crate::sneaky_matrix::SneakyMatrix {
     fn into(self) -> SneakyMatrixMem {
         SneakyMatrixMem {
-            columns: self.columns.iter().map(|v| v.mem_usage()).sum::<usize>(),
+            column_meta: self.columns.capacity() * std::mem::size_of::<crate::sneaky_matrix::Col>(),
+            column_items: self.columns.iter().map(|v| v.mem_usage()).sum::<usize>(),
             rows: std::mem::size_of_val(&self.rows),
             cols: std::mem::size_of_val(&self.cols),
             col_perm: self.col_perm.as_ref().map(|p| p.mem_usage()).unwrap_or(0),

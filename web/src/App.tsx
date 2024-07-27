@@ -10,6 +10,7 @@ import {
   Dim,
   complexAtom,
   gridForSwapsAtom,
+  maFaceSelection,
   selectedGridIndex,
   showGridAtom,
   showMAAtom,
@@ -78,6 +79,7 @@ const RenderCanvas = () => {
   const showMAs = useAtomValue(showMAAtom);
   const gridForSwaps = useAtomValue(gridForSwapsAtom);
   const setSelectedGridIndex = useSetAtom(selectedGridIndex);
+  const setMaFaceSelection = useSetAtom(maFaceSelection);
 
   return (
     <CanvasContainer id="canvas-container">
@@ -86,6 +88,7 @@ const RenderCanvas = () => {
           if (e.type !== "click") return;
           setTriangle(undefined);
           setSelectedGridIndex(undefined);
+          setMaFaceSelection(undefined);
         }}
       >
         <OrbitControls
