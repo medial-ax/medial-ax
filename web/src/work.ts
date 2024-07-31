@@ -150,7 +150,7 @@ export const resetWasmWorker = () => {
   activeWorkers = [];
 };
 
-await init().then((res) => {
+await init().then(() => {
   // setInterval(() => {
   //   const memB = res.memory.buffer.byteLength;
   //   const memMB = memB / 1024 / 1024;

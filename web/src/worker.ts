@@ -29,7 +29,6 @@ async function _run(id: string, fn: string, args: any) {
 
   if (fn === "run-and-dump") {
     const { grid, complex } = args;
-    console.log(WebAssembly.Memory);
     run_without_prune(
       grid,
       complex,
@@ -81,7 +80,7 @@ onmessage = (e) => {
   }
 };
 
-await init().then((res) => {
+await init().then(() => {
   // setInterval(() => {
   //   const memB = res.memory.buffer.byteLength;
   //   const memMB = memB / 1024 / 1024;

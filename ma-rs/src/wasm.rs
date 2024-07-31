@@ -94,7 +94,6 @@ pub fn my_init_function() {
             WAS_INIT = true;
         }
     }
-    info!("initialized logging in wasm worker");
 }
 
 #[derive(Serialize, Deserialize)]
@@ -154,10 +153,6 @@ pub fn load_state(
     let mut state: State = {
         let bytes: serde_bytes::ByteBuf = serde_wasm_bindgen::from_value(bytes)?;
         info_mem("after ByteBuf");
-        info!(
-            "load_state: bytes is {:.3} MB",
-            (bytes.len() as f64) / 1024.0 / 1024.0
-        );
         rmp_serde::from_slice(&bytes).map_err(|e| e.to_string())?
     };
     info_mem("after RMP");
@@ -182,14 +177,12 @@ pub fn load_state(
         info!("total: {}", total_mem)
     }
 
-    info!("Collect all swaps");
     let grid_index_to_reduction = state
         .grid_index_to_reduction
         .drain()
         .map(|(k, v)| (k + offset, v))
         .collect::<HashMap<_, _>>();
     info_mem("after red drain");
-    info!("reductions: {}", grid_index_to_reduction.len());
 
     let swaps0: Vec<_> = state
         .swaps0
@@ -217,7 +210,6 @@ pub fn load_state(
         swaps2.len(),
     );
 
-    info!("Extend worker state");
     let mut guard = STATE.lock().map_err(|_| "STATE.lock failed")?;
     let state = guard.as_mut().ok_or("No global state")?;
     state
@@ -231,7 +223,6 @@ pub fn load_state(
     state.swaps2.extend(swaps2);
     info_mem("after state2 extend");
 
-    info!("convert output value");
     let out = serde_wasm_bindgen::to_value("okay")?;
     info_mem("end");
 
