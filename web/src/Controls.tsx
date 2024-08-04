@@ -735,6 +735,8 @@ export const Menu = () => {
   const shownMA = useAtomValue(showMAAtom);
   const [exportVisible, setExportVisible] = useState(true);
 
+  const [onlyFirstSwap, setOnlyFirstSwap] = useState(false);
+
   const [allSettings, setAllSettings] = useAtom(allSettingsAtom);
 
   const exportMAtoObj = useCallback(() => {
@@ -781,6 +783,7 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
             grid,
             complex: cplx!.complex,
             allPruningParams,
+            onlyFirstSwap,
           },
           (o) => {
             workerProgress[i] = o;
@@ -801,7 +804,7 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
       }),
     );
 
-    results.forEach(async (res) => {
+    results.forEach(async (res: any) => {
       await run(
         "load-state",
         {
@@ -845,6 +848,7 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
     allPruningParams,
     cplx,
     grid,
+    onlyFirstSwap,
     setGridForSwaps,
     setSwaps,
     setWorkerRunning,
@@ -969,6 +973,18 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
         <GridControls />
 
         <h3>Medial axes</h3>
+
+        <label>
+          <input
+            type="checkbox"
+            checked={onlyFirstSwap}
+            onChange={(e) => {
+              setOnlyFirstSwap(e.target.checked);
+            }}
+          />
+          <p>Only first swap</p>
+        </label>
+
         <div className="row">
           <button
             style={{ flex: 1 }}

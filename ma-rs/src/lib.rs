@@ -814,7 +814,7 @@ pub fn vineyards_step(
             None
         }
 
-        unimplemented!();
+        // unimplemented!();
         // TODO: range 0..3
         for dim in 1..2 {
             let old_interesting_edge = find_interesting(reduction, complex, dim);

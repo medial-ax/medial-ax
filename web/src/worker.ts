@@ -28,12 +28,12 @@ async function _run(id: string, fn: string, args: any) {
   };
 
   if (fn === "run-and-dump") {
-    const { grid, complex } = args;
+    const { grid, complex, onlyFirstSwap } = args;
     run_without_prune(
       grid,
       complex,
       {
-        require_hom_birth_to_be_first: false,
+        require_hom_birth_to_be_first: onlyFirstSwap ?? false,
       },
       onMessage,
     );
