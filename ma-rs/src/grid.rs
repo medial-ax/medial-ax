@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     complex::{Complex, Pos},
-    vineyards_step, Reduction, Swaps,
+    reduce_from_scratch, vineyards_step, Reduction, Swaps,
 };
 
 #[derive(
@@ -309,5 +309,63 @@ impl Grid {
                 }
             }
         }
+    }
+}
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct MeshGrid {
+    points: Vec<Pos>,
+    neighbors: HashMap<isize, Vec<isize>>,
+}
+
+impl MeshGrid {
+    pub fn center(&self, index: Index) -> Pos {
+        self.points[index.0[0] as usize]
+    }
+
+    pub fn run_vineyards<F: Fn(usize, usize)>(
+        &self,
+        complex: &Complex,
+        require_hom_birth_to_be_first: bool,
+        record_progress: F,
+    ) -> (HashMap<Index, Reduction>, Vec<(Index, Index, Swaps)>) {
+        let mut reductions: HashMap<Index, Reduction> = HashMap::new();
+        let mut all_swaps: Vec<(Index, Index, Swaps)> = Vec::new();
+
+        let reduction_at_0 = reduce_from_scratch(&complex, self.points[0], false);
+        reductions.insert(Index([0, 0, 0]), reduction_at_0);
+
+        let mut queue = self
+            .neighbors
+            .get(&0)
+            .unwrap()
+            .iter()
+            .map(|n| (Index([*n, 0, 0]), Index([0, 0, 0])))
+            .collect::<Vec<_>>();
+
+        let mut loop_i = 0;
+        let num_edges = self
+            .neighbors
+            .values()
+            .map(|v| v.len() as usize)
+            .sum::<usize>()
+            / 2;
+
+        while let Some((next, from)) = queue.pop() {
+            if reductions.contains_key(&next) {
+                continue;
+            }
+            loop_i += 1;
+            record_progress(loop_i, num_edges);
+
+            let old_state = reductions.get(&from).expect("from should be in the map");
+            let p = self.points[next.0[0] as usize];
+            let (new_state, swaps) =
+                vineyards_step(complex, old_state, p, require_hom_birth_to_be_first);
+            all_swaps.push((from, next, swaps));
+            reductions.insert(next, new_state);
+        }
+
+        (reductions, all_swaps)
     }
 }

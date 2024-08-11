@@ -3,7 +3,7 @@ use wasm_bindgen::prelude::*;
 
 use crate::{
     complex::Complex,
-    grid::{Grid, Index},
+    grid::{Grid, Index, MeshGrid},
     reduce_from_scratch,
     sneaky_matrix::CI,
     stats::StackMem,
@@ -98,7 +98,9 @@ pub fn my_init_function() {
 
 #[derive(Serialize, Deserialize)]
 struct State {
-    grid: Grid,
+    grid: Option<Grid>,
+    mesh_grid: Option<MeshGrid>,
+
     complex: Complex,
     grid_index_to_reduction: HashMap<Index, Reduction>,
 
@@ -131,7 +133,8 @@ pub fn create_empty_state(grid: JsValue, complex: JsValue) -> Result<(), JsValue
     let grid: Grid = serde_wasm_bindgen::from_value(grid)?;
     let mut guard = STATE.lock().map_err(|_| "STATE.lock failed")?;
     *guard = Some(State {
-        grid,
+        grid: Some(grid),
+        mesh_grid: None,
         complex,
         grid_index_to_reduction: HashMap::new(),
         swaps0: Vec::new(),
@@ -429,25 +432,36 @@ pub fn run_without_prune(
         )
     };
 
-    let grid: Grid = serde_wasm_bindgen::from_value(grid)?;
     let complex: Complex = serde_wasm_bindgen::from_value(complex)?;
     let options: RunOptions = serde_wasm_bindgen::from_value(options)?;
-
-    let p = grid.center(Index([0; 3]));
-
-    send_message("Reduce from scratch", 0, 1).unwrap();
-    let s0 = reduce_from_scratch(&complex, p, false);
-    send_message("Run vineyards", 0, 1).unwrap();
-    let mut results = grid.run_vineyards_in_grid(
-        &complex,
-        s0,
-        options.require_hom_birth_to_be_first,
-        |i, n| {
+    let (mut results, grid, mesh_grid) = if let Ok(grid) =
+        serde_wasm_bindgen::from_value::<Grid>(grid.clone())
+    {
+        let p = grid.center(Index([0; 3]));
+        send_message("Reduce from scratch", 0, 1).unwrap();
+        let s0 = reduce_from_scratch(&complex, p, false);
+        send_message("Run vineyards", 0, 1).unwrap();
+        let res = grid.run_vineyards_in_grid(
+            &complex,
+            s0,
+            options.require_hom_birth_to_be_first,
+            |i, n| {
+                if i & 15 == 0 {
+                    send_message("Vineyards", i, n).unwrap();
+                }
+            },
+        );
+        (res, Some(grid), None)
+    } else if let Ok(grid) = serde_wasm_bindgen::from_value::<MeshGrid>(grid) {
+        let res = grid.run_vineyards(&complex, options.require_hom_birth_to_be_first, |i, n| {
             if i & 15 == 0 {
                 send_message("Vineyards", i, n).unwrap();
             }
-        },
-    );
+        });
+        (res, None, Some(grid))
+    } else {
+        return Err("Hello".to_string())?;
+    };
 
     let _ = send_message("Bake data 🧑‍🍳", 0, 1);
     for reduction in results.0.values_mut() {
@@ -472,6 +486,7 @@ pub fn run_without_prune(
 
     *state = Some(State {
         grid,
+        mesh_grid,
         complex,
         grid_index_to_reduction: results.0,
         swaps0: filter_dim(&results.1, 0),
