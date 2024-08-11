@@ -4,6 +4,7 @@ import {
   Complex,
   Grid,
   Index,
+  MeshGrid,
   PruningParam,
   Swap,
   Swaps,
@@ -26,8 +27,8 @@ export const complexAtom = atom<
   | undefined
 >(undefined);
 
-export const gridAtom = atom<Grid | undefined>(undefined);
-export const gridForSwapsAtom = atom<Grid | undefined>(undefined);
+export const gridAtom = atom<Grid | MeshGrid | undefined>(undefined);
+export const gridForSwapsAtom = atom<Grid | MeshGrid | undefined>(undefined);
 export const showGridAtom = atom<boolean>(true);
 export const selectedGridIndex = atom<Index | undefined>(undefined);
 
@@ -146,7 +147,7 @@ export const allPruningParamsAtom = atom((get) => {
 });
 
 type AllSettings = {
-  grid: Grid | undefined;
+  grid: Grid | MeshGrid | undefined;
   showGrid: boolean;
   wireframe: boolean;
   showObject: boolean;

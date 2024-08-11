@@ -18,9 +18,18 @@ export type BirthDeathPair = {
 };
 
 export type Grid = {
+  type: "grid";
   corner: number[];
   size: number;
   shape: number[];
+};
+
+export type MeshGrid = {
+  type: "meshgrid";
+  points: number[][];
+  neighbors: {
+    [i: number]: number[];
+  };
 };
 
 export type Index = [number, number, number];
@@ -91,7 +100,7 @@ export const bboxFromComplex = (cplx: Complex) => {
   return [bbox[0].map((n) => n - offset), bbox[1].map((n) => n + offset)];
 };
 
-export const defaultGrid = (cplx: Complex, numberOfDots: number = 5) => {
+export const defaultGrid = (cplx: Complex, numberOfDots: number = 5): Grid => {
   const bbox = bboxFromComplex(cplx);
   const scales = bbox[1].map((v, i) => v - bbox[0][i]);
   const scale = Math.min(...scales);
@@ -103,6 +112,7 @@ export const defaultGrid = (cplx: Complex, numberOfDots: number = 5) => {
     Math.ceil(scales[2] / size) + 1,
   ];
   return {
+    type: "grid",
     corner: [
       bbox[0][0] - size / 2,
       bbox[0][1] - size / 2,

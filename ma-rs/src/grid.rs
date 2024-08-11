@@ -59,6 +59,7 @@ impl std::fmt::Debug for Index {
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 #[cfg_attr(feature = "python", pyo3::pyclass(get_all))]
+#[serde(tag = "tag", rename = "grid")]
 pub struct Grid {
     pub corner: Pos,
     pub size: f64,
@@ -313,12 +314,20 @@ impl Grid {
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(tag = "tag", rename = "meshgrid")]
 pub struct MeshGrid {
     points: Vec<Pos>,
     neighbors: HashMap<isize, Vec<isize>>,
 }
 
 impl MeshGrid {
+    pub fn empty() -> Self {
+        Self {
+            points: Vec::new(),
+            neighbors: HashMap::new(),
+        }
+    }
+
     pub fn center(&self, index: Index) -> Pos {
         self.points[index.0[0] as usize]
     }
@@ -331,6 +340,10 @@ impl MeshGrid {
     ) -> (HashMap<Index, Reduction>, Vec<(Index, Index, Swaps)>) {
         let mut reductions: HashMap<Index, Reduction> = HashMap::new();
         let mut all_swaps: Vec<(Index, Index, Swaps)> = Vec::new();
+
+        if self.points.len() == 0 {
+            return (HashMap::new(), Vec::new());
+        }
 
         let reduction_at_0 = reduce_from_scratch(&complex, self.points[0], false);
         reductions.insert(Index([0, 0, 0]), reduction_at_0);
@@ -367,5 +380,56 @@ impl MeshGrid {
         }
 
         (reductions, all_swaps)
+    }
+
+    pub fn read_from_obj_string(s: &str) -> Result<Self, String> {
+        let mut points: Vec<Pos> = Vec::new();
+        let mut edges: Vec<(isize, isize)> = Vec::new();
+
+        for line in s.lines() {
+            let line = line.trim();
+            if line.starts_with("#")
+                || line.starts_with("mtllib")
+                || line.starts_with("o")
+                || line.starts_with("s")
+            {
+                continue;
+            } else if line.starts_with("v") {
+                let groups = line.split_ascii_whitespace().collect::<Vec<_>>();
+                let x = groups
+                    .get(1)
+                    .ok_or("missing field".to_string())
+                    .and_then(|n| n.parse::<f64>().map_err(|e| e.to_string()))?;
+                let y = groups
+                    .get(2)
+                    .ok_or("missing field".to_string())
+                    .and_then(|n| n.parse::<f64>().map_err(|e| e.to_string()))?;
+                let z = groups
+                    .get(3)
+                    .ok_or("missing field".to_string())
+                    .and_then(|n| n.parse::<f64>().map_err(|e| e.to_string()))?;
+                let coords = Pos([x, y, z]);
+                points.push(coords);
+            } else if line.starts_with("l") {
+                let groups = line.split_ascii_whitespace().collect::<Vec<_>>();
+                let from = groups
+                    .get(1)
+                    .ok_or("missing field".to_string())
+                    .and_then(|n| n.parse::<isize>().map_err(|e| e.to_string()))?;
+                let to = groups
+                    .get(2)
+                    .ok_or("missing field".to_string())
+                    .and_then(|n| n.parse::<isize>().map_err(|e| e.to_string()))?;
+                edges.push((from - 1, to - 1));
+            }
+        }
+
+        let mut neighbors: HashMap<isize, Vec<isize>> = HashMap::new();
+        for (from, to) in edges {
+            neighbors.entry(from).or_default().push(to);
+            neighbors.entry(to).or_default().push(from);
+        }
+
+        Ok(Self { points, neighbors })
     }
 }

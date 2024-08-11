@@ -130,11 +130,17 @@ pub fn get_state() -> Result<JsValue, JsValue> {
 #[wasm_bindgen]
 pub fn create_empty_state(grid: JsValue, complex: JsValue) -> Result<(), JsValue> {
     let complex: Complex = serde_wasm_bindgen::from_value(complex)?;
-    let grid: Grid = serde_wasm_bindgen::from_value(grid)?;
+    let (grid, mesh_grid) = if let Ok(grid) = serde_wasm_bindgen::from_value::<Grid>(grid.clone()) {
+        (Some(grid), None)
+    } else {
+        let grid = serde_wasm_bindgen::from_value::<MeshGrid>(grid)?;
+        (None, Some(grid))
+    };
+
     let mut guard = STATE.lock().map_err(|_| "STATE.lock failed")?;
     *guard = Some(State {
-        grid: Some(grid),
-        mesh_grid: None,
+        grid,
+        mesh_grid,
         complex,
         grid_index_to_reduction: HashMap::new(),
         swaps0: Vec::new(),
@@ -293,9 +299,16 @@ struct PruningParam {
 }
 
 #[wasm_bindgen]
-/// Read a compelx from a `String` consisting of an .obj file.
+/// Read a complex from a `String` consisting of an .obj file.
 pub fn make_complex_from_obj(obj_body: String) -> Result<JsValue, JsValue> {
     let complex = Complex::read_from_obj_string(&obj_body)?;
+    serde_wasm_bindgen::to_value(&complex).map_err(|e| JsValue::from_str(&format!("{}", e)))
+}
+
+#[wasm_bindgen]
+/// Read a mesh from a `String` consisting of an .obj file.
+pub fn make_meshgrid_from_obj(obj_body: String) -> Result<JsValue, JsValue> {
+    let complex = MeshGrid::read_from_obj_string(&obj_body)?;
     serde_wasm_bindgen::to_value(&complex).map_err(|e| JsValue::from_str(&format!("{}", e)))
 }
 
@@ -392,21 +405,29 @@ pub fn prune_dimension(
 
 #[wasm_bindgen]
 pub fn split_grid(grid: JsValue) -> Result<JsValue, JsValue> {
-    let grid: Grid = serde_wasm_bindgen::from_value(grid)?;
+    if let Ok(grid) = serde_wasm_bindgen::from_value::<Grid>(grid.clone()) {
+        let (a, b, b_offset) = grid.split_with_overlap();
 
-    let (a, b, b_offset) = grid.split_with_overlap();
+        let (aa, ab, ab_offset) = a.split_with_overlap();
+        let (ba, bb, bb_offset) = b.split_with_overlap();
 
-    let (aa, ab, ab_offset) = a.split_with_overlap();
-    let (ba, bb, bb_offset) = b.split_with_overlap();
-
-    let grids = [
-        (aa, Index([0; 3])),
-        (ab, ab_offset),
-        (ba, b_offset),
-        (bb, b_offset + bb_offset),
-    ];
-
-    Ok(serde_wasm_bindgen::to_value(&grids)?)
+        let grids = [
+            (aa, Index([0; 3])),
+            (ab, ab_offset),
+            (ba, b_offset),
+            (bb, b_offset + bb_offset),
+        ];
+        Ok(serde_wasm_bindgen::to_value(&grids)?)
+    } else {
+        let grid = serde_wasm_bindgen::from_value::<MeshGrid>(grid)?;
+        let grids = [
+            (grid, Index([0; 3])),
+            (MeshGrid::empty(), Index([0; 3])),
+            (MeshGrid::empty(), Index([0; 3])),
+            (MeshGrid::empty(), Index([0; 3])),
+        ];
+        Ok(serde_wasm_bindgen::to_value(&grids)?)
+    }
 }
 
 #[derive(Deserialize)]
@@ -434,9 +455,11 @@ pub fn run_without_prune(
 
     let complex: Complex = serde_wasm_bindgen::from_value(complex)?;
     let options: RunOptions = serde_wasm_bindgen::from_value(options)?;
+    info!("run_without_prune");
     let (mut results, grid, mesh_grid) = if let Ok(grid) =
         serde_wasm_bindgen::from_value::<Grid>(grid.clone())
     {
+        info!("found regular grid");
         let p = grid.center(Index([0; 3]));
         send_message("Reduce from scratch", 0, 1).unwrap();
         let s0 = reduce_from_scratch(&complex, p, false);
@@ -453,6 +476,7 @@ pub fn run_without_prune(
         );
         (res, Some(grid), None)
     } else if let Ok(grid) = serde_wasm_bindgen::from_value::<MeshGrid>(grid) {
+        info!("found mesh grid");
         let res = grid.run_vineyards(&complex, options.require_hom_birth_to_be_first, |i, n| {
             if i & 15 == 0 {
                 send_message("Vineyards", i, n).unwrap();

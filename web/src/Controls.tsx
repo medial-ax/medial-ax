@@ -21,7 +21,6 @@ import {
 } from "./state";
 import {
   ComponentProps,
-  SetStateAction,
   useCallback,
   useEffect,
   useRef,
@@ -34,8 +33,12 @@ import squished_cylinder from "../inputs/squished_cylinder.obj?raw";
 import extruded_ellipse from "../inputs/extruded_ellipse.obj?raw";
 import cube_subdiv_2 from "../inputs/cube-subdiv-2.obj?raw";
 import maze_2 from "../inputs/maze_2.obj?raw";
-import { Grid, Index, defaultGrid } from "./types";
-import { make_complex_from_obj, split_grid } from "ma-rs";
+import { Grid, Index, MeshGrid, defaultGrid } from "./types";
+import {
+  make_complex_from_obj,
+  make_meshgrid_from_obj,
+  split_grid,
+} from "ma-rs";
 import { RESET } from "jotai/utils";
 import { resetWasmWorker, run, makeWorker } from "./work";
 import "./Controls.css";
@@ -124,21 +127,23 @@ const Loader = styled.span<{
   }
 `;
 
-const GridControls = () => {
-  const [grid, _setGrid] = useAtom(gridAtom);
-  const [showGrid] = useAtom(showGridAtom);
-
-  const setGrid = useCallback(
-    (f: SetStateAction<Grid | undefined>) => {
-      _setGrid(f);
-    },
-    [_setGrid],
+const MeshGridControls = ({ grid: _ }: { grid: MeshGrid }) => {
+  return (
+    <>
+      <h3>Grid controls</h3>
+      <span>Meshgrid has no options</span>
+    </>
   );
+};
+
+const BasicGridControls = ({ grid }: { grid: Grid }) => {
+  const setGrid = useSetAtom(gridAtom);
+  const [showGrid] = useAtom(showGridAtom);
 
   const cplx = useAtomValue(complexAtom);
   const [numDots, setNumDots] = useState(7);
 
-  if (!grid)
+  if (!grid || grid.type !== "grid")
     return (
       <>
         <h3>Grid controls</h3>
@@ -355,6 +360,38 @@ const GridControls = () => {
   );
 };
 
+const GridControls = () => {
+  const grid = useAtomValue(gridAtom);
+  const setGrid = useSetAtom(gridAtom);
+  const cplx = useAtomValue(complexAtom);
+
+  if (!grid)
+    return (
+      <>
+        <h3>Grid controls</h3>
+        <button
+          disabled={!cplx}
+          title={
+            cplx
+              ? undefined
+              : "You need a complex before you can make the grid."
+          }
+          style={{ width: "fit-content", alignSelf: "center" }}
+          onClick={() => {
+            if (!cplx) return;
+            setGrid(defaultGrid(cplx.complex));
+          }}
+        >
+          Make grid
+        </button>
+      </>
+    );
+
+  if (grid.type === "grid") return <BasicGridControls grid={grid} />;
+  if (grid.type === "meshgrid") return <MeshGridControls grid={grid} />;
+  return null;
+};
+
 const CollapseH4 = ({
   title,
   children,
@@ -409,6 +446,33 @@ const UploadObjFilePicker = () => {
               setComplex({ complex: value, filename: f.name });
               setSwaps({ 0: [], 1: [], 2: [] });
               setGrid(undefined);
+            })
+            .catch((err: string) => {
+              toast("error", `Failed to parse .obj: ${err}`, 3);
+            });
+        }}
+      />
+    </label>
+  );
+};
+
+const UploadMeshGridFilePicker = () => {
+  const setGrid = useSetAtom(gridAtom);
+  return (
+    <label className="file">
+      <p>
+        Import grid from <code>.obj</code>
+      </p>
+      <input
+        type="file"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (!f) return;
+          f.text()
+            .then((text) => {
+              const value = make_meshgrid_from_obj(text);
+              setGrid({ type: "meshgrid", ...value });
+              console.log(value);
             })
             .catch((err: string) => {
               toast("error", `Failed to parse .obj: ${err}`, 3);
@@ -741,6 +805,10 @@ export const Menu = () => {
 
   const exportMAtoObj = useCallback(() => {
     if (!grid) return;
+    if (grid.type === "meshgrid") {
+      window.alert("Cannot export using meshgrid yet");
+      return;
+    }
     let obj = "";
     let v = 1;
     for (const ma of [0, 1, 2] satisfies Dim[]) {
@@ -888,6 +956,8 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
 
         <h4>Import</h4>
         <UploadObjFilePicker />
+        <UploadMeshGridFilePicker />
+
         <ul className="predef-files-list">
           {EXAMPLE_OBJS.map((obj, i) => (
             <li
@@ -992,7 +1062,8 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
             onClick={async () =>
               compute_the_things()
                 .catch((err) => {
-                  toast("error", err, 10);
+                  const s = err instanceof Error ? err.message : String(err);
+                  toast("error", s, 10);
                 })
                 .finally(() => {
                   setWorkerProgress(undefined);
