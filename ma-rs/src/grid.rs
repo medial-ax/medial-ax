@@ -379,6 +379,9 @@ impl MeshGrid {
                 vineyards_step(complex, old_state, p, require_hom_birth_to_be_first);
             all_swaps.push((from, next, swaps));
             reductions.insert(next, new_state);
+            for n in self.neighbors.get(&next.0[0]).unwrap() {
+                queue.push((Index([*n, 0, 0]), Index([next.0[0], 0, 0])));
+            }
         }
 
         (reductions, all_swaps)
