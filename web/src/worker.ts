@@ -15,6 +15,7 @@ const wait = () => new Promise((res) => setTimeout(() => res(0), 10));
 
 async function _run(id: string, fn: string, args: any) {
   while (!_init) await wait();
+  console.log("run", fn);
   const onMessage = (label: string, i: number, n: number) => {
     postMessage({
       id,
