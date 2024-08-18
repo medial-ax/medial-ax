@@ -8,6 +8,7 @@ import init, {
   get_state,
   reset_state,
   load_state,
+  meshgrid_dual_face,
 } from "ma-rs";
 
 let _init = false;
@@ -15,7 +16,6 @@ const wait = () => new Promise((res) => setTimeout(() => res(0), 10));
 
 async function _run(id: string, fn: string, args: any) {
   while (!_init) await wait();
-  console.log("run", fn);
   const onMessage = (label: string, i: number, n: number) => {
     postMessage({
       id,
@@ -53,6 +53,9 @@ async function _run(id: string, fn: string, args: any) {
   } else if (fn === "load-state") {
     const { bytes, index } = args;
     return load_state(bytes, index, (s: any) => console.log(s));
+  } else if (fn === "meshgrid-dual-face") {
+    const { a, b } = args;
+    return meshgrid_dual_face(a, b);
   } else if (fn === "create-empty-state") {
     const { grid, complex } = args;
     return create_empty_state(grid, complex);

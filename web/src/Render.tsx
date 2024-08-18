@@ -9,7 +9,7 @@ import {
 import * as THREE from "three";
 import { dedup, range, repeat, swapHasGridIndices } from "./utils";
 import { Wireframe } from "@react-three/drei";
-import { useAtom, useAtomValue } from "jotai";
+import { atom, useAtom, useAtomValue } from "jotai";
 import {
   Dim,
   gridAtom,
@@ -25,6 +25,7 @@ import {
 import { dualFaceQuad, gridCoordinate } from "./medialaxes";
 import { Complex, Grid, MeshGrid } from "./types";
 import { run } from "./work";
+import { atomFamily } from "jotai/utils";
 
 export const RedSphere = ({
   pos,
@@ -506,27 +507,45 @@ export const RenderGrid = () => {
   if (grid.type === "meshgrid") return <RenderMeshGrid grid={grid} />;
 };
 
+const meshDualFaces = atomFamily((dim: Dim) =>
+  atom<Promise<[Float32Array, number] | undefined>>(async (get) => {
+    const grid = get(gridAtom);
+    if (!grid) return undefined;
+
+    const swaps = get(swapsForMA(dim));
+
+    let allCoords: number[] = [];
+    if (grid.type === "grid") {
+      for (const [p, q] of swaps) {
+        const [a, b, c, d] = dualFaceQuad(grid, p, q);
+        const vertexcoords = [...a, ...b, ...c, ...a, ...c, ...d];
+        allCoords = allCoords.concat(vertexcoords);
+      }
+    } else {
+      for (const [p, q] of swaps) {
+        const [a, b, c, d] = await run("meshgrid-dual-face", { a: p, b: q });
+        const vertexcoords = [...a, ...b, ...c, ...a, ...c, ...d];
+        allCoords = allCoords.concat(vertexcoords);
+      }
+      console.log({ allCoords });
+    }
+    return [new Float32Array(allCoords), swaps.length * 2 * 3];
+  }),
+);
+
 export const RenderMedialAxis = ({
-  grid,
   dim,
   wireframe,
 }: {
-  grid: Grid;
+  grid: Grid | MeshGrid;
   dim: Dim;
   wireframe?: boolean;
 }) => {
   const swaps = useAtomValue(swapsForMA(dim));
   const [selected, setSelected] = useAtom(maFaceSelection);
 
-  const [coordBuffer, numberOfVertices] = useMemo(() => {
-    let allCoords: number[] = [];
-    for (const [p, q] of swaps) {
-      const [a, b, c, d] = dualFaceQuad(grid, p, q);
-      const vertexcoords = [...a, ...b, ...c, ...a, ...c, ...d];
-      allCoords = allCoords.concat(vertexcoords);
-    }
-    return [new Float32Array(allCoords), swaps.length * 2 * 3];
-  }, [grid, swaps]);
+  const [coordBuffer, numberOfVertices] =
+    useAtomValue(meshDualFaces(dim)) ?? [];
 
   const colors = useMemo(() => {
     const blue = [0.53, 0.66, 1.0];
@@ -549,7 +568,7 @@ export const RenderMedialAxis = ({
 
   const ref = useRef<THREE.BufferAttribute>(null);
   useLayoutEffect(() => {
-    if (!ref.current) return;
+    if (!ref.current || !coordBuffer) return;
     ref.current.array = coordBuffer;
     ref.current.needsUpdate = true;
   }, [coordBuffer]);

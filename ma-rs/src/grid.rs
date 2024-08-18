@@ -59,11 +59,11 @@ impl std::fmt::Debug for Index {
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 #[cfg_attr(feature = "python", pyo3::pyclass(get_all))]
-#[serde(tag = "tag", rename = "grid")]
 pub struct Grid {
     pub corner: Pos,
     pub size: f64,
     pub shape: Index,
+    r#type: String,
 }
 
 #[cfg_attr(feature = "python", pymethods)]
@@ -74,6 +74,7 @@ impl Grid {
             corner,
             size,
             shape: Index(shape),
+            r#type: "grid".to_string(),
         }
     }
 
@@ -314,10 +315,10 @@ impl Grid {
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-#[serde(tag = "tag", rename = "meshgrid")]
 pub struct MeshGrid {
-    points: Vec<Pos>,
-    neighbors: HashMap<isize, Vec<isize>>,
+    pub points: Vec<Pos>,
+    pub neighbors: HashMap<isize, Vec<isize>>,
+    pub r#type: String,
 }
 
 impl MeshGrid {
@@ -325,6 +326,7 @@ impl MeshGrid {
         Self {
             points: Vec::new(),
             neighbors: HashMap::new(),
+            r#type: "meshgrid".to_string(),
         }
     }
 
@@ -430,6 +432,10 @@ impl MeshGrid {
             neighbors.entry(to).or_default().push(from);
         }
 
-        Ok(Self { points, neighbors })
+        Ok(Self {
+            points,
+            neighbors,
+            r#type: "meshgrid".to_string(),
+        })
     }
 }

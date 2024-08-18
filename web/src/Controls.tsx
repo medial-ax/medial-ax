@@ -1,4 +1,4 @@
-import { useAtom, useAtomValue, useSetAtom } from "jotai";
+import { ExtractAtomValue, useAtom, useAtomValue, useSetAtom } from "jotai";
 import {
   Dim,
   allPruningParamsAtom,
@@ -883,7 +883,7 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
       );
     });
 
-    const pruned = {
+    const pruned: ExtractAtomValue<typeof swapsAtom> = {
       0: await run(
         "prune-dimension",
         {

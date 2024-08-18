@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize, Serializer};
 use wasm_bindgen::prelude::*;
 
 use crate::{
-    complex::Complex,
+    complex::{Complex, Pos},
     grid::{Grid, Index, MeshGrid},
     reduce_from_scratch,
     sneaky_matrix::CI,
@@ -166,7 +166,7 @@ pub fn load_state(
     let mut state: State = {
         let bytes: serde_bytes::ByteBuf = serde_wasm_bindgen::from_value(bytes)?;
         info_mem("after ByteBuf");
-        rmp_serde::from_slice(&bytes).map_err(|e| e.to_string())?
+        rmp_serde::from_slice(&bytes).map_err(|e| format!("rmp_serde failed: {}", e.to_string()))?
     };
     info_mem("after RMP");
 
@@ -523,4 +523,57 @@ pub fn run_without_prune(
     });
 
     Ok(())
+}
+
+#[wasm_bindgen]
+pub fn meshgrid_dual_face(a: JsValue, b: JsValue) -> Result<JsValue, JsValue> {
+    let a: Index = serde_wasm_bindgen::from_value(a)?;
+    let b: Index = serde_wasm_bindgen::from_value(b)?;
+
+    let guard = STATE.lock().map_err(|_| "STATE.lock failed")?;
+    let state = guard.as_ref().ok_or("No global state")?;
+    let Some(ref grid) = state.mesh_grid else {
+        return Err("No mesh grid")?;
+    };
+
+    let a = grid.points[a.0[0] as usize];
+    let b = grid.points[b.0[0] as usize];
+    let dist = a.dist(&b);
+    info!("dist = {}", dist);
+
+    let [ax, ay, az] = a.0;
+    let [bx, by, bz] = b.0;
+    let middle = a + (b - a) / 2.0;
+    let ret: [Pos; 4] = if (ax - bx).abs() > 1e-3 {
+        let p = Pos([0.0, dist / 2.0, 0.0]);
+        let q = Pos([0.0, 0.0, dist / 2.0]);
+        [
+            middle - p - q,
+            middle - p + q,
+            middle + p + q,
+            middle + p - q,
+        ]
+    } else if (ay - by).abs() > 1e-3 {
+        let p = Pos([dist / 2.0, 0.0, 0.0]);
+        let q = Pos([0.0, 0.0, dist / 2.0]);
+        [
+            middle - p - q,
+            middle - p + q,
+            middle + p + q,
+            middle + p - q,
+        ]
+    } else if (az - bz).abs() > 1e-3 {
+        let p = Pos([dist / 2.0, 0.0, 0.0]);
+        let q = Pos([0.0, dist / 2.0, 0.0]);
+        [
+            middle - p - q,
+            middle - p + q,
+            middle + p + q,
+            middle + p - q,
+        ]
+    } else {
+        panic!("bad points {:?} {:?}", a, b);
+    };
+
+    Ok(serde_wasm_bindgen::to_value(&ret)?)
 }
