@@ -60,8 +60,8 @@ export const FaceInfo = () => {
   return (
     <FaceInfo_>
       <ul>
-        {swapsss.flatMap((sps) =>
-          sps[2].v.map((s, i) => <SwapLine key={i} s={s} />),
+        {swapsss.flatMap((sps, j) =>
+          sps[2].v.map((s, i) => <SwapLine key={`${j}-${i}`} s={s} />),
         )}
       </ul>
     </FaceInfo_>
