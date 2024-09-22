@@ -251,6 +251,23 @@ export const RenderComplex = ({
       });
   }, [cplx.simplices_per_dim, filtration, timeline]);
 
+  const filteredFaces = useMemo(() => {
+    if (!filtration) return [];
+    const n = cplx.simplices_per_dim[2].length;
+    return range(0, n)
+      .filter((i) => filtration[2][i] < timeline)
+      .map((id) => {
+        const face = cplx.simplices_per_dim[2][id];
+        const pointIndices = dedup(
+          face.boundary.flatMap((i) => cplx.simplices_per_dim[1][i].boundary),
+        );
+        const points = pointIndices.map(
+          (i) => new THREE.Vector3(...cplx.simplices_per_dim[0][i].coords!),
+        );
+        return <RedTriangle key={id} points={points} />;
+      });
+  }, [cplx.simplices_per_dim, filtration, timeline]);
+
   const vertices = highlights
     .filter((h) => h.dim === 0)
     .map((h, i) => {
@@ -274,6 +291,19 @@ export const RenderComplex = ({
           radius={0.02}
         />
       );
+    });
+
+  const faces = highlights
+    .filter((h) => h.dim === 2)
+    .map((h, i) => {
+      const face = cplx.simplices_per_dim[2][h.index];
+      const pointIndices = dedup(
+        face.boundary.flatMap((i) => cplx.simplices_per_dim[1][i].boundary),
+      );
+      const points = pointIndices.map(
+        (i) => new THREE.Vector3(...cplx.simplices_per_dim[0][i].coords!),
+      );
+      return <RedTriangle key={i} points={points} />;
     });
 
   return (
@@ -317,8 +347,10 @@ export const RenderComplex = ({
       </mesh>
       {vertices}
       {edges}
+      {faces}
       {filteredVertices}
       {filteredEdges}
+      {filteredFaces}
     </>
   );
 };
