@@ -114,10 +114,7 @@ const RenderCanvas = () => {
 
         {gridForSwaps &&
           ([0, 1, 2] satisfies Dim[]).map((dim) => {
-            if (showMAs[dim])
-              return (
-                <RenderMedialAxis grid={gridForSwaps} dim={dim} key={dim} />
-              );
+            if (showMAs[dim]) return <RenderMedialAxis dim={dim} key={dim} />;
             return null;
           })}
 

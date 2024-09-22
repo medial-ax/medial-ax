@@ -537,7 +537,6 @@ export const RenderMedialAxis = ({
   dim,
   wireframe,
 }: {
-  grid: Grid | MeshGrid;
   dim: Dim;
   wireframe?: boolean;
 }) => {
@@ -573,7 +572,7 @@ export const RenderMedialAxis = ({
     ref.current.needsUpdate = true;
   }, [coordBuffer]);
 
-  if (numberOfVertices === 0) return null;
+  if (numberOfVertices === 0 || !coordBuffer) return null;
 
   return (
     <mesh
