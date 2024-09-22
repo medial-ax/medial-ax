@@ -146,6 +146,14 @@ export const allPruningParamsAtom = atom((get) => {
   };
 });
 
+export const resetStateForNewComplexAtom = atom(null, (_, set) => {
+  set(swapsAtom, { 0: [], 1: [], 2: [] });
+  set(gridAtom, undefined);
+  set(maFaceSelection, undefined);
+  set(persistenceTableHighlight, undefined);
+  console.log("reset all state");
+});
+
 type AllSettings = {
   grid: Grid | MeshGrid | undefined;
   showGrid: boolean;

@@ -11,6 +11,7 @@ import {
   keypointRadiusAtom,
   menuOpenAtom,
   pruningParamAtom,
+  resetStateForNewComplexAtom,
   showGridAtom,
   showMAAtom,
   showObjectAtom,
@@ -428,8 +429,7 @@ const CollapseH4 = ({
 
 const UploadObjFilePicker = () => {
   const setComplex = useSetAtom(complexAtom);
-  const setGrid = useSetAtom(gridAtom);
-  const setSwaps = useSetAtom(swapsAtom);
+  const resetStateForNewComplex = useSetAtom(resetStateForNewComplexAtom);
   return (
     <label className="file">
       <p>
@@ -443,9 +443,8 @@ const UploadObjFilePicker = () => {
           f.text()
             .then((text) => {
               const value = make_complex_from_obj(text);
+              resetStateForNewComplex();
               setComplex({ complex: value, filename: f.name });
-              setSwaps({ 0: [], 1: [], 2: [] });
-              setGrid(undefined);
             })
             .catch((err: string) => {
               toast("error", `Failed to parse .obj: ${err}`, 3);
@@ -779,7 +778,8 @@ const RenderOptions = () => {
 
 export const Menu = () => {
   const [cplx, setComplex] = useAtom(complexAtom);
-  const [grid, setGrid] = useAtom(gridAtom);
+  const [grid] = useAtom(gridAtom);
+  const resetStateForNewComplex = useSetAtom(resetStateForNewComplexAtom);
   const [swaps, setSwaps] = useAtom(swapsAtom);
   const anySwaps = useAtomValue(hasAnySwaps);
   const [workerRunning, setWorkerRunning] = useAtom(workerRunningAtom);
@@ -974,12 +974,11 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
                 )
                   return;
                 const value = make_complex_from_obj(obj.string);
+                resetStateForNewComplex();
                 setComplex({
                   complex: value,
                   filename: obj.name.replace(" ", "-") + ".obj",
                 });
-                setSwaps({ 0: [], 1: [], 2: [] });
-                setGrid(undefined);
                 run("reset-state", {});
               }}
             >
