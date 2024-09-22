@@ -26,6 +26,7 @@ import { dualFaceQuad, gridCoordinate } from "./medialaxes";
 import { Complex, Grid, MeshGrid } from "./types";
 import { run } from "./work";
 import { atomFamily } from "jotai/utils";
+import { dim2rgb } from "./constants";
 
 export const RedSphere = ({
   pos,
@@ -559,7 +560,6 @@ const meshDualFaces = atomFamily((dim: Dim) =>
         const vertexcoords = [...a, ...b, ...c, ...a, ...c, ...d];
         allCoords = allCoords.concat(vertexcoords);
       }
-      console.log({ allCoords });
     }
     return [new Float32Array(allCoords), swaps.length * 2 * 3];
   }),
@@ -579,17 +579,17 @@ export const RenderMedialAxis = ({
     useAtomValue(meshDualFaces(dim)) ?? [];
 
   const colors = useMemo(() => {
-    const blue = [0.53, 0.66, 1.0];
     const red = [1.0, 0.5, 0.5];
     const floats = swaps.flatMap((s) => {
       if (selected && swapHasGridIndices(s, selected.a, selected.b)) {
         return repeat(red, 6);
       } else {
-        return repeat(blue, 6);
+        return repeat(dim2rgb[dim], 6);
       }
     });
     return new Float32Array(floats);
-  }, [selected, swaps]);
+  }, [dim, selected, swaps]);
+
   const colorRef = useRef<THREE.BufferAttribute>(null);
   useLayoutEffect(() => {
     if (!colorRef.current) return;
