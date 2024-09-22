@@ -11,7 +11,11 @@ use crate::{
 };
 use log::{info, warn};
 
-use std::{collections::HashMap, panic, sync::Mutex};
+use std::{
+    collections::{HashMap, HashSet},
+    panic,
+    sync::Mutex,
+};
 
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::sync::atomic::{AtomicIsize, Ordering};
@@ -229,11 +233,39 @@ pub fn load_state(
         .grid_index_to_reduction
         .extend(grid_index_to_reduction);
     info_mem("after red extend");
-    state.swaps0.extend(swaps0);
+
+    let existing_indices_0 = state
+        .swaps0
+        .iter()
+        .map(|(a, b, _)| (a, b))
+        .collect::<HashSet<_>>();
+    let new_indices_0 = swaps0
+        .into_iter()
+        .filter(|(a, b, _)| !existing_indices_0.contains(&(a, b)))
+        .collect::<Vec<_>>();
+    state.swaps0.extend(new_indices_0);
     info_mem("after state0 extend");
-    state.swaps1.extend(swaps1);
+    let existing_indices_1 = state
+        .swaps1
+        .iter()
+        .map(|(a, b, _)| (a, b))
+        .collect::<HashSet<_>>();
+    let new_indices_1 = swaps1
+        .into_iter()
+        .filter(|(a, b, _)| !existing_indices_1.contains(&(a, b)))
+        .collect::<Vec<_>>();
+    state.swaps1.extend(new_indices_1);
     info_mem("after state1 extend");
-    state.swaps2.extend(swaps2);
+    let existing_indices_2 = state
+        .swaps2
+        .iter()
+        .map(|(a, b, _)| (a, b))
+        .collect::<HashSet<_>>();
+    let new_indices_2 = swaps2
+        .into_iter()
+        .filter(|(a, b, _)| !existing_indices_2.contains(&(a, b)))
+        .collect::<Vec<_>>();
+    state.swaps2.extend(new_indices_2);
     info_mem("after state2 extend");
 
     let out = serde_wasm_bindgen::to_value("okay")?;
