@@ -439,7 +439,11 @@ const TimelineBar = ({ xmax }: { xmax: number }) => {
     [isDragging, setTimelinePosition, xmax],
   );
 
-  const { width } = redRef.current?.getBoundingClientRect() ?? { width: 0 };
+  const [width, setWidth] = useState(0);
+  useLayoutEffect(() => {
+    const r = redRef.current?.getBoundingClientRect();
+    if (r) setWidth(r.width);
+  }, []);
   const x = useMemo(() => {
     const px = time2px(timelinePosition, xmax, width - 2 * barcodePaddingPx);
     return px + barcodePaddingPx;
@@ -497,6 +501,7 @@ const TimelineBar = ({ xmax }: { xmax: number }) => {
 
 const BarcodeInner = ({
   barcodes,
+  showTimeline,
 }: {
   barcodes: {
     "-1": BirthDeathPair[];
@@ -504,6 +509,7 @@ const BarcodeInner = ({
     1: BirthDeathPair[];
     2: BirthDeathPair[];
   };
+  showTimeline: boolean;
 }) => {
   const ref = useRef<HTMLDivElement>(null);
   const setSelectedBDPair = useSetAtom(selectedBirthDeathPair);
@@ -557,7 +563,7 @@ const BarcodeInner = ({
         <BarcodeDim width={width} xmax={xmax} pairs={barcodes[-1]} dim={-1} />
       </BarcodePlot>
       <BarcodeXAxis width={width} xmax={xmax} />
-      <TimelineBar xmax={xmax} />
+      {showTimeline && <TimelineBar xmax={xmax} />}
       <div style={{ display: "flex", justifyContent: "center", gap: "0.3rem" }}>
         <span>Distance squared</span>
         <HoverTooltip>
@@ -578,6 +584,8 @@ export const Barcode = ({
 }) => {
   const haveComputed = useAtomValue(gridForSwapsAtom) !== undefined;
   const gridIsOutOfSync = useAtomValue(gridOutOfSync);
+
+  const [showTimeline, setShowTimeline] = useState(true);
 
   if (!haveComputed)
     return (
@@ -612,7 +620,23 @@ export const Barcode = ({
       </Center>
     );
 
-  return <BarcodeInner key={String(index)} barcodes={barcodes} />;
+  return (
+    <div style={{ display: "flex", flexDirection: "column" }}>
+      <label>
+        <input
+          checked={showTimeline}
+          type="checkbox"
+          onChange={(e) => setShowTimeline(e.target.checked)}
+        />
+        <span>{showTimeline ? "Hide" : "Show"} slider</span>
+      </label>
+      <BarcodeInner
+        key={String(index)}
+        barcodes={barcodes}
+        showTimeline={showTimeline}
+      />
+    </div>
+  );
 };
 
 const triangle = {
