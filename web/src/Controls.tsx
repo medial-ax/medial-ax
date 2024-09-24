@@ -144,6 +144,54 @@ const BasicGridControls = ({ grid }: { grid: Grid }) => {
   const cplx = useAtomValue(complexAtom);
   const [numDots, setNumDots] = useState(7);
 
+  const exportGridToObj = useCallback((grid: Grid) => {
+    console.log({ grid });
+    let obj = "o grid\n";
+
+    const [x0, y0, z0] = grid.corner;
+    const s = grid.size;
+    const [X, Y, Z] = grid.shape;
+
+    const coord2ind = new Map<string, number>();
+    let ind = 1;
+    for (let i = 0; i < X; i++) {
+      for (let j = 0; j < Y; j++) {
+        for (let k = 0; k < Z; k++) {
+          obj += `v ${x0 + i * s} ${y0 + j * s} ${z0 + k * s}\n`;
+          coord2ind.set(`${i}-${j}-${k}`, ind);
+          ind++;
+        }
+      }
+    }
+
+    for (let i = 0; i < X; i++) {
+      for (let j = 0; j < Y; j++) {
+        for (let k = 0; k < Z; k++) {
+          const us = coord2ind.get(`${i}-${j}-${k}` as const);
+          if (us === undefined) throw new Error("should not be here us");
+
+          if (i != X - 1) {
+            const adj = coord2ind.get(`${i + 1}-${j}-${k}` as const);
+            if (adj === undefined) throw new Error("should not be here x");
+            obj += `l ${us} ${adj}\n`;
+          }
+          if (j != Y - 1) {
+            const adj = coord2ind.get(`${i}-${j + 1}-${k}` as const);
+            if (adj === undefined) throw new Error("should not be here y");
+            obj += `l ${us} ${adj}\n`;
+          }
+          if (k != Z - 1) {
+            const adj = coord2ind.get(`${i}-${j}-${k + 1}` as const);
+            if (adj === undefined) throw new Error("should not be here z");
+            obj += `l ${us} ${adj}\n`;
+          }
+        }
+      }
+    }
+
+    downloadText(obj, "grid.obj");
+  }, []);
+
   if (!grid || grid.type !== "grid")
     return (
       <>
@@ -169,16 +217,28 @@ const BasicGridControls = ({ grid }: { grid: Grid }) => {
   return (
     <>
       <h3>Grid controls</h3>
-      <button
-        disabled={!showGrid}
-        style={{ width: "fit-content" }}
-        onClick={() => {
-          if (!cplx) return;
-          setGrid(defaultGrid(cplx.complex));
-        }}
-      >
-        Reset grid
-      </button>
+      <div className="row">
+        <button
+          disabled={!showGrid}
+          style={{ width: "fit-content" }}
+          onClick={() => {
+            if (!cplx) return;
+            setGrid(defaultGrid(cplx.complex));
+          }}
+        >
+          Reset grid
+        </button>
+
+        <button
+          disabled={!showGrid}
+          style={{ width: "fit-content" }}
+          onClick={() => {
+            exportGridToObj(grid);
+          }}
+        >
+          Download grid
+        </button>
+      </div>
 
       <fieldset className="ranges-with-number">
         <p>Density</p>

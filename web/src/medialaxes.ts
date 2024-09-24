@@ -8,7 +8,7 @@ export const swapsForDimension = (j: Json, dim: number) => {
  * Returns the center coordinate of the grid cell.
  */
 export const gridCoordinate = (grid: Grid, index: Index): number[] => {
-  return grid.corner.map((c, i) => c + grid.size * (index[i] + 0.5));
+  return grid.corner.map((c, i) => c + grid.size * index[i]);
 };
 
 type Pos = [number, number, number];
