@@ -20,6 +20,7 @@ use std::{
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::sync::atomic::{AtomicIsize, Ordering};
 
+/// Global allocator that counts the number of outstanding allocated bytes.
 struct CountingAllocator<A> {
     inner: A,
     allocated_now: AtomicIsize,
@@ -456,6 +457,7 @@ pub fn split_grid(grid: JsValue) -> Result<JsValue, JsValue> {
         ];
         Ok(serde_wasm_bindgen::to_value(&grids)?)
     } else if let Some(grid) = meshgrid {
+        warn!("split_grid is not implemented for MeshGrid; See #64");
         let grids = [
             (grid, Index([0; 3])),
             (MeshGrid::empty(), Index([0; 3])),
@@ -475,6 +477,7 @@ pub struct RunOptions {
     require_hom_birth_to_be_first: bool,
 }
 
+/// Run Vineyards, and set the global state with the output.
 #[wasm_bindgen]
 pub fn run_without_prune(
     grid: JsValue,
@@ -523,7 +526,8 @@ pub fn run_without_prune(
         return Err("Hello".to_string())?;
     };
 
-    let _ = send_message("Bake data 🧑‍🍳", 0, 1);
+    // Bake permutations so that it is easier to serialize.
+    send_message("Bake data 🧑‍🍳", 0, 1).unwrap();
     for reduction in results.0.values_mut() {
         for st in reduction.stacks.iter_mut() {
             st.D.bake_in_permutations();
@@ -557,6 +561,8 @@ pub fn run_without_prune(
     Ok(())
 }
 
+/// Get the dual face in between two adjacent [Index] values in the grid.
+/// This only works if the current grid is a [MeshGrid].
 #[wasm_bindgen]
 pub fn meshgrid_dual_face(a: JsValue, b: JsValue) -> Result<JsValue, JsValue> {
     let a: Index = serde_wasm_bindgen::from_value(a)?;
@@ -571,7 +577,6 @@ pub fn meshgrid_dual_face(a: JsValue, b: JsValue) -> Result<JsValue, JsValue> {
     let a = grid.points[a.0[0] as usize];
     let b = grid.points[b.0[0] as usize];
     let dist = a.dist(&b);
-    info!("dist = {}", dist);
 
     let [ax, ay, az] = a.0;
     let [bx, by, bz] = b.0;
@@ -608,4 +613,12 @@ pub fn meshgrid_dual_face(a: JsValue, b: JsValue) -> Result<JsValue, JsValue> {
     };
 
     Ok(serde_wasm_bindgen::to_value(&ret)?)
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn testing() {
+        assert!(false, "skra bom");
+    }
 }

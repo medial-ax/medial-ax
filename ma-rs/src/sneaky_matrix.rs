@@ -232,6 +232,8 @@ impl SneakyMatrix {
         return result;
     }
 
+    /// Shuffle around the data of the matrix so that both the row- and column permutation are
+    /// identity (i.e. [None]).
     pub fn bake_in_permutations(&mut self) {
         let mut cols = vec![Col::new(); self.cols as usize];
         for c in 0..self.cols {
