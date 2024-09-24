@@ -209,7 +209,7 @@ impl Complex {
 }
 
 impl Complex {
-    pub fn read_from_obj<P: AsRef<std::path::Path>>(p: P) -> Result<Self, String> {
+    pub fn read_from_obj_path<P: AsRef<std::path::Path>>(p: P) -> Result<Self, String> {
         let input_str =
             std::fs::read_to_string(p).map_err(|e| format!("Error reading file: {}", e))?;
         Self::read_from_obj_string(&input_str)
@@ -408,7 +408,7 @@ mod tests {
     #[test]
     fn read_obj() {
         let path = "../input/cube-subdiv-1.obj";
-        let c = Complex::read_from_obj(path).unwrap();
+        let c = Complex::read_from_obj_path(path).unwrap();
 
         let num_verts = c.num_simplices_of_dim(0) as CI;
         for e in &c.simplices_per_dim[1] {

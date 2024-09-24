@@ -63,7 +63,8 @@ pub struct Grid {
     pub corner: Pos,
     pub size: f64,
     pub shape: Index,
-    r#type: String,
+    /// Should always be `"grid"`. Used for serialization stuff.
+    pub r#type: String,
 }
 
 #[cfg_attr(feature = "python", pymethods)]
@@ -318,6 +319,7 @@ impl Grid {
 pub struct MeshGrid {
     pub points: Vec<Pos>,
     pub neighbors: HashMap<isize, Vec<isize>>,
+    /// Should always be `"meshgrid"`. Used for serialization stuff.
     pub r#type: String,
 }
 

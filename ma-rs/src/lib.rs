@@ -15,7 +15,7 @@ use pyo3::{exceptions::PyValueError, prelude::*};
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 #[cfg(feature = "wasm")]
-mod wasm;
+pub mod wasm;
 #[cfg(feature = "wasm")]
 pub use wasm::*;
 
@@ -27,6 +27,8 @@ pub mod json;
 pub mod permutation;
 pub mod sneaky_matrix;
 pub mod stats;
+#[cfg(test)]
+pub mod test;
 
 #[cfg_attr(feature = "python", pyo3::pyclass(get_all))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -582,10 +584,10 @@ fn compute_permutations(
     (v_perm, e_perm, t_perm)
 }
 
-#[cfg_attr(feature = "python", pyfunction)]
 /// Returns a [Vec] with one element per faustian swap. The elements are `(dim,
 /// (i, j))` where `dim` is the dimension of the simplices that were swapped,
 /// and `i` and `j` are the canonical indices of the swapped simplices.
+#[cfg_attr(feature = "python", pyfunction)]
 pub fn vineyards_step(
     complex: &Complex,
     reduction: &Reduction,
@@ -1370,6 +1372,8 @@ fn mars(_py: Python, m: &PyModule) -> PyResult<()> {
 
 #[cfg(test)]
 mod tests {
+    use grid::Index;
+
     use super::*;
 
     #[test]
@@ -1401,5 +1405,50 @@ mod tests {
         let a = vec![0, 1, 2, 4, 5, 6, 7, 3, 8, 9, 10, 11];
         let res = compute_transpositions(a);
         assert_eq!(res.0, vec![6, 5, 4, 3]);
+    }
+
+    use crate::test::*;
+
+    #[test]
+    fn snapshot_medial_axes_for_grid() {
+        let complex = test_complex_cube();
+        let grid = test_grid_for_cube();
+
+        let state =
+            run_without_prune_inner(Some(grid), None, complex, Default::default(), |_, _, _| {})
+                .unwrap();
+
+        let pruning_params_dim0 = default_pruning_param_dim0();
+        let pruned0 = prune(&state, &pruning_params_dim0, 0, |_, _, _| {});
+        let mut ma0_indices = vec![];
+        for (i, j, swaps) in pruned0 {
+            if swaps.v.len() > 0 {
+                ma0_indices.push((i.min(j), i.max(j)));
+            }
+        }
+        ma0_indices.sort();
+        insta::assert_json_snapshot!(ma0_indices);
+
+        let pruning_params_dim1 = default_pruning_param_dim1();
+        let pruned1 = prune(&state, &pruning_params_dim1, 1, |_, _, _| {});
+        let mut ma1_indices = vec![];
+        for (i, j, swaps) in pruned1 {
+            if swaps.v.len() > 0 {
+                ma1_indices.push((i.min(j), i.max(j)));
+            }
+        }
+        ma1_indices.sort();
+        insta::assert_json_snapshot!(ma1_indices);
+
+        let pruning_params_dim2 = default_pruning_param_dim2();
+        let pruned2 = prune(&state, &pruning_params_dim2, 2, |_, _, _| {});
+        let mut ma2_indices = vec![];
+        for (i, j, swaps) in pruned2 {
+            if swaps.v.len() > 0 {
+                ma2_indices.push((i.min(j), i.max(j)));
+            }
+        }
+        ma2_indices.sort();
+        insta::assert_json_snapshot!(ma2_indices);
     }
 }

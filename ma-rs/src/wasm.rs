@@ -1,3 +1,4 @@
+use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize, Serializer};
 use wasm_bindgen::prelude::*;
 
@@ -73,6 +74,7 @@ unsafe impl<A: GlobalAlloc> GlobalAlloc for CountingAllocator<A> {
 #[global_allocator]
 static ALLOCATOR: CountingAllocator<System> = CountingAllocator::new(System);
 
+/// Print memory usage info with a label.
 fn info_mem(label: &str) {
     let bytes = ALLOCATOR.allocated_now();
     info!(
@@ -102,18 +104,20 @@ pub fn my_init_function() {
 }
 
 #[derive(Serialize, Deserialize)]
-struct State {
-    grid: Option<Grid>,
-    mesh_grid: Option<MeshGrid>,
+pub struct State {
+    ///
+    pub grid: Option<Grid>,
+    pub mesh_grid: Option<MeshGrid>,
 
-    complex: Complex,
-    grid_index_to_reduction: HashMap<Index, Reduction>,
+    pub complex: Complex,
+    pub grid_index_to_reduction: HashMap<Index, Reduction>,
 
-    swaps0: Vec<(Index, Index, Swaps)>,
-    swaps1: Vec<(Index, Index, Swaps)>,
-    swaps2: Vec<(Index, Index, Swaps)>,
+    pub swaps0: Vec<(Index, Index, Swaps)>,
+    pub swaps1: Vec<(Index, Index, Swaps)>,
+    pub swaps2: Vec<(Index, Index, Swaps)>,
 }
 
+/// Set state to [None]
 #[wasm_bindgen]
 pub fn reset_state() -> Result<(), JsValue> {
     let mut guard = STATE.lock().map_err(|_| "STATE.lock failed")?;
@@ -121,6 +125,7 @@ pub fn reset_state() -> Result<(), JsValue> {
     Ok(())
 }
 
+/// Serialize state and return it as a [JsValue].
 #[wasm_bindgen]
 pub fn get_state() -> Result<JsValue, JsValue> {
     let guard = STATE.lock().map_err(|_| "STATE.lock failed")?;
@@ -326,13 +331,13 @@ pub fn get_filtration_values_for_point(grid_point: Vec<isize>) -> Result<JsValue
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct PruningParam {
-    euclidean: bool,
-    euclidean_distance: Option<f64>,
-    coface: bool,
-    face: bool,
-    persistence: bool,
-    persistence_threshold: Option<f64>,
+pub struct PruningParam {
+    pub euclidean: bool,
+    pub euclidean_distance: Option<f64>,
+    pub coface: bool,
+    pub face: bool,
+    pub persistence: bool,
+    pub persistence_threshold: Option<f64>,
 }
 
 #[wasm_bindgen]
@@ -349,7 +354,8 @@ pub fn make_meshgrid_from_obj(obj_body: String) -> Result<JsValue, JsValue> {
     serde_wasm_bindgen::to_value(&complex).map_err(|e| JsValue::from_str(&format!("{}", e)))
 }
 
-fn prune<F: FnMut(&str, usize, usize) -> Result<JsValue, JsValue>>(
+/// Run pruning using the [PruningParam]s on the data in [State].
+pub fn prune<F: FnMut(&str, usize, usize)>(
     st: &State,
     params: &PruningParam,
     dim: usize,
@@ -369,7 +375,7 @@ fn prune<F: FnMut(&str, usize, usize) -> Result<JsValue, JsValue>>(
 
     for (i, s) in swaps_per_grid_pair.into_iter().enumerate() {
         if i & 127 == 0 {
-            send_message("Prune", i, prune_iters).unwrap();
+            send_message("Prune", i, prune_iters);
         }
         if s.2.v.len() == 0 {
             continue;
@@ -417,6 +423,7 @@ fn prune<F: FnMut(&str, usize, usize) -> Result<JsValue, JsValue>>(
     grid_swaps_vec
 }
 
+/// Prune swaps for the given dimension using the [PruningParam]s.
 #[wasm_bindgen]
 pub fn prune_dimension(
     dim: JsValue,
@@ -425,12 +432,14 @@ pub fn prune_dimension(
 ) -> Result<JsValue, JsValue> {
     let dim: usize = serde_wasm_bindgen::from_value(dim)?;
     let send_message = |label: &str, i: usize, n: usize| {
-        on_message.call3(
-            &JsValue::NULL,
-            &JsValue::from_str(label),
-            &JsValue::from_f64(i as f64),
-            &JsValue::from_f64(n as f64),
-        )
+        on_message
+            .call3(
+                &JsValue::NULL,
+                &JsValue::from_str(label),
+                &JsValue::from_f64(i as f64),
+                &JsValue::from_f64(n as f64),
+            )
+            .unwrap();
     };
 
     let params: PruningParam = serde_wasm_bindgen::from_value(params)?;
@@ -470,11 +479,78 @@ pub fn split_grid(grid: JsValue) -> Result<JsValue, JsValue> {
     }
 }
 
-#[derive(Deserialize)]
+/// Options
+#[derive(Deserialize, Debug, Default)]
 pub struct RunOptions {
     /// Require that the faustian swaps involve the first birth of a given
     /// dimension.
     require_hom_birth_to_be_first: bool,
+}
+
+pub fn run_without_prune_inner(
+    grid: Option<Grid>,
+    mesh_grid: Option<MeshGrid>,
+    complex: Complex,
+    options: RunOptions,
+    send_message: impl Fn(&str, usize, usize),
+) -> Result<State> {
+    let mut results = if let Some(ref grid) = grid {
+        info!("found regular grid");
+        let p = grid.center(Index([0; 3]));
+        send_message("Reduce from scratch", 0, 1);
+        let s0 = reduce_from_scratch(&complex, p, false);
+        send_message("Run vineyards", 0, 1);
+        grid.run_vineyards_in_grid(
+            &complex,
+            s0,
+            options.require_hom_birth_to_be_first,
+            |i, n| {
+                if i & 15 == 0 {
+                    send_message("Vineyards", i, n);
+                }
+            },
+        )
+    } else if let Some(ref grid) = mesh_grid {
+        info!("found mesh grid");
+        grid.run_vineyards(&complex, options.require_hom_birth_to_be_first, |i, n| {
+            if i & 15 == 0 {
+                send_message("Vineyards", i, n);
+            }
+        })
+    } else {
+        bail!("Hello");
+    };
+
+    // Bake permutations so that it is easier to serialize.
+    send_message("Bake data 🧑‍🍳", 0, 1);
+    for reduction in results.0.values_mut() {
+        for st in reduction.stacks.iter_mut() {
+            st.D.bake_in_permutations();
+            st.R.bake_in_permutations();
+            st.U_t.bake_in_permutations();
+        }
+    }
+
+    send_message("Move state to global", 0, 1);
+
+    fn filter_dim(v: &[(Index, Index, Swaps)], dim: usize) -> Vec<(Index, Index, Swaps)> {
+        v.iter()
+            .flat_map(|(i, j, s)| {
+                let v: Vec<_> = s.v.iter().filter(|s| s.dim == dim).cloned().collect();
+                (0 < v.len()).then(|| (*i, *j, Swaps { v }))
+            })
+            .collect()
+    }
+
+    Ok(State {
+        grid,
+        mesh_grid,
+        complex,
+        grid_index_to_reduction: results.0,
+        swaps0: filter_dim(&results.1, 0),
+        swaps1: filter_dim(&results.1, 1),
+        swaps2: filter_dim(&results.1, 2),
+    })
 }
 
 /// Run Vineyards, and set the global state with the output.
@@ -486,12 +562,14 @@ pub fn run_without_prune(
     on_message: js_sys::Function,
 ) -> Result<(), JsValue> {
     let send_message = |label: &str, i: usize, n: usize| {
-        on_message.call3(
-            &JsValue::NULL,
-            &JsValue::from_str(label),
-            &JsValue::from_f64(i as f64),
-            &JsValue::from_f64(n as f64),
-        )
+        on_message
+            .call3(
+                &JsValue::NULL,
+                &JsValue::from_str(label),
+                &JsValue::from_f64(i as f64),
+                &JsValue::from_f64(n as f64),
+            )
+            .unwrap();
     };
 
     let complex: Complex = serde_wasm_bindgen::from_value(complex)?;
@@ -499,45 +577,6 @@ pub fn run_without_prune(
     info!("run_without_prune");
 
     let (grid, mesh_grid) = mesh_from_jsvalue(grid)?;
-    let mut results = if let Some(ref grid) = grid {
-        info!("found regular grid");
-        let p = grid.center(Index([0; 3]));
-        send_message("Reduce from scratch", 0, 1).unwrap();
-        let s0 = reduce_from_scratch(&complex, p, false);
-        send_message("Run vineyards", 0, 1).unwrap();
-        grid.run_vineyards_in_grid(
-            &complex,
-            s0,
-            options.require_hom_birth_to_be_first,
-            |i, n| {
-                if i & 15 == 0 {
-                    send_message("Vineyards", i, n).unwrap();
-                }
-            },
-        )
-    } else if let Some(ref grid) = mesh_grid {
-        info!("found mesh grid");
-        grid.run_vineyards(&complex, options.require_hom_birth_to_be_first, |i, n| {
-            if i & 15 == 0 {
-                send_message("Vineyards", i, n).unwrap();
-            }
-        })
-    } else {
-        return Err("Hello".to_string())?;
-    };
-
-    // Bake permutations so that it is easier to serialize.
-    send_message("Bake data 🧑‍🍳", 0, 1).unwrap();
-    for reduction in results.0.values_mut() {
-        for st in reduction.stacks.iter_mut() {
-            st.D.bake_in_permutations();
-            st.R.bake_in_permutations();
-            st.U_t.bake_in_permutations();
-        }
-    }
-
-    send_message("Move state to global", 0, 1).unwrap();
-    let mut state = STATE.lock().unwrap();
 
     fn filter_dim(v: &[(Index, Index, Swaps)], dim: usize) -> Vec<(Index, Index, Swaps)> {
         v.iter()
@@ -548,15 +587,10 @@ pub fn run_without_prune(
             .collect()
     }
 
-    *state = Some(State {
-        grid,
-        mesh_grid,
-        complex,
-        grid_index_to_reduction: results.0,
-        swaps0: filter_dim(&results.1, 0),
-        swaps1: filter_dim(&results.1, 1),
-        swaps2: filter_dim(&results.1, 2),
-    });
+    let new_state = run_without_prune_inner(grid, mesh_grid, complex, options, send_message)
+        .map_err(|e| JsValue::from_str(&e.to_string()))?;
+    let mut state = STATE.lock().unwrap();
+    *state = Some(new_state);
 
     Ok(())
 }
@@ -613,12 +647,4 @@ pub fn meshgrid_dual_face(a: JsValue, b: JsValue) -> Result<JsValue, JsValue> {
     };
 
     Ok(serde_wasm_bindgen::to_value(&ret)?)
-}
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn testing() {
-        assert!(false, "skra bom");
-    }
 }
