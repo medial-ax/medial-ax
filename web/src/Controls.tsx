@@ -147,7 +147,7 @@ const BasicGridControls = ({ grid }: { grid: VineyardsGrid }) => {
   const [showGrid] = useAtom(showGridAtom);
 
   const cplx = useAtomValue(complexAtom);
-  const [numDots, setNumDots] = useState(7);
+  const [numDots, setNumDots] = useState(5);
 
   const exportGridToObj = useCallback((grid: VineyardsGrid) => {
     console.log({ grid });
@@ -211,7 +211,7 @@ const BasicGridControls = ({ grid }: { grid: VineyardsGrid }) => {
           style={{ width: "fit-content", alignSelf: "center" }}
           onClick={() => {
             if (!cplx) return;
-            setGrid(defaultVineyardsGrid(cplx.complex));
+            setGrid(defaultVineyardsGrid(cplx.complex, numDots));
           }}
         >
           Make grid
@@ -228,7 +228,7 @@ const BasicGridControls = ({ grid }: { grid: VineyardsGrid }) => {
           style={{ width: "fit-content" }}
           onClick={() => {
             if (!cplx) return;
-            setGrid(defaultVineyardsGrid(cplx.complex));
+            setGrid(defaultVineyardsGrid(cplx.complex, numDots));
           }}
         >
           Reset grid
