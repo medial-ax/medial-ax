@@ -4,22 +4,14 @@ use std::{
 };
 
 use complex::{Complex, Pos};
-use log::info;
 use permutation::Permutation;
 use serde::{Deserialize, Serialize};
 use sneaky_matrix::{SneakyMatrix, CI};
 
-#[cfg(feature = "python")]
-use pyo3::{exceptions::PyValueError, prelude::*};
-
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 #[cfg(feature = "wasm")]
 pub mod wasm;
 #[cfg(feature = "wasm")]
 pub use wasm::*;
-
-use crate::json::json_output;
 
 pub mod complex;
 pub mod grid;
@@ -30,7 +22,6 @@ pub mod stats;
 #[cfg(test)]
 pub mod test;
 
-#[cfg_attr(feature = "python", pyo3::pyclass(get_all))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Swap {
     /// Dimension in which the swap happened.
@@ -41,15 +32,12 @@ pub struct Swap {
     j: CI,
 }
 
-#[cfg_attr(feature = "python", pyo3::pyclass(get_all))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Swaps {
     pub v: Vec<Swap>,
 }
 
-#[cfg_attr(feature = "python", pymethods)]
 impl Swaps {
-    #[cfg_attr(feature = "python", new)]
     pub fn new(v: Vec<Swap>) -> Self {
         Self { v }
     }
@@ -212,7 +200,6 @@ impl Swaps {
     }
 }
 
-#[cfg_attr(feature = "python", pyo3::pyclass(get_all))]
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 #[allow(non_snake_case)]
 pub struct Stack {
@@ -232,7 +219,6 @@ impl Stack {
     }
 }
 
-#[cfg_attr(feature = "python", pyo3::pyclass(get_all))]
 #[derive(Clone, Debug, serde::Serialize)]
 pub struct BirthDeathPair {
     /// Dimension of the homology class.
@@ -251,7 +237,6 @@ impl BirthDeathPair {
     }
 }
 
-#[cfg_attr(feature = "python", pyo3::pyclass(get_all))]
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub struct Reduction {
     /// Key point around which the reduction is done.
@@ -259,7 +244,6 @@ pub struct Reduction {
     pub stacks: [Stack; 3],
 }
 
-#[cfg_attr(feature = "python", pymethods)]
 impl Reduction {
     /// Returns the Betti numbers for dimensions 0, 1, and 2.
     pub fn betti_numbers(&self) -> Vec<i8> {
@@ -491,56 +475,6 @@ impl Reduction {
     }
 }
 
-#[cfg(feature = "python")]
-pub fn inverse_zz2(mat: &SneakyMatrix) -> Result<SneakyMatrix, String> {
-    let res: PyResult<SneakyMatrix> = Python::with_gil(|py| {
-        // println!("set up module");
-        let module = PyModule::from_code(
-            py,
-            r#"
-import numpy as np
-import mars
-import galois
-GF2 = galois.GF(2)
-
-def invert(rs_mat):
-    A = np.zeros((rs_mat.rows, rs_mat.cols), dtype=np.int8)
-    for r in range(rs_mat.rows):
-        for c in range(rs_mat.cols):
-            if rs_mat.get(r, c):
-                A[r, c] = 1
-    gf = GF2(A)
-    inv = np.linalg.inv(gf)
-    U_t = np.array(inv).T
-
-    (rr, cc) = U_t.shape
-    ret = mars.SneakyMatrix.zeros(rr, cc)
-    for r in range(rr):
-        for c in range(cc):
-            if U_t[r, c] == 1:
-                ret.set(r, c, True)
-    return ret
-"#,
-            "pretend.py",
-            "pretend",
-        )?;
-
-        // println!("set up module done");
-
-        let invert = module.getattr("invert")?;
-
-        // println!("call invert");
-        let res = invert
-            .call((mat.clone(),), None)?
-            .extract::<SneakyMatrix>()?;
-        // println!("call invert done");
-
-        Ok(res)
-    });
-
-    res.map_err(|e| e.to_string())
-}
-
 /// The permutations returned are such that when you go forwards through the
 /// permutation, you get the simplices in sorted order based on their distance
 /// to the key point.
@@ -587,7 +521,6 @@ fn compute_permutations(
 /// Returns a [Vec] with one element per faustian swap. The elements are `(dim,
 /// (i, j))` where `dim` is the dimension of the simplices that were swapped,
 /// and `i` and `j` are the canonical indices of the swapped simplices.
-#[cfg_attr(feature = "python", pyfunction)]
 pub fn vineyards_step(
     complex: &Complex,
     reduction: &Reduction,
@@ -841,7 +774,6 @@ pub fn vineyards_step(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(feature = "python", pyfunction)]
 pub fn reduce_from_scratch(complex: &Complex, key_point: Pos, noisy: bool) -> Reduction {
     let (mut v_perm, mut e_perm, mut t_perm) = compute_permutations(complex, key_point);
 
@@ -1248,7 +1180,6 @@ fn perform_one_swap_top_dim(i: CI, stack: &mut Stack) -> Option<bool> {
 /// `(i, i+1)` taking place.
 /// Also return the "column value" of the simplices that were swapped. This is
 /// used to figure out which simplices the swap consisted of.
-#[cfg_attr(feature = "python", pyfunction)]
 pub fn compute_transpositions(mut b: Vec<CI>) -> (Vec<CI>, Vec<(CI, CI)>) {
     // NOTE: The `this` ordering is implicitly `0..n`.
     let n = b.len();
@@ -1277,103 +1208,8 @@ pub fn compute_transpositions(mut b: Vec<CI>) -> (Vec<CI>, Vec<(CI, CI)>) {
     (ret, swapped_indices)
 }
 
-#[cfg(feature = "python")]
-#[pyfunction]
-pub fn read_from_obj(p: &str) -> PyResult<Complex> {
-    Complex::read_from_obj(p).map_err(PyValueError::new_err)
-}
-
-#[cfg(feature = "python")]
-fn test_three_points() {
-    // This mesh has three vertices: (1, 0), (1, 1), and (0, 1).
-    // The first MA thus consists of three lines:
-    // ^ Y
-    // |
-    // X--------||---------X
-    // | \      ||      B  |
-    // |    \   ||         |
-    // |       \||=========|======
-    // |     //   \        |
-    // |   //        \     |
-    // | //   A         \  |   X
-    // //------------------X--->
-    //
-
-    let complex = read_from_obj("input/three-points.obj").unwrap();
-    let point_a = Pos([0.3, 0.1, 0.0]);
-    {
-        let mut point = point_a;
-        let mut state = reduce_from_scratch(&complex, point, false);
-        for _ in 0..10 {
-            let pt = point + Pos([0.1, 0.0, 0.0]);
-            let (next_state, swaps) = vineyards_step(&complex, &state, pt);
-            assert_eq!(swaps.v.len(), 0);
-            state = next_state;
-            point = pt;
-            println!("{:?}", swaps);
-        }
-    }
-
-    let point_b = Pos([0.8, 0.75, 0.0]);
-    {
-        let mut point = point_b;
-        let mut state = reduce_from_scratch(&complex, point, false);
-        for k in 0..10 {
-            let pt = point - Pos([0.0, 0.1, 0.0]);
-            println!("between {:?} and {:?}", point, pt);
-            let (next_state, swaps) = vineyards_step(&complex, &state, pt);
-            println!("swaps: {:?}", swaps);
-            if k == 2 {
-                // k=0: 0.75 -- 0.65
-                // k=1: 0.65 -- 0.55
-                // k=2: 0.55 -- 0.45
-                // k=3: 0.45 -- 0.35
-                assert!(0 < swaps.v.len());
-            } else {
-                assert_eq!(swaps.v.len(), 0);
-            }
-            state = next_state;
-            point = pt;
-            println!("{:?}", swaps);
-        }
-    }
-}
-
-#[cfg(feature = "python")]
-fn test_three_points_test1() {
-    let complex = read_from_obj("input/three-points.obj").unwrap();
-    let pt_a = Pos([0.8, 0.45, 0.0]);
-    let pt_b = Pos([0.8, 0.35, 0.0]);
-
-    let state = reduce_from_scratch(&complex, pt_a, false);
-    let (_next_state, swaps) = vineyards_step(&complex, &state, pt_b);
-    assert_eq!(swaps.v.len(), 0);
-}
-
-#[cfg(feature = "python")]
-#[pymodule]
-fn mars(_py: Python, m: &PyModule) -> PyResult<()> {
-    m.add_function(wrap_pyfunction!(compute_transpositions, m)?)?;
-    m.add_function(wrap_pyfunction!(read_from_obj, m)?)?;
-    m.add_function(wrap_pyfunction!(reduce_from_scratch, m)?)?;
-    m.add_function(wrap_pyfunction!(vineyards_123, m)?)?;
-    m.add_function(wrap_pyfunction!(test_three_points, m)?)?;
-    m.add_function(wrap_pyfunction!(test_three_points_test1, m)?)?;
-    m.add_function(wrap_pyfunction!(json_output, m)?)?;
-    m.add_class::<SneakyMatrix>()?;
-    m.add_class::<Permutation>()?;
-    m.add_class::<Col>()?;
-    m.add_class::<Simplex>()?;
-    m.add_class::<Complex>()?;
-    m.add_class::<Grid>()?;
-    m.add_class::<Swaps>()?;
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
-    use grid::Index;
-
     use super::*;
 
     #[test]

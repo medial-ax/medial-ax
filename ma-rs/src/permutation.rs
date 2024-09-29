@@ -3,13 +3,11 @@ use serde::{Deserialize, Serialize};
 use crate::sneaky_matrix::CI;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "python", pyo3::pyclass)]
 pub struct Permutation {
     forwards: Vec<CI>,
     backwards: Vec<CI>,
 }
 
-#[cfg_attr(feature = "python", pyo3::pymethods)]
 impl Permutation {
     pub fn map(&self, a: CI) -> CI {
         self.forwards[a as usize]

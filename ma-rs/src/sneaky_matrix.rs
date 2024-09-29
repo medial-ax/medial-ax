@@ -1,17 +1,12 @@
 use crate::permutation::Permutation;
-#[cfg(feature = "python")]
-use pyo3::prelude::PyObject;
 use serde::{Deserialize, Serialize};
 
 pub type CI = i16;
 
 #[derive(PartialEq, Eq, Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "python", pyo3::pyclass)]
 pub struct Col(Vec<CI>);
 
-#[cfg_attr(feature = "python", pyo3::pymethods)]
 impl Col {
-    #[cfg_attr(feature = "python", pyo3::staticmethod)]
     fn new() -> Self {
         Col(Vec::new())
     }
@@ -104,7 +99,6 @@ impl From<Vec<CI>> for Col {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-#[cfg_attr(feature = "python", pyo3::pyclass(get_all))]
 pub struct SneakyMatrix {
     pub columns: Vec<Col>,
     pub rows: CI,
@@ -251,9 +245,7 @@ impl SneakyMatrix {
     }
 }
 
-#[cfg_attr(feature = "python", pyo3::pymethods)]
 impl SneakyMatrix {
-    #[cfg_attr(feature = "python", pyo3::staticmethod)]
     pub fn zeros(rows: CI, cols: CI) -> Self {
         let mut columns = Vec::with_capacity(cols as usize);
         for _ in 0..cols {
@@ -269,7 +261,6 @@ impl SneakyMatrix {
         }
     }
 
-    #[cfg_attr(feature = "python", pyo3::staticmethod)]
     pub fn eye(n: CI) -> Self {
         let mut columns = Vec::with_capacity(n as usize);
         for i in 0..n {
@@ -285,26 +276,6 @@ impl SneakyMatrix {
             col_perm: None,
             row_perm: None,
         }
-    }
-
-    /// Assume that we can call `.cols` and `.rows` and index into the matrix,
-    /// as well as a `.column(c)` method that returns a list of set rows.
-    #[cfg(feature = "python")]
-    pub fn from_py_sneakymatrix(p: PyObject) -> Self {
-        pyo3::Python::with_gil(|py| {
-            let cols: usize = p.getattr(py, "cols").unwrap().extract(py).unwrap();
-            let rows: usize = p.getattr(py, "rows").unwrap().extract(py).unwrap();
-            let columns_fn = p.getattr(py, "columns").unwrap();
-            let columns_ret = columns_fn.call0(py).unwrap();
-            let columns: Vec<(usize, Vec<usize>)> = columns_ret.extract(py).unwrap();
-            let mut z = Self::zeros(rows, cols);
-            for (c, col) in columns.iter() {
-                for &r in col.iter() {
-                    z.set(r, *c, true);
-                }
-            }
-            z
-        })
     }
 
     pub fn __str__(&self) -> String {

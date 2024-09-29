@@ -1,40 +1,10 @@
 use std::collections::{HashMap, HashSet};
 
-#[cfg(feature = "python")]
-use pyo3::FromPyObject;
-
 use crate::{sneaky_matrix::CI, SneakyMatrix};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Serialize, Deserialize)]
 pub struct Pos(pub [f64; 3]);
-
-#[cfg(feature = "python")]
-impl pyo3::IntoPy<pyo3::PyObject> for Pos {
-    fn into_py(self, py: pyo3::Python<'_>) -> pyo3::PyObject {
-        pyo3::types::PyList::new(py, &self.0).into()
-    }
-}
-
-#[cfg(feature = "python")]
-impl<'source> FromPyObject<'source> for Pos {
-    fn extract(ob: &'source pyo3::PyAny) -> pyo3::PyResult<Self> {
-        ob.downcast::<pyo3::types::PyList>()
-            .map_err(|_| pyo3::PyErr::new::<pyo3::exceptions::PyTypeError, _>("expected list"))
-            .and_then(|l| {
-                if l.len() != 3 {
-                    return Err(pyo3::PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                        "expected list of length 3",
-                    ));
-                }
-                let mut arr = [0.0; 3];
-                for i in 0..3 {
-                    arr[i] = l.get_item(i)?.extract()?;
-                }
-                Ok(Pos(arr))
-            })
-    }
-}
 
 impl Pos {
     pub fn dist2(&self, other: &Pos) -> f64 {
@@ -108,7 +78,6 @@ impl std::ops::Div<f64> for Pos {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "python", pyo3::pyclass(get_all))]
 pub struct Simplex {
     /// Unique identifier of the simplex.  This is only unique within the dimension for the complex it is in.
     pub id: CI,
@@ -118,7 +87,6 @@ pub struct Simplex {
     pub boundary: Vec<CI>,
 }
 
-#[cfg_attr(feature = "python", pyo3::pymethods)]
 impl Simplex {
     pub fn dim(&self) -> isize {
         self.boundary.len() as isize - 1
@@ -160,12 +128,10 @@ impl Simplex {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "python", pyo3::pyclass(get_all))]
 pub struct Complex {
     pub simplices_per_dim: Vec<Vec<Simplex>>,
 }
 
-#[cfg_attr(feature = "python", pyo3::pymethods)]
 impl Complex {
     pub fn num_simplices_of_dim(&self, dim: isize) -> usize {
         if dim == -1 {

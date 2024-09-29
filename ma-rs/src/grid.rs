@@ -1,7 +1,5 @@
 use std::collections::HashMap;
 
-use log::info;
-
 use crate::{
     complex::{Complex, Pos},
     reduce_from_scratch, vineyards_step, Reduction, Swaps,
@@ -23,33 +21,6 @@ impl std::ops::Add<Index> for Index {
     }
 }
 
-#[cfg(feature = "python")]
-impl pyo3::IntoPy<pyo3::PyObject> for Index {
-    fn into_py(self, py: pyo3::Python<'_>) -> pyo3::PyObject {
-        pyo3::types::PyTuple::new(py, &self.0).into()
-    }
-}
-
-#[cfg(feature = "python")]
-impl<'source> pyo3::FromPyObject<'source> for Index {
-    fn extract(ob: &'source pyo3::PyAny) -> pyo3::PyResult<Self> {
-        ob.downcast::<pyo3::types::PyList>()
-            .map_err(|_| pyo3::PyErr::new::<pyo3::exceptions::PyTypeError, _>("expected list"))
-            .and_then(|l| {
-                if l.len() != 3 {
-                    return Err(pyo3::PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                        "expected list of length 3",
-                    ));
-                }
-                let mut arr = [0; 3];
-                for i in 0..3 {
-                    arr[i] = l.get_item(i)?.extract()?;
-                }
-                Ok(Index(arr))
-            })
-    }
-}
-
 impl std::fmt::Debug for Index {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!(
@@ -60,7 +31,6 @@ impl std::fmt::Debug for Index {
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-#[cfg_attr(feature = "python", pyo3::pyclass(get_all))]
 pub struct VineyardsGrid {
     pub corner: Pos,
     pub size: f64,
@@ -69,9 +39,7 @@ pub struct VineyardsGrid {
     pub r#type: String,
 }
 
-#[cfg_attr(feature = "python", pymethods)]
 impl VineyardsGrid {
-    #[cfg_attr(feature = "python", staticmethod)]
     pub fn new(corner: Pos, size: f64, shape: [isize; 3]) -> Self {
         VineyardsGrid {
             corner,
@@ -81,7 +49,6 @@ impl VineyardsGrid {
         }
     }
 
-    #[cfg_attr(feature = "python", staticmethod)]
     /// Construct a new [Grid] around the given [Complex]. The grid cells are of
     /// size `size`, and `buffer` is the smallest distance from the grid
     /// boundary to the complex.  This is tight at the min corner of the grid,
