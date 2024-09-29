@@ -2,9 +2,9 @@ import { WritableAtom, atom } from "jotai";
 import {
   BirthDeathPair,
   Complex,
-  Grid,
+  VineyardsGrid,
   Index,
-  MeshGrid,
+  VineyardsGridMesh,
   PruningParam,
   Swap,
   Swaps,
@@ -27,8 +27,12 @@ export const complexAtom = atom<
   | undefined
 >(undefined);
 
-export const gridAtom = atom<Grid | MeshGrid | undefined>(undefined);
-export const gridForSwapsAtom = atom<Grid | MeshGrid | undefined>(undefined);
+export const gridAtom = atom<VineyardsGrid | VineyardsGridMesh | undefined>(
+  undefined,
+);
+export const gridForSwapsAtom = atom<
+  VineyardsGrid | VineyardsGridMesh | undefined
+>(undefined);
 export const showGridAtom = atom<boolean>(true);
 export const selectedGridIndex = atom<Index | undefined>(undefined);
 
@@ -151,11 +155,10 @@ export const resetStateForNewComplexAtom = atom(null, (_, set) => {
   set(gridAtom, undefined);
   set(maFaceSelection, undefined);
   set(persistenceTableHighlight, undefined);
-  console.log("reset all state");
 });
 
 type AllSettings = {
-  grid: Grid | MeshGrid | undefined;
+  grid: VineyardsGrid | VineyardsGridMesh | undefined;
   showGrid: boolean;
   wireframe: boolean;
   showObject: boolean;

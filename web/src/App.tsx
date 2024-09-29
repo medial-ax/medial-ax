@@ -22,7 +22,7 @@ import {
   RedSphere,
   RedTriangle,
   RenderComplex,
-  RenderGrid,
+  RenderAnyGrid,
   RenderMedialAxis,
 } from "./Render";
 import { Menu } from "./Controls";
@@ -110,7 +110,7 @@ const RenderCanvas = () => {
           />
         )}
 
-        {showGrid && <RenderGrid />}
+        {showGrid && <RenderAnyGrid />}
 
         {gridForSwaps &&
           ([0, 1, 2] satisfies Dim[]).map((dim) => {

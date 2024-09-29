@@ -23,7 +23,7 @@ import {
   timelinePositionAtom,
 } from "./state";
 import { dualFaceQuad, gridCoordinate } from "./medialaxes";
-import { Complex, Grid, MeshGrid } from "./types";
+import { Complex, VineyardsGrid, VineyardsGridMesh } from "./types";
 import { run } from "./work";
 import { atomFamily } from "jotai/utils";
 import { dim2rgb } from "./constants";
@@ -359,7 +359,7 @@ export const RenderComplex = ({
 const GRID_COLOR = new THREE.Color(0x888888);
 const GRID_SELECTED_COLOR = new THREE.Color(0x000000);
 
-const RenderMeshGrid = ({ grid }: { grid: MeshGrid }) => {
+const RenderVineyardsGridMesh = ({ grid }: { grid: VineyardsGridMesh }) => {
   const radius = useAtomValue(gridRadiusAtom);
 
   const _swaps = useAtomValue(swapsAtom);
@@ -440,7 +440,7 @@ const RenderMeshGrid = ({ grid }: { grid: MeshGrid }) => {
   );
 };
 
-const RenderBasicGrid = ({ grid }: { grid: Grid }) => {
+const RenderVineyarsGrid = ({ grid }: { grid: VineyardsGrid }) => {
   const radius = useAtomValue(gridRadiusAtom);
   const meshref = useRef<THREE.InstancedMesh>(null);
   const _swaps = useAtomValue(swapsAtom);
@@ -483,6 +483,7 @@ const RenderBasicGrid = ({ grid }: { grid: Grid }) => {
   useLayoutEffect(() => {
     const m = meshref.current;
     if (!m || !selGridIndex || !grid) return;
+    // Get the instancedMesh index of the mesh from the grid Index.
     const [x, y, z] = selGridIndex;
     const [, Y, Z] = grid.shape;
     const index = x * Y * Z + y * Z + z;
@@ -533,14 +534,14 @@ const RenderBasicGrid = ({ grid }: { grid: Grid }) => {
   );
 };
 
-export const RenderGrid = () => {
+export const RenderAnyGrid = () => {
   const grid = useAtomValue(gridAtom);
   if (!grid) return null;
-  if (grid.type === "grid") return <RenderBasicGrid grid={grid} />;
-  if (grid.type === "meshgrid") return <RenderMeshGrid grid={grid} />;
+  if (grid.type === "grid") return <RenderVineyarsGrid grid={grid} />;
+  if (grid.type === "meshgrid") return <RenderVineyardsGridMesh grid={grid} />;
 };
 
-const meshDualFaces = atomFamily((dim: Dim) =>
+const maGridFaces = atomFamily((dim: Dim) =>
   atom<Promise<[Float32Array, number] | undefined>>(async (get) => {
     const grid = get(gridAtom);
     if (!grid) return undefined;
@@ -575,8 +576,7 @@ export const RenderMedialAxis = ({
   const swaps = useAtomValue(swapsForMA(dim));
   const [selected, setSelected] = useAtom(maFaceSelection);
 
-  const [coordBuffer, numberOfVertices] =
-    useAtomValue(meshDualFaces(dim)) ?? [];
+  const [coordBuffer, numberOfVertices] = useAtomValue(maGridFaces(dim)) ?? [];
 
   const colors = useMemo(() => {
     const red = [1.0, 0.5, 0.5];

@@ -1,3 +1,5 @@
+export type Point = [number, number, number];
+
 export type Simplex = {
   id: number;
   coords: number[] | null;
@@ -17,14 +19,26 @@ export type BirthDeathPair = {
   death: [number, number] | null;
 };
 
-export type Grid = {
+/**
+ * The Vineyards-grid if it has been generated as a complete regular grid.
+ */
+export type VineyardsGrid = {
   type: "grid";
-  corner: number[];
+  corner: Point;
+  /**
+   * Grid cell size. I.e the distance between adjacent vertices.
+   */
   size: number;
-  shape: number[];
+  /**
+   * The number of points along each direction of the grid.
+   */
+  shape: [number, number, number];
 };
 
-export type MeshGrid = {
+/**
+ * The Vineyards-grid if it has been uploaded.
+ */
+export type VineyardsGridMesh = {
   type: "meshgrid";
   points: number[][];
   neighbors: {
@@ -60,7 +74,7 @@ export type Json = {
   edge_barcode: BirthDeathPair[];
   triangle_barcode: BirthDeathPair[];
 
-  grid: Grid;
+  grid: VineyardsGrid;
   swaps: Swaps;
 };
 
@@ -81,43 +95,48 @@ export type Complex = {
   simplices_per_dim: Simplex[][];
 };
 
-export const bboxFromComplex = (cplx: Complex) => {
+/**
+ * Return the lower- and upper corner of the bounding box around the {@link Complex}.
+ */
+export const bboxFromComplex = (cplx: Complex): [Point, Point] => {
   const [vertices] = cplx.simplices_per_dim;
   const coords = vertices.map((v) => v.coords!);
-  const xs = coords.map((c: number[]) => c[0]);
-  const ys = coords.map((c: number[]) => c[1]);
-  const zs = coords.map((c: number[]) => c[2]);
-  const bbox = [
+  const xs = coords.map((c) => c[0]);
+  const ys = coords.map((c) => c[1]);
+  const zs = coords.map((c) => c[2]);
+  const bbox: [Point, Point] = [
     [Math.min(...xs), Math.min(...ys), Math.min(...zs)],
     [Math.max(...xs), Math.max(...ys), Math.max(...zs)],
   ];
-  const scale = Math.min(
-    bbox[1][0] - bbox[0][0],
-    bbox[1][1] - bbox[0][1],
-    bbox[1][2] - bbox[0][2],
-  );
-  const offset = 0.05 * scale;
-  return [bbox[0].map((n) => n - offset), bbox[1].map((n) => n + offset)];
+  return [bbox[0], bbox[1]];
 };
 
-export const defaultGrid = (cplx: Complex, numberOfDots: number = 5): Grid => {
+export const defaultVineyardsGrid = (
+  cplx: Complex,
+  nVertices: number = 5,
+): VineyardsGrid => {
   const bbox = bboxFromComplex(cplx);
-  const scales = bbox[1].map((v, i) => v - bbox[0][i]);
-  const scale = Math.min(...scales);
-  const size = scale / (numberOfDots + 1);
+  const lengths = bbox[1].map((v, i) => v - bbox[0][i]);
+  const shortestLength = Math.min(...lengths);
+  const size = shortestLength / (nVertices - 1);
 
+  // NOTE: we have e.g. 5 points along the shortest side, but only 5-1=4 spaces
+  // between them. That's why we need the +1 here.
   const shape = [
-    Math.ceil(scales[0] / size) + 1,
-    Math.ceil(scales[1] / size) + 1,
-    Math.ceil(scales[2] / size) + 1,
-  ];
+    Math.ceil(lengths[0] / size) + 1,
+    Math.ceil(lengths[1] / size) + 1,
+    Math.ceil(lengths[2] / size) + 1,
+  ] as [number, number, number];
+
+  // Move the grid slightly so that the center of the grid is the center of the
+  // bounding box.
+  bbox[0][0] -= ((shape[0] - 1) * size - lengths[0]) / 2;
+  bbox[0][1] -= ((shape[1] - 1) * size - lengths[1]) / 2;
+  bbox[0][2] -= ((shape[2] - 1) * size - lengths[2]) / 2;
+
   return {
     type: "grid",
-    corner: [
-      bbox[0][0] - size / 2,
-      bbox[0][1] - size / 2,
-      bbox[0][2] - size / 2,
-    ],
+    corner: bbox[0],
     size,
     shape,
   };

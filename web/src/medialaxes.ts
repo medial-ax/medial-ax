@@ -1,19 +1,19 @@
-import { Grid, Index, Json } from "./types";
+import { VineyardsGrid, Index, Json } from "./types";
 
 export const swapsForDimension = (j: Json, dim: number) => {
   return j.swaps.filter(([, , { v }]) => v[0].dim === dim);
 };
 
 /**
- * Returns the center coordinate of the grid cell.
+ * Returns the coordinate of a grid vertex from its grid {@link Index}
  */
-export const gridCoordinate = (grid: Grid, index: Index): number[] => {
+export const gridCoordinate = (grid: VineyardsGrid, index: Index): number[] => {
   return grid.corner.map((c, i) => c + grid.size * index[i]);
 };
 
 type Pos = [number, number, number];
 export const dualFaceQuad = (
-  grid: Grid,
+  grid: VineyardsGrid,
   a: Index,
   b: Index,
 ): [Pos, Pos, Pos, Pos] => {

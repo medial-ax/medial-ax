@@ -34,7 +34,12 @@ import squished_cylinder from "../inputs/squished_cylinder.obj?raw";
 import extruded_ellipse from "../inputs/extruded_ellipse.obj?raw";
 import cube_subdiv_2 from "../inputs/cube-subdiv-2.obj?raw";
 import maze_2 from "../inputs/maze_2.obj?raw";
-import { Grid, Index, MeshGrid, defaultGrid } from "./types";
+import {
+  VineyardsGrid,
+  Index,
+  VineyardsGridMesh,
+  defaultVineyardsGrid,
+} from "./types";
 import {
   make_complex_from_obj,
   make_meshgrid_from_obj,
@@ -128,7 +133,7 @@ const Loader = styled.span<{
   }
 `;
 
-const MeshGridControls = ({ grid: _ }: { grid: MeshGrid }) => {
+const MeshGridControls = ({ grid: _ }: { grid: VineyardsGridMesh }) => {
   return (
     <>
       <h3>Grid controls</h3>
@@ -137,14 +142,14 @@ const MeshGridControls = ({ grid: _ }: { grid: MeshGrid }) => {
   );
 };
 
-const BasicGridControls = ({ grid }: { grid: Grid }) => {
+const BasicGridControls = ({ grid }: { grid: VineyardsGrid }) => {
   const setGrid = useSetAtom(gridAtom);
   const [showGrid] = useAtom(showGridAtom);
 
   const cplx = useAtomValue(complexAtom);
   const [numDots, setNumDots] = useState(7);
 
-  const exportGridToObj = useCallback((grid: Grid) => {
+  const exportGridToObj = useCallback((grid: VineyardsGrid) => {
     console.log({ grid });
     let obj = "o grid\n";
 
@@ -206,7 +211,7 @@ const BasicGridControls = ({ grid }: { grid: Grid }) => {
           style={{ width: "fit-content", alignSelf: "center" }}
           onClick={() => {
             if (!cplx) return;
-            setGrid(defaultGrid(cplx.complex));
+            setGrid(defaultVineyardsGrid(cplx.complex));
           }}
         >
           Make grid
@@ -223,7 +228,7 @@ const BasicGridControls = ({ grid }: { grid: Grid }) => {
           style={{ width: "fit-content" }}
           onClick={() => {
             if (!cplx) return;
-            setGrid(defaultGrid(cplx.complex));
+            setGrid(defaultVineyardsGrid(cplx.complex));
           }}
         >
           Reset grid
@@ -251,7 +256,7 @@ const BasicGridControls = ({ grid }: { grid: Grid }) => {
           onChange={(e) => {
             const n = Number(e.target.value);
             setNumDots(n);
-            setGrid(defaultGrid(cplx!.complex, n));
+            setGrid(defaultVineyardsGrid(cplx!.complex, n));
           }}
         />
         <span>{numDots}</span>
@@ -440,7 +445,7 @@ const GridControls = () => {
           style={{ width: "fit-content", alignSelf: "center" }}
           onClick={() => {
             if (!cplx) return;
-            setGrid(defaultGrid(cplx.complex));
+            setGrid(defaultVineyardsGrid(cplx.complex));
           }}
         >
           Make grid
@@ -903,7 +908,7 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
     const res = split_grid(grid);
     const workerProgress = new Array(4).fill({ label: "Running", i: 0, n: 1 });
     const results = await Promise.all(
-      res.map(([grid, offset]: [Grid, Index], i: number) => {
+      res.map(([grid, offset]: [VineyardsGrid, Index], i: number) => {
         const { terminate, run } = makeWorker();
         return run(
           "run-and-dump",
