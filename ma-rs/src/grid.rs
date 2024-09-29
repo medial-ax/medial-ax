@@ -427,7 +427,9 @@ impl VineyardsGridMesh {
                 if !reductions.contains_key(&next) {
                     reductions.insert(next, new_state);
                     for neighbor in self.neighbors.get(&next.x()).unwrap() {
-                        stack.push((Index::fake(*neighbor), next));
+                        if !seen_vx.contains(neighbor) {
+                            stack.push((Index::fake(*neighbor), next));
+                        }
                     }
                 }
             }
