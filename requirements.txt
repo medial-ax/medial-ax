@@ -1,9 +1,0 @@
-scipy ~= 1.10
-matplotlib ~= 3.7.1
-numpy ~= 1.23
-jupyter
-pandas == 2.0.3
-black
-galois == 0.3
-ipympl
-maturin
