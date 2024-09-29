@@ -10,6 +10,19 @@ use crate::{
 )]
 pub struct Index(pub [isize; 3]);
 
+impl Index {
+    /// Make a fake index. Used for [VineyardsGridMesh], where we don't have real [Index]es for the
+    /// points, but to be API compatible with [VineyardsGrid] we pretend that we do.
+    fn fake(n: isize) -> Self {
+        Self([n, 0, 0])
+    }
+
+    /// Get the first component of the index.
+    fn x(&self) -> isize {
+        self.0[0]
+    }
+}
+
 impl std::ops::Add<Index> for Index {
     type Output = Index;
     fn add(self, rhs: Index) -> Index {
@@ -172,6 +185,7 @@ impl VineyardsGrid {
     pub(crate) fn run_vineyards_in_grid<F: Fn(usize, usize)>(
         &self,
         complex: &Complex,
+        i0: Index,
         state: Reduction,
         require_hom_birth_to_be_first: bool,
         on_visit: F,
@@ -182,7 +196,7 @@ impl VineyardsGrid {
         let num_grid_edges = self.number_of_grid_edges() as usize;
         let mut edge_i = 0;
 
-        self.visit_edges(Index([0; 3]), |new_cell, old_cell| {
+        self.visit_edges(i0, |new_cell, old_cell| {
             edge_i += 1;
             on_visit(edge_i, num_grid_edges);
 
@@ -280,14 +294,15 @@ impl VineyardsGridMesh {
         }
 
         let reduction_at_0 = reduce_from_scratch(&complex, self.points[0], false);
-        reductions.insert(Index([0, 0, 0]), reduction_at_0);
+        let i0 = Index::fake(0);
+        reductions.insert(i0, reduction_at_0);
 
         let mut stack = self
             .neighbors
-            .get(&0)
+            .get(&i0.x())
             .unwrap()
             .iter()
-            .map(|n| (Index([*n, 0, 0]), Index([0, 0, 0])))
+            .map(|n| (Index::fake(*n), i0))
             .collect::<Vec<_>>();
 
         let mut loop_i = 0;
@@ -310,8 +325,8 @@ impl VineyardsGridMesh {
 
             if !reductions.contains_key(&next) {
                 reductions.insert(next, new_state);
-                for neighbor in self.neighbors.get(&next.0[0]).unwrap() {
-                    stack.push((Index([*neighbor, 0, 0]), Index([next.0[0], 0, 0])));
+                for neighbor in self.neighbors.get(&next.x()).unwrap() {
+                    stack.push((Index::fake(*neighbor), next));
                 }
             }
         }

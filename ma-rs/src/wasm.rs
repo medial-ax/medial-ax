@@ -498,12 +498,14 @@ pub fn run_without_prune_inner(
 ) -> Result<State> {
     let mut results = if let Some(ref grid) = grid {
         info!("found regular grid");
-        let p = grid.coordinate(Index([0; 3]));
+        let i0 = Index([0; 3]);
+        let p = grid.coordinate(i0);
         send_message("Reduce from scratch", 0, 1);
         let s0 = reduce_from_scratch(&complex, p, false);
         send_message("Run vineyards", 0, 1);
         grid.run_vineyards_in_grid(
             &complex,
+            i0,
             s0,
             options.require_hom_birth_to_be_first,
             |i, n| {
