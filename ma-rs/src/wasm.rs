@@ -468,13 +468,11 @@ pub fn split_grid(grid: JsValue) -> Result<JsValue, JsValue> {
         ];
         Ok(serde_wasm_bindgen::to_value(&grids)?)
     } else if let Some(grid) = meshgrid {
-        warn!("split_grid is not implemented for MeshGrid; See #64");
-        let grids = [
-            (grid, Index([0; 3])),
-            (VineyardsGridMesh::empty(), Index([0; 3])),
-            (VineyardsGridMesh::empty(), Index([0; 3])),
-            (VineyardsGridMesh::empty(), Index([0; 3])),
-        ];
+        let (a, b) = grid.split_in_half();
+        let (aa, ab) = a.split_in_half();
+        let (ba, bb) = b.split_in_half();
+        let fake = Index::fake(0);
+        let grids = [(aa, fake), (ab, fake), (ba, fake), (bb, fake)];
         Ok(serde_wasm_bindgen::to_value(&grids)?)
     } else {
         Err("Failed to deserialize grid")?

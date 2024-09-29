@@ -7,6 +7,18 @@ use serde::{Deserialize, Serialize};
 pub struct Pos(pub [f64; 3]);
 
 impl Pos {
+    pub fn x(&self) -> f64 {
+        self.0[0]
+    }
+
+    pub fn y(&self) -> f64 {
+        self.0[1]
+    }
+
+    pub fn z(&self) -> f64 {
+        self.0[2]
+    }
+
     pub fn dist2(&self, other: &Pos) -> f64 {
         let mut sum = 0.0;
         for i in 0..3 {
@@ -373,7 +385,7 @@ mod tests {
 
     #[test]
     fn read_obj() {
-        let path = "../input/cube-subdiv-1.obj";
+        let path = "../web/inputs/cube-subdiv-2.obj";
         let c = Complex::read_from_obj_path(path).unwrap();
 
         let num_verts = c.num_simplices_of_dim(0) as CI;

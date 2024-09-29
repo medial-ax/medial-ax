@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::{
     complex::{Complex, Pos},
@@ -13,7 +13,7 @@ pub struct Index(pub [isize; 3]);
 impl Index {
     /// Make a fake index. Used for [VineyardsGridMesh], where we don't have real [Index]es for the
     /// points, but to be API compatible with [VineyardsGrid] we pretend that we do.
-    fn fake(n: isize) -> Self {
+    pub fn fake(n: isize) -> Self {
         Self([n, 0, 0])
     }
 
@@ -260,8 +260,34 @@ impl VineyardsGrid {
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct Bbox(Pos, Pos);
+
+impl Bbox {
+    fn span_x(&self) -> f64 {
+        (self.1 - self.0).x()
+    }
+    fn span_y(&self) -> f64 {
+        (self.1 - self.0).y()
+    }
+    fn span_z(&self) -> f64 {
+        (self.1 - self.0).z()
+    }
+
+    fn mid_x(&self) -> f64 {
+        self.0.x() + self.span_x() / 2.0
+    }
+    fn mid_y(&self) -> f64 {
+        self.0.y() + self.span_y() / 2.0
+    }
+    fn mid_z(&self) -> f64 {
+        self.0.z() + self.span_z() / 2.0
+    }
+}
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct VineyardsGridMesh {
     pub points: Vec<Pos>,
+    /// Map from vertex index to the list of its neighbors.
     pub neighbors: HashMap<isize, Vec<isize>>,
     /// Should always be `"meshgrid"`. Used for serialization stuff.
     pub r#type: String,
@@ -280,6 +306,71 @@ impl VineyardsGridMesh {
         self.points[index.0[0] as usize]
     }
 
+    /// Lower- and upper corner of the bounding box.
+    pub fn bbox(&self) -> Bbox {
+        let mut minx = f64::MAX;
+        let mut miny = f64::MAX;
+        let mut minz = f64::MAX;
+        let mut maxx = f64::MIN;
+        let mut maxy = f64::MIN;
+        let mut maxz = f64::MIN;
+        for p in &self.points {
+            let [x, y, z] = p.0;
+            minx = minx.min(x);
+            miny = miny.min(y);
+            minz = minz.min(z);
+            maxx = maxx.max(x);
+            maxy = maxy.max(y);
+            maxz = maxz.max(z);
+        }
+
+        Bbox(Pos([minx, miny, minz]), Pos([maxx, maxy, maxz]))
+    }
+
+    pub fn split_in_half(&self) -> (Self, Self) {
+        let bbox = self.bbox();
+        let (dim_i, lim) = {
+            let dx = bbox.span_x();
+            let dy = bbox.span_y();
+            let dz = bbox.span_z();
+            if dy <= dx && dz <= dx {
+                (0, bbox.mid_x())
+            } else if dx <= dy && dz <= dy {
+                (1, bbox.mid_y())
+            } else {
+                (2, bbox.mid_z())
+            }
+        };
+
+        let mut lower_edges: HashMap<isize, Vec<isize>> = HashMap::new();
+        let mut upper_edges: HashMap<isize, Vec<isize>> = HashMap::new();
+
+        for (&v, neighbors) in &self.neighbors {
+            let v_is_lower = self.points[v as usize].0[dim_i] <= lim;
+            for &w in neighbors {
+                let w_is_lower = self.points[w as usize].0[dim_i] <= lim;
+                if v_is_lower || w_is_lower {
+                    lower_edges.entry(v).or_default().push(w);
+                } else {
+                    upper_edges.entry(v).or_default().push(w);
+                }
+            }
+        }
+
+        (
+            VineyardsGridMesh {
+                points: self.points.clone(),
+                neighbors: lower_edges,
+                r#type: self.r#type.clone(),
+            },
+            VineyardsGridMesh {
+                points: self.points.clone(),
+                neighbors: upper_edges,
+                r#type: self.r#type.clone(),
+            },
+        )
+    }
+
     pub fn run_vineyards<F: Fn(usize, usize)>(
         &self,
         complex: &Complex,
@@ -292,41 +383,52 @@ impl VineyardsGridMesh {
         if self.points.len() == 0 {
             return (HashMap::new(), Vec::new());
         }
+        let mut seen_vx = HashSet::new();
 
-        let reduction_at_0 = reduce_from_scratch(&complex, self.points[0], false);
-        let i0 = Index::fake(0);
-        reductions.insert(i0, reduction_at_0);
-
-        let mut stack = self
+        while let Some(i0) = self
             .neighbors
-            .get(&i0.x())
-            .unwrap()
             .iter()
-            .map(|n| (Index::fake(*n), i0))
-            .collect::<Vec<_>>();
+            .filter(|(v, _)| !seen_vx.contains(*v))
+            .find(|(_, n)| n.len() > 0)
+            .map(|(v, _)| v)
+        {
+            seen_vx.insert(*i0);
+            let i0 = Index::fake(*i0);
+            let reduction_at_0 = reduce_from_scratch(&complex, self.points[i0.x() as usize], false);
+            reductions.insert(i0, reduction_at_0);
 
-        let mut loop_i = 0;
-        let num_edges = self
-            .neighbors
-            .values()
-            .map(|v| v.len() as usize)
-            .sum::<usize>()
-            / 2;
+            let mut stack = self
+                .neighbors
+                .get(&i0.x())
+                .unwrap()
+                .iter()
+                .map(|n| (Index::fake(*n), i0))
+                .collect::<Vec<_>>();
 
-        while let Some((next, from)) = stack.pop() {
-            loop_i += 1;
-            record_progress(loop_i, num_edges);
+            let mut loop_i = 0;
+            let num_edges = self
+                .neighbors
+                .values()
+                .map(|v| v.len() as usize)
+                .sum::<usize>()
+                / 2;
 
-            let old_state = reductions.get(&from).expect("from should be in the map");
-            let p = self.coordinate(next);
-            let (new_state, swaps) =
-                vineyards_step(complex, old_state, p, require_hom_birth_to_be_first);
-            all_swaps.push((from, next, swaps));
+            while let Some((next, from)) = stack.pop() {
+                seen_vx.insert(next.x());
+                loop_i += 1;
+                record_progress(loop_i, num_edges);
 
-            if !reductions.contains_key(&next) {
-                reductions.insert(next, new_state);
-                for neighbor in self.neighbors.get(&next.x()).unwrap() {
-                    stack.push((Index::fake(*neighbor), next));
+                let old_state = reductions.get(&from).expect("from should be in the map");
+                let p = self.coordinate(next);
+                let (new_state, swaps) =
+                    vineyards_step(complex, old_state, p, require_hom_birth_to_be_first);
+                all_swaps.push((from, next, swaps));
+
+                if !reductions.contains_key(&next) {
+                    reductions.insert(next, new_state);
+                    for neighbor in self.neighbors.get(&next.x()).unwrap() {
+                        stack.push((Index::fake(*neighbor), next));
+                    }
                 }
             }
         }
