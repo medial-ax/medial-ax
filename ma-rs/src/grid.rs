@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use log::info;
+
 use crate::{
     complex::{Complex, Pos},
     reduce_from_scratch, vineyards_step, Reduction, Swaps,
@@ -59,7 +61,7 @@ impl std::fmt::Debug for Index {
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 #[cfg_attr(feature = "python", pyo3::pyclass(get_all))]
-pub struct Grid {
+pub struct VineyardsGrid {
     pub corner: Pos,
     pub size: f64,
     pub shape: Index,
@@ -68,10 +70,10 @@ pub struct Grid {
 }
 
 #[cfg_attr(feature = "python", pymethods)]
-impl Grid {
+impl VineyardsGrid {
     #[cfg_attr(feature = "python", staticmethod)]
     pub fn new(corner: Pos, size: f64, shape: [isize; 3]) -> Self {
-        Grid {
+        VineyardsGrid {
             corner,
             size,
             shape: Index(shape),
@@ -234,7 +236,7 @@ impl Grid {
     }
 }
 
-impl Grid {
+impl VineyardsGrid {
     pub fn visit_edges<F: FnMut(Index, Option<Index>)>(&self, start: Index, mut f: F) {
         let mut queue = std::collections::VecDeque::new();
         queue.push_back((start, None));
@@ -277,14 +279,14 @@ impl Grid {
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-pub struct MeshGrid {
+pub struct VineyardsGridMesh {
     pub points: Vec<Pos>,
     pub neighbors: HashMap<isize, Vec<isize>>,
     /// Should always be `"meshgrid"`. Used for serialization stuff.
     pub r#type: String,
 }
 
-impl MeshGrid {
+impl VineyardsGridMesh {
     pub fn empty() -> Self {
         Self {
             points: Vec::new(),
@@ -293,7 +295,7 @@ impl MeshGrid {
         }
     }
 
-    pub fn center(&self, index: Index) -> Pos {
+    pub fn coordinate(&self, index: Index) -> Pos {
         self.points[index.0[0] as usize]
     }
 
@@ -313,7 +315,7 @@ impl MeshGrid {
         let reduction_at_0 = reduce_from_scratch(&complex, self.points[0], false);
         reductions.insert(Index([0, 0, 0]), reduction_at_0);
 
-        let mut queue = self
+        let mut stack = self
             .neighbors
             .get(&0)
             .unwrap()
@@ -329,21 +331,21 @@ impl MeshGrid {
             .sum::<usize>()
             / 2;
 
-        while let Some((next, from)) = queue.pop() {
-            if reductions.contains_key(&next) {
-                continue;
-            }
+        while let Some((next, from)) = stack.pop() {
             loop_i += 1;
             record_progress(loop_i, num_edges);
 
             let old_state = reductions.get(&from).expect("from should be in the map");
-            let p = self.points[next.0[0] as usize];
+            let p = self.coordinate(next);
             let (new_state, swaps) =
                 vineyards_step(complex, old_state, p, require_hom_birth_to_be_first);
             all_swaps.push((from, next, swaps));
-            reductions.insert(next, new_state);
-            for n in self.neighbors.get(&next.0[0]).unwrap() {
-                queue.push((Index([*n, 0, 0]), Index([next.0[0], 0, 0])));
+
+            if !reductions.contains_key(&next) {
+                reductions.insert(next, new_state);
+                for neighbor in self.neighbors.get(&next.0[0]).unwrap() {
+                    stack.push((Index([*neighbor, 0, 0]), Index([next.0[0], 0, 0])));
+                }
             }
         }
 

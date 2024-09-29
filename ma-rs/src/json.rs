@@ -4,7 +4,7 @@ use serde::Serialize;
 
 use crate::{
     complex::{Complex, Pos, Simplex},
-    grid::{Grid, Index},
+    grid::{Index, VineyardsGrid},
     permutation::Permutation,
     BirthDeathPair, Reduction, Swaps,
 };
@@ -26,7 +26,7 @@ pub struct JsonOuput {
     pub edge_barcode: Vec<BirthDeathPair>,
     pub triangle_barcode: Vec<BirthDeathPair>,
 
-    grid: Grid,
+    grid: VineyardsGrid,
     swaps: Vec<(Index, Index, Swaps)>,
 }
 
@@ -34,7 +34,7 @@ pub struct JsonOuput {
 pub fn json_output(
     complex: &Complex,
     reduction: &Reduction,
-    grid: &Grid,
+    grid: &VineyardsGrid,
     swapssssss: Vec<(Index, Index, Swaps)>,
 ) -> String {
     let vertices = complex.simplices_per_dim[0].clone();

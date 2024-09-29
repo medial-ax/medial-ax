@@ -4,7 +4,7 @@ use wasm_bindgen::prelude::*;
 
 use crate::{
     complex::{Complex, Pos},
-    grid::{Grid, Index, MeshGrid},
+    grid::{Index, VineyardsGrid, VineyardsGridMesh},
     reduce_from_scratch,
     sneaky_matrix::CI,
     stats::StackMem,
@@ -106,8 +106,8 @@ pub fn my_init_function() {
 #[derive(Serialize, Deserialize)]
 pub struct State {
     ///
-    pub grid: Option<Grid>,
-    pub mesh_grid: Option<MeshGrid>,
+    pub grid: Option<VineyardsGrid>,
+    pub mesh_grid: Option<VineyardsGridMesh>,
 
     pub complex: Complex,
     pub grid_index_to_reduction: HashMap<Index, Reduction>,
@@ -136,11 +136,13 @@ pub fn get_state() -> Result<JsValue, JsValue> {
     Ok(ret)
 }
 
-fn mesh_from_jsvalue(value: JsValue) -> Result<(Option<Grid>, Option<MeshGrid>), JsValue> {
-    if let Ok(grid) = serde_wasm_bindgen::from_value::<Grid>(value.clone()) {
+fn mesh_from_jsvalue(
+    value: JsValue,
+) -> Result<(Option<VineyardsGrid>, Option<VineyardsGridMesh>), JsValue> {
+    if let Ok(grid) = serde_wasm_bindgen::from_value::<VineyardsGrid>(value.clone()) {
         Ok((Some(grid), None))
     } else {
-        let grid = serde_wasm_bindgen::from_value::<MeshGrid>(value)?;
+        let grid = serde_wasm_bindgen::from_value::<VineyardsGridMesh>(value)?;
         Ok((None, Some(grid)))
     }
 }
@@ -350,7 +352,7 @@ pub fn make_complex_from_obj(obj_body: String) -> Result<JsValue, JsValue> {
 #[wasm_bindgen]
 /// Read a mesh from a `String` consisting of an .obj file.
 pub fn make_meshgrid_from_obj(obj_body: String) -> Result<JsValue, JsValue> {
-    let complex = MeshGrid::read_from_obj_string(&obj_body)?;
+    let complex = VineyardsGridMesh::read_from_obj_string(&obj_body)?;
     serde_wasm_bindgen::to_value(&complex).map_err(|e| JsValue::from_str(&format!("{}", e)))
 }
 
@@ -469,9 +471,9 @@ pub fn split_grid(grid: JsValue) -> Result<JsValue, JsValue> {
         warn!("split_grid is not implemented for MeshGrid; See #64");
         let grids = [
             (grid, Index([0; 3])),
-            (MeshGrid::empty(), Index([0; 3])),
-            (MeshGrid::empty(), Index([0; 3])),
-            (MeshGrid::empty(), Index([0; 3])),
+            (VineyardsGridMesh::empty(), Index([0; 3])),
+            (VineyardsGridMesh::empty(), Index([0; 3])),
+            (VineyardsGridMesh::empty(), Index([0; 3])),
         ];
         Ok(serde_wasm_bindgen::to_value(&grids)?)
     } else {
@@ -488,8 +490,8 @@ pub struct RunOptions {
 }
 
 pub fn run_without_prune_inner(
-    grid: Option<Grid>,
-    mesh_grid: Option<MeshGrid>,
+    grid: Option<VineyardsGrid>,
+    mesh_grid: Option<VineyardsGridMesh>,
     complex: Complex,
     options: RunOptions,
     send_message: impl Fn(&str, usize, usize),

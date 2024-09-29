@@ -9,8 +9,8 @@ pub fn test_complex_cube() -> Complex {
     Complex::read_from_obj_path(&d).expect("Failed to read test input")
 }
 
-pub fn test_grid_for_cube() -> grid::Grid {
-    grid::Grid {
+pub fn test_grid_for_cube() -> grid::VineyardsGrid {
+    grid::VineyardsGrid {
         corner: Pos([-0.5, -0.5, -0.5]),
         size: 0.4,
         shape: grid::Index([5, 5, 5]),
