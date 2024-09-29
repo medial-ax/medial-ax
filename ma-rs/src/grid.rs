@@ -112,14 +112,6 @@ impl Grid {
         Self::new(corner, size, shape)
     }
 
-    pub fn center(&self, i: Index) -> Pos {
-        let mut arr = [0.0; 3];
-        for j in 0..3 {
-            arr[j] = self.corner.0[j] + self.size * (i.0[j] as f64 + 0.5);
-        }
-        Pos(arr)
-    }
-
     pub fn is_on_boundary(&self, i: Index) -> bool {
         for j in 0..3 {
             if i.0[j] == 0 || i.0[j] == self.shape.0[j] - 1 {
@@ -146,7 +138,7 @@ impl Grid {
     }
 
     /// Returns the coordinate of the lower corner of the cell.
-    fn coordinate(&self, i: Index) -> Pos {
+    pub fn coordinate(&self, i: Index) -> Pos {
         let mut arr = [0.0; 3];
         for j in 0..3 {
             arr[j] = self.corner.0[j] + self.size * i.0[j] as f64;
@@ -156,37 +148,6 @@ impl Grid {
 
     pub fn volume(&self) -> isize {
         self.shape.0[0] * self.shape.0[1] * self.shape.0[2]
-    }
-
-    /// Return the dual face in between the two indices. The output is the four
-    /// coordinates of the quad.
-    pub fn dual_face(&self, a: Index, b: Index) -> [Pos; 4] {
-        let middle = (self.center(a) + self.center(b)) / 2.0;
-
-        if a.0[0] != b.0[0] {
-            [
-                middle + Pos([0.0, -self.size, -self.size]) / 2.0,
-                middle + Pos([0.0, -self.size, self.size]) / 2.0,
-                middle + Pos([0.0, self.size, self.size]) / 2.0,
-                middle + Pos([0.0, self.size, -self.size]) / 2.0,
-            ]
-        } else if a.0[1] != b.0[1] {
-            [
-                middle + Pos([-self.size, 0.0, -self.size]) / 2.0,
-                middle + Pos([-self.size, 0.0, self.size]) / 2.0,
-                middle + Pos([self.size, 0.0, self.size]) / 2.0,
-                middle + Pos([self.size, 0.0, -self.size]) / 2.0,
-            ]
-        } else if a.0[2] != b.0[2] {
-            [
-                middle + Pos([-self.size, -self.size, 0.0]) / 2.0,
-                middle + Pos([-self.size, self.size, 0.0]) / 2.0,
-                middle + Pos([self.size, self.size, 0.0]) / 2.0,
-                middle + Pos([self.size, -self.size, 0.0]) / 2.0,
-            ]
-        } else {
-            panic!("a == b");
-        }
     }
 
     /// Splits the grid into two along the longest axis.
@@ -260,7 +221,7 @@ impl Grid {
                 let old_state = hm
                     .get(&old_cell)
                     .expect("prev_cell should have state in the map.");
-                let p = self.center(new_cell);
+                let p = self.coordinate(new_cell);
                 let (new_state, swaps) =
                     vineyards_step(complex, old_state, p, require_hom_birth_to_be_first);
                 all_swaps.push((old_cell, new_cell, swaps));

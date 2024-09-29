@@ -1,8 +1,4 @@
-import { VineyardsGrid, Index, Json } from "./types";
-
-export const swapsForDimension = (j: Json, dim: number) => {
-  return j.swaps.filter(([, , { v }]) => v[0].dim === dim);
-};
+import { VineyardsGrid, Index, Point } from "./types";
 
 /**
  * Returns the coordinate of a grid vertex from its grid {@link Index}
@@ -11,15 +7,18 @@ export const gridCoordinate = (grid: VineyardsGrid, index: Index): number[] => {
   return grid.corner.map((c, i) => c + grid.size * index[i]);
 };
 
-type Pos = [number, number, number];
+/**
+ * Compute the four quad vertex positions for the dual face of the edge
+ * connecting points `a` and `b`
+ */
 export const dualFaceQuad = (
   grid: VineyardsGrid,
   a: Index,
   b: Index,
-): [Pos, Pos, Pos, Pos] => {
+): [Point, Point, Point, Point] => {
   const pa = gridCoordinate(grid, a);
   const pb = gridCoordinate(grid, b);
-  const middle = pa.map((x, i) => (x + pb[i]) / 2);
+  const middle = pa.map((c, i) => (c + pb[i]) / 2);
 
   const size = grid.size / 2;
 
