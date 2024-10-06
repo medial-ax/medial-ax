@@ -25,6 +25,23 @@ def calculate_average_longest_edge_length(mesh_object):
         return sum(longest_edges) / len(longest_edges)
     else:
         return 0.0
+    
+def point_in_mesh(point,ob):
+    axes = [mathutils.Vector((1,0,0)) , mathutils.Vector((0,1,0)), mathutils.Vector((0,0,1))]
+    outside = False
+    for axis in axes:
+        orig = point
+        count = 0
+        while True:
+            _,location,normal,index = ob.ray_cast(orig,orig+axis*10000.0)
+            if index == -1: break
+            count += 1
+            orig = location + axis*0.00001
+        if count%2 == 0:
+            outside = True
+            break
+    return not outside
+
 
 def generate_grid_inside_mesh(mesh_object, grid_density_factor=2):
     # Calculate average longest edge length
@@ -55,14 +72,6 @@ def generate_grid_inside_mesh(mesh_object, grid_density_factor=2):
     # Create BMesh to store vertices and edges
     bm = bmesh.new()
 
-    # Raycast helper
-    def point_in_mesh(mesh_object, point):
-        # Raycast the mesh object from point in -Z direction
-        ray_origin = point + mathutils.Vector((0, 0, 1000))  # Above the point
-        ray_direction = mathutils.Vector((0, 0, -1))
-        result, location, normal, index = mesh_object.ray_cast(ray_origin, ray_direction)
-        return result
-    
     # Traverse the grid and create vertices inside the mesh
     for i in range(x_steps + 1):
         for j in range(y_steps + 1):
@@ -71,7 +80,7 @@ def generate_grid_inside_mesh(mesh_object, grid_density_factor=2):
                 point = min_bound + mathutils.Vector((i, j, k)) * grid_spacing
                 
                 # Check if the point is inside the mesh
-                if point_in_mesh(mesh_object, point):
+                if point_in_mesh(point, mesh_object):
                     # Add the point as a vertex to the BMesh
                     bm.verts.new(point)
 
