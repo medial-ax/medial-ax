@@ -1,10 +1,10 @@
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use mars_core::{
     complex::Complex,
     grid::{Index, VineyardsGrid, VineyardsGridMesh},
     Reduction, Swaps,
 };
-use std::{collections::HashMap, path::PathBuf};
+use std::{collections::HashMap, io::Write, path::PathBuf};
 use tracing::{trace, Level};
 use tracing_subscriber::FmtSubscriber;
 
@@ -53,10 +53,14 @@ pub struct State {
     pub swaps2: Vec<(Index, Index, Swaps)>,
 }
 
-fn run_without_prune_inner(complex: Complex, mesh_grid: VineyardsGridMesh) -> Result<State> {
+fn run_without_prune_inner(
+    complex: Complex,
+    mesh_grid: VineyardsGridMesh,
+    mut write: impl Write,
+) -> Result<()> {
     let mut results = mesh_grid.run_vineyards(&complex, false, |i, n| {
         if i & 15 == 0 {
-            trace!("");
+            trace!("{}/{}", i, n);
         }
     });
 
@@ -81,7 +85,7 @@ fn run_without_prune_inner(complex: Complex, mesh_grid: VineyardsGridMesh) -> Re
             .collect()
     }
 
-    Ok(State {
+    let state = State {
         grid: None,
         mesh_grid: Some(mesh_grid),
         complex,
@@ -89,10 +93,14 @@ fn run_without_prune_inner(complex: Complex, mesh_grid: VineyardsGridMesh) -> Re
         swaps0: filter_dim(&results.1, 0),
         swaps1: filter_dim(&results.1, 1),
         swaps2: filter_dim(&results.1, 2),
-    })
+    };
+
+    let bytes = rmp_serde::to_vec(&state).context("rmp serialize state")?;
+
+    Ok(write.write_all(&bytes).context("write to output")?)
 }
 
-fn main() {
+fn main() -> Result<()> {
     let subscriber = FmtSubscriber::builder()
         .with_max_level(Level::TRACE)
         .with_writer(std::io::stderr)
@@ -103,4 +111,33 @@ fn main() {
 
     let cli = Cli::parse();
     println!("{:?}", cli);
+
+    let complex = Complex::read_from_obj_path(cli.obj_path)
+        .map_err(|e| anyhow!(e))
+        .context("failed to read complex")
+        .unwrap();
+
+    let mesh_grid = {
+        let obj_string = std::fs::read_to_string(&cli.mesh_path)
+            .with_context(|| format!("failed to read mesh path: {:?}", cli.mesh_path))
+            .unwrap();
+        VineyardsGridMesh::read_from_obj_string(&obj_string)
+    }
+    .map_err(|e| anyhow!(e))
+    .context("failed to read complex")
+    .unwrap();
+
+    let mut out_bytes = Vec::new();
+    run_without_prune_inner(complex, mesh_grid, &mut out_bytes).unwrap();
+
+    if let Some(path) = cli.output_path {
+        let mut f = std::fs::File::create(path).context("create output file")?;
+        f.write_all(&out_bytes).context("write to output file")?;
+    } else {
+        std::io::stdout()
+            .write_all(&out_bytes)
+            .context("write to output file")?;
+    }
+
+    Ok(())
 }
