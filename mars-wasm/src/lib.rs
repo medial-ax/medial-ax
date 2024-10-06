@@ -2,7 +2,8 @@ use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize, Serializer};
 use wasm_bindgen::prelude::*;
 
-use crate::{
+use log::{info, warn};
+use mars_core::{
     complex::{Complex, Pos},
     grid::{Index, VineyardsGrid, VineyardsGridMesh},
     reduce_from_scratch,
@@ -10,7 +11,6 @@ use crate::{
     stats::StackMem,
     Reduction, Swaps,
 };
-use log::{info, warn};
 
 use std::{
     collections::{HashMap, HashSet},

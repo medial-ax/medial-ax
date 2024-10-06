@@ -6,3 +6,8 @@ output/
 .DS_Store
 .vscode
 node_modules
+
+
+# Added by cargo
+
+/target

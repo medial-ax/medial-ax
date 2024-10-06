@@ -182,7 +182,7 @@ impl VineyardsGrid {
     }
 
     /// Run vineyards across all edges of the grid.  
-    pub(crate) fn run_vineyards_in_grid<F: Fn(usize, usize)>(
+    pub fn run_vineyards_in_grid<F: Fn(usize, usize)>(
         &self,
         complex: &Complex,
         i0: Index,

@@ -8,11 +8,6 @@ use permutation::Permutation;
 use serde::{Deserialize, Serialize};
 use sneaky_matrix::{SneakyMatrix, CI};
 
-#[cfg(feature = "wasm")]
-pub mod wasm;
-#[cfg(feature = "wasm")]
-pub use wasm::*;
-
 pub mod complex;
 pub mod grid;
 pub mod json;
@@ -25,11 +20,11 @@ pub mod test;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Swap {
     /// Dimension in which the swap happened.
-    dim: usize,
+    pub dim: usize,
     /// Canonical index of the first simplex.
-    i: CI,
+    pub i: CI,
     /// Canonical index of the second simplex.
-    j: CI,
+    pub j: CI,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
