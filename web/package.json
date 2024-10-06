@@ -14,7 +14,7 @@
     "@react-three/drei": "^9.92.7",
     "@react-three/fiber": "^8.15.13",
     "jotai": "^2.10.0",
-    "ma-rs": "file:../ma-rs/pkg",
+    "mars_wasm": "file:../mars-wasm/pkg",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "styled-components": "^6.1.6",

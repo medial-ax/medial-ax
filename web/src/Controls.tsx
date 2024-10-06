@@ -44,7 +44,7 @@ import {
   make_complex_from_obj,
   make_meshgrid_from_obj,
   split_grid,
-} from "ma-rs";
+} from "mars_wasm";
 import { RESET } from "jotai/utils";
 import { resetWasmWorker, run, makeWorker } from "./work";
 import "./Controls.css";
@@ -547,6 +547,76 @@ const UploadMeshGridFilePicker = () => {
   );
 };
 
+const UploadStateFilePicker = () => {
+  const grid = useAtomValue(gridAtom);
+  const complex = useAtomValue(complexAtom);
+  const allPruningParams = useAtomValue(allPruningParamsAtom);
+  const [_, setSwaps] = useAtom(swapsAtom);
+  const setGridForSwaps = useSetAtom(gridForSwapsAtom);
+
+  return (
+    <label className="file">
+      <p>Import state from file</p>
+      <input
+        type="file"
+        onChange={async (e) => {
+          const f = e.target.files?.[0];
+          if (!f) return;
+          const bytes = await f.arrayBuffer();
+          console.log({ grid, complex });
+          await run(
+            "create-empty-state",
+            {
+              grid,
+              complex: complex?.complex,
+            },
+            () => {},
+          );
+
+          await run(
+            "load-state",
+            {
+              bytes,
+              index: [0, 0, 0],
+            },
+            () => {},
+          );
+
+          const pruned: ExtractAtomValue<typeof swapsAtom> = {
+            0: await run(
+              "prune-dimension",
+              {
+                dim: 0,
+                params: allPruningParams[0],
+              },
+              () => {},
+            ),
+            1: await run(
+              "prune-dimension",
+              {
+                dim: 1,
+                params: allPruningParams[1],
+              },
+              () => {},
+            ),
+            2: await run(
+              "prune-dimension",
+              {
+                dim: 2,
+                params: allPruningParams[2],
+              },
+              () => {},
+            ),
+          };
+
+          setSwaps(pruned);
+          setGridForSwaps(grid);
+        }}
+      />
+    </label>
+  );
+};
+
 const PruningParameters = ({
   dim,
   disabled,
@@ -1022,6 +1092,7 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
         <h4>Import</h4>
         <UploadObjFilePicker />
         <UploadMeshGridFilePicker />
+        <UploadStateFilePicker />
 
         <ul className="predef-files-list">
           {EXAMPLE_OBJS.map((obj, i) => (

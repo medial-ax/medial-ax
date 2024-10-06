@@ -17,7 +17,7 @@ export default defineConfig({
     }),
   ],
   server: {
-    fs: { allow: [searchForWorkspaceRoot(process.cwd()), "../ma-rs/pkg"] },
+    fs: { allow: [searchForWorkspaceRoot(process.cwd()), "../mars-wasm/pkg"] },
   },
   worker: {
     format: "es",

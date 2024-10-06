@@ -1,4 +1,4 @@
-import init, { my_init_function } from "ma-rs";
+import init, { my_init_function } from "mars_wasm";
 import WasmWorker from "./worker?worker";
 
 let activeWorkers: Worker[] = [];

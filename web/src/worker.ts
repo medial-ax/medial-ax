@@ -9,7 +9,7 @@ import init, {
   reset_state,
   load_state,
   meshgrid_dual_face,
-} from "ma-rs";
+} from "mars_wasm";
 
 let _init = false;
 const wait = () => new Promise((res) => setTimeout(() => res(0), 10));

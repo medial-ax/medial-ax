@@ -110,7 +110,6 @@ fn main() -> Result<()> {
         .expect("set global default subscriber failed");
 
     let cli = Cli::parse();
-    println!("{:?}", cli);
 
     let complex = Complex::read_from_obj_path(cli.obj_path)
         .map_err(|e| anyhow!(e))
