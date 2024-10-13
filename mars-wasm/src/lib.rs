@@ -101,7 +101,83 @@ pub fn my_init_function() {
             WAS_INIT = true;
         }
     }
+    info!("info: my_init_function");
 }
+
+#[wasm_bindgen(skip_typescript)]
+pub struct Api(mars_core::Mars);
+
+#[wasm_bindgen]
+impl Api {
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> Api {
+        Api(Default::default())
+    }
+
+    pub fn load_complex(&mut self, obj_str: String) -> Result<(), String> {
+        self.0.load_from_obj_str(&obj_str)?;
+        Ok(())
+    }
+
+    pub fn load_mesh_grid(&mut self, obj_str: String) -> Result<(), String> {
+        self.0.load_meshgrid_from_obj_str(&obj_str)?;
+        Ok(())
+    }
+
+    pub fn set_grid(&mut self, grid: JsValue) -> Result<(), String> {
+        let grid: VineyardsGrid =
+            serde_wasm_bindgen::from_value(grid).map_err(|e| e.to_string())?;
+        self.0.grid = Some(mars_core::Grid::Regular(grid));
+        Ok(())
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn complex(&self) -> Result<JsValue, String> {
+        let c = self.0.complex.as_ref().ok_or_else(|| "no complex")?;
+        serde_wasm_bindgen::to_value(&c).map_err(|e| e.to_string())
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn grid(&self) -> Result<JsValue, String> {
+        let g = self.0.grid.as_ref().ok_or_else(|| "no grid")?;
+        match g {
+            mars_core::Grid::Regular(g) => serde_wasm_bindgen::to_value(&g),
+            mars_core::Grid::Mesh(g) => serde_wasm_bindgen::to_value(&g),
+        }
+        .map_err(|e| e.to_string())
+    }
+}
+
+#[wasm_bindgen(typescript_custom_section)]
+const _1: &'static str = r#"
+
+export type Point = [number, number, number];
+
+export type VineyardsGrid = {
+    corner: Point,
+    size: number,
+    shape: Point,
+    type: "grid",
+}
+
+export type VineyardsGridMesh = {
+    points: Point[],
+    neighbors: Map<number, number[]>,
+    type: "meshgrid",
+}
+
+export class Api {
+  free(): void;
+  constructor();
+
+  load_complex(obj: string): void;
+  load_mesh_grid(obj: string): void;
+  set_grid(grid: VineyardsGrid): void;
+
+  readonly complex: any;
+  readonly grid: VineyardsGrid | VineyardsGridMesh;
+}
+"#;
 
 #[derive(Serialize, Deserialize)]
 pub struct State {

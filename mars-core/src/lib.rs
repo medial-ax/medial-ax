@@ -4,6 +4,8 @@ use std::{
 };
 
 use complex::{Complex, Pos};
+use grid::{VineyardsGrid, VineyardsGridMesh};
+use log::info;
 use permutation::Permutation;
 use serde::{Deserialize, Serialize};
 use sneaky_matrix::{SneakyMatrix, CI};
@@ -16,6 +18,42 @@ pub mod sneaky_matrix;
 pub mod stats;
 #[cfg(test)]
 pub mod test;
+
+#[derive(Debug, Default)]
+pub struct Mars {
+    pub complex: Option<Complex>,
+    pub grid: Option<Grid>,
+}
+
+#[derive(Debug)]
+pub enum Grid {
+    Regular(VineyardsGrid),
+    Mesh(VineyardsGridMesh),
+}
+
+impl Mars {
+    /// Load a complex from an .obj string into the state.
+    pub fn load_from_obj_str(&mut self, obj_str: &str) -> Result<(), String> {
+        info!("load_from_obj_str");
+        let cplx = Complex::read_from_obj_string(obj_str)?;
+        info!(
+            "read complex #v={} #e={} #t={}",
+            cplx.simplices_per_dim[0].len(),
+            cplx.simplices_per_dim[1].len(),
+            cplx.simplices_per_dim[2].len()
+        );
+        self.complex = Some(cplx);
+        Ok(())
+    }
+
+    /// Load a mesh grid from an .obj string into the state.
+    pub fn load_meshgrid_from_obj_str(&mut self, obj_str: &str) -> Result<(), String> {
+        self.grid = Some(Grid::Mesh(VineyardsGridMesh::read_from_obj_string(
+            obj_str,
+        )?));
+        Ok(())
+    }
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Swap {
