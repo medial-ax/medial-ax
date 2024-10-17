@@ -12,7 +12,6 @@ import {
   keypointRadiusAtom,
   menuOpenAtom,
   pruningParamAtom,
-  resetStateForNewComplexAtom,
   showGridAtom,
   showMAAtom,
   showObjectAtom,
@@ -21,73 +20,26 @@ import {
   wireframeAtom,
   workerRunningAtom,
 } from "./state";
-import {
-  ComponentProps,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useRef, useState } from "react";
 import { dualFaceQuad } from "./medialaxes";
 import { downloadText, sum } from "./utils";
 import styled from "styled-components";
-import squished_cylinder from "../inputs/squished_cylinder.obj?raw";
-import extruded_ellipse from "../inputs/extruded_ellipse.obj?raw";
-import cube_subdiv_2 from "../inputs/cube-subdiv-2.obj?raw";
-import maze_2 from "../inputs/maze_2.obj?raw";
 import {
   VineyardsGrid,
   Index,
   VineyardsGridMesh,
   defaultVineyardsGrid,
 } from "./types";
-import {
-  make_complex_from_obj,
-  make_meshgrid_from_obj,
-  split_grid,
-} from "mars_wasm";
+import { split_grid } from "mars_wasm";
 import { RESET } from "jotai/utils";
 import { resetWasmWorker, run, makeWorker } from "./work";
 import "./Controls.css";
 import { HoverTooltip } from "./HoverTooltip";
 import { toast } from "./Toast";
-
-const EXAMPLE_OBJS = [
-  { name: "Squished cylinder", string: squished_cylinder },
-  { name: "Extruded ellipse", string: extruded_ellipse },
-  { name: "Cube", string: cube_subdiv_2 },
-  { name: "Maze", string: maze_2 },
-];
-
-const Input = ({
-  onChange,
-  onBlur,
-  value,
-  ...props
-}: ComponentProps<"input">) => {
-  const ref = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    if (ref.current) {
-      ref.current.value = String(value);
-    }
-  }, [value]);
-
-  return (
-    <input
-      ref={ref}
-      defaultValue={value}
-      {...props}
-      onChange={(e) => {
-        if (!isNaN(parseFloat(e.target.value)) && e.target.value !== "")
-          onChange?.(e);
-      }}
-      onBlur={(e) => {
-        if (isNaN(parseFloat(e.target.value)) || e.target.value === "")
-          e.target.value = String(value);
-      }}
-    />
-  );
-};
+import { BuiltinMeshes } from "./controls/BuiltinMeshes";
+import { UploadMeshGridFilePicker } from "./controls/UploadMeshGridFilePicker";
+import { UploadObjFilePicker } from "./controls/UploadComplexFilePicker";
+import { Input } from "./ui/Input";
 
 const Loader = styled.span<{
   $w0: number;
@@ -492,60 +444,6 @@ const CollapseH4 = ({
   );
 };
 
-const UploadObjFilePicker = () => {
-  const setComplex = useSetAtom(complexAtom);
-  const resetStateForNewComplex = useSetAtom(resetStateForNewComplexAtom);
-  return (
-    <label className="file">
-      <p>
-        Import <code>.obj</code>
-      </p>
-      <input
-        type="file"
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (!f) return;
-          f.text()
-            .then((text) => {
-              const value = make_complex_from_obj(text);
-              resetStateForNewComplex();
-              setComplex({ complex: value, filename: f.name });
-            })
-            .catch((err: string) => {
-              toast("error", `Failed to parse .obj: ${err}`, 3);
-            });
-        }}
-      />
-    </label>
-  );
-};
-
-const UploadMeshGridFilePicker = () => {
-  const setGrid = useSetAtom(gridAtom);
-  return (
-    <label className="file">
-      <p>
-        Import grid from <code>.obj</code>
-      </p>
-      <input
-        type="file"
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (!f) return;
-          f.text()
-            .then((text) => {
-              const value = make_meshgrid_from_obj(text);
-              setGrid({ type: "meshgrid", ...value });
-            })
-            .catch((err: string) => {
-              toast("error", `Failed to parse .obj: ${err}`, 3);
-            });
-        }}
-      />
-    </label>
-  );
-};
-
 const UploadStateFilePicker = () => {
   const grid = useAtomValue(gridAtom);
   const complex = useAtomValue(complexAtom);
@@ -910,9 +808,8 @@ const RenderOptions = () => {
 };
 
 export const Menu = () => {
-  const [cplx, setComplex] = useAtom(complexAtom);
+  const [cplx] = useAtom(complexAtom);
   const [grid] = useAtom(gridAtom);
-  const resetStateForNewComplex = useSetAtom(resetStateForNewComplexAtom);
   const [swaps, setSwaps] = useAtom(swapsAtom);
   const anySwaps = useAtomValue(hasAnySwaps);
   const [workerRunning, setWorkerRunning] = useAtom(workerRunningAtom);
@@ -1514,34 +1411,7 @@ f 146 49 118
         <UploadMeshGridFilePicker />
         <UploadStateFilePicker />
 
-        <ul className="predef-files-list">
-          {EXAMPLE_OBJS.map((obj, i) => (
-            <li
-              key={i}
-              onClick={() => {
-                if (
-                  (grid ||
-                    (swaps[0].length !== 0 &&
-                      swaps[1].length !== 0 &&
-                      swaps[2].length !== 0)) &&
-                  !window.confirm(
-                    "Loading a new object will reset the grid and computed medial axes. Proceed?",
-                  )
-                )
-                  return;
-                const value = make_complex_from_obj(obj.string);
-                resetStateForNewComplex();
-                setComplex({
-                  complex: value,
-                  filename: obj.name.replace(" ", "-") + ".obj",
-                });
-                run("reset-state", {});
-              }}
-            >
-              {obj.name}
-            </li>
-          ))}
-        </ul>
+        <BuiltinMeshes />
         <label className="file">
           <p>Import settings</p>
           <input
