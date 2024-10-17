@@ -1,3 +1,4 @@
+import { mars } from "./global";
 import styled from "styled-components";
 import "./App.css";
 import { Canvas } from "@react-three/fiber";
@@ -9,6 +10,7 @@ import { BarcodeTabs } from "./Barcode";
 import {
   Dim,
   complexAtom,
+  complexFacePositionsAtom,
   gridForSwapsAtom,
   maFaceSelection,
   selectedGridIndex,
@@ -24,6 +26,7 @@ import {
   RenderComplex,
   RenderAnyGrid,
   RenderMedialAxis,
+  RenderComplex2,
 } from "./Render";
 import { Menu } from "./Controls";
 import DragHandle from "./assets/drag-handle.svg";
@@ -109,6 +112,7 @@ const RenderCanvas = () => {
             key={cplx.filename}
           />
         )}
+        {showObject && <RenderComplex2 wireframe={wireframe} />}
 
         {showGrid && <RenderAnyGrid />}
 
@@ -199,6 +203,16 @@ const RenderBarcodeSideThing = () => {
 };
 
 function App() {
+  const refreshFacePositions = useSetAtom(complexFacePositionsAtom);
+
+  useEffect(() => {
+    mars().set_on_complex_change(() =>
+      setTimeout(() => {
+        refreshFacePositions();
+      }, 0),
+    );
+  }, [refreshFacePositions]);
+
   return (
     <>
       <MainContainer>

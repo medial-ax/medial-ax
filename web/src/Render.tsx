@@ -1,4 +1,5 @@
 import {
+  MutableRefObject,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -12,6 +13,7 @@ import { Wireframe } from "@react-three/drei";
 import { atom, useAtom, useAtomValue } from "jotai";
 import {
   Dim,
+  complexFacePositionsAtom,
   gridAtom,
   gridRadiusAtom,
   hasAnySwaps,
@@ -136,6 +138,43 @@ export const RedTriangle = ({ points }: { points: THREE.Vector3[] }) => {
   );
 };
 
+export const RenderComplex2 = (_: { wireframe?: boolean }) => {
+  const coords = useAtomValue(complexFacePositionsAtom);
+  const coords_ref = useRef<number>(0);
+  useEffect(() => {
+    coords_ref.current += 1;
+  }, [coords]);
+
+  const ref = useRef<THREE.BufferAttribute>(null);
+  useLayoutEffect(() => {
+    if (!ref.current) return;
+    ref.current.array = coords;
+    ref.current.needsUpdate = true;
+  }, [coords]);
+
+  return (
+    <>
+      <mesh>
+        <bufferGeometry attach="geometry">
+          <bufferAttribute
+            key={coords_ref.current}
+            ref={ref}
+            attach="attributes-position"
+            count={coords.length / 3}
+            array={coords}
+            itemSize={3}
+          />
+        </bufferGeometry>
+        <meshLambertMaterial
+          color="#f3f3f3"
+          flatShading
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+    </>
+  );
+};
+
 export const RenderComplex = ({
   cplx,
   wireframe,
@@ -206,9 +245,9 @@ export const RenderComplex = ({
   const ref = useRef<THREE.BufferAttribute>(null);
   useLayoutEffect(() => {
     if (!ref.current) return;
-    ref.current.array = new Float32Array(getCoords());
+    ref.current.array = coords;
     ref.current.needsUpdate = true;
-  }, [getCoords]);
+  }, [coords]);
 
   const colorRef = useRef<THREE.BufferAttribute>(null);
   useLayoutEffect(() => {

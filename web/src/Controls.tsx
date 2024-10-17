@@ -1,3 +1,4 @@
+import { mars } from "./global";
 import { ExtractAtomValue, useAtom, useAtomValue, useSetAtom } from "jotai";
 import {
   Dim,
@@ -50,8 +51,6 @@ import { resetWasmWorker, run, makeWorker } from "./work";
 import "./Controls.css";
 import { HoverTooltip } from "./HoverTooltip";
 import { toast } from "./Toast";
-
-import * as Mars from "mars_wasm";
 
 const EXAMPLE_OBJS = [
   { name: "Squished cylinder", string: squished_cylinder },
@@ -152,7 +151,6 @@ const BasicGridControls = ({ grid }: { grid: VineyardsGrid }) => {
   const [numDots, setNumDots] = useState(5);
 
   const exportGridToObj = useCallback((grid: VineyardsGrid) => {
-    console.log({ grid });
     let obj = "o grid\n";
 
     const [x0, y0, z0] = grid.corner;
@@ -538,7 +536,6 @@ const UploadMeshGridFilePicker = () => {
             .then((text) => {
               const value = make_meshgrid_from_obj(text);
               setGrid({ type: "meshgrid", ...value });
-              console.log(value);
             })
             .catch((err: string) => {
               toast("error", `Failed to parse .obj: ${err}`, 3);
@@ -565,7 +562,6 @@ const UploadStateFilePicker = () => {
           const f = e.target.files?.[0];
           if (!f) return;
           const bytes = await f.arrayBuffer();
-          console.log({ grid, complex });
           await run(
             "create-empty-state",
             {
@@ -1091,10 +1087,6 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
 
         <button
           onClick={() => {
-            Mars.my_init_function();
-            const m = new Mars.Api();
-            console.log("m", m);
-
             const obj = `
 # Blender 3.6.5
 # www.blender.org
@@ -1508,20 +1500,8 @@ f 77 146 118
 f 146 49 118
 `;
 
-            console.log("load complex", m.load_complex(obj));
-            console.log("m.complex", m.complex);
-
-            console.log(
-              "set grid",
-              m.set_grid({
-                corner: [0, 0, 0],
-                size: 0.01,
-                shape: [4, 5, 6],
-                type: "grid",
-              }),
-            );
-            const g = m.grid;
-            console.log(g);
+            const m = mars();
+            m.load_complex(obj);
           }}
         >
           test

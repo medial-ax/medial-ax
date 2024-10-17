@@ -105,46 +105,94 @@ pub fn my_init_function() {
 }
 
 #[wasm_bindgen(skip_typescript)]
-pub struct Api(mars_core::Mars);
+#[derive(Default)]
+pub struct Api {
+    core: mars_core::Mars,
+    on_complex_change: Option<js_sys::Function>,
+}
 
 #[wasm_bindgen]
 impl Api {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Api {
-        Api(Default::default())
+        Default::default()
     }
 
     pub fn load_complex(&mut self, obj_str: String) -> Result<(), String> {
-        self.0.load_from_obj_str(&obj_str)?;
+        self.core.load_from_obj_str(&obj_str)?;
+        if let Some(ref f) = self.on_complex_change {
+            let this = JsValue::null();
+            let _ = f.call0(&this);
+        }
         Ok(())
     }
 
+    pub fn set_on_complex_change(&mut self, f: js_sys::Function) {
+        if self.on_complex_change.is_some() {
+            warn!("If we hit this we probably want a list instead of a single function.");
+        }
+        self.on_complex_change = Some(f);
+    }
+
     pub fn load_mesh_grid(&mut self, obj_str: String) -> Result<(), String> {
-        self.0.load_meshgrid_from_obj_str(&obj_str)?;
+        self.core.load_meshgrid_from_obj_str(&obj_str)?;
         Ok(())
     }
 
     pub fn set_grid(&mut self, grid: JsValue) -> Result<(), String> {
         let grid: VineyardsGrid =
             serde_wasm_bindgen::from_value(grid).map_err(|e| e.to_string())?;
-        self.0.grid = Some(mars_core::Grid::Regular(grid));
+        self.core.grid = Some(mars_core::Grid::Regular(grid));
         Ok(())
     }
 
     #[wasm_bindgen(getter)]
     pub fn complex(&self) -> Result<JsValue, String> {
-        let c = self.0.complex.as_ref().ok_or_else(|| "no complex")?;
+        let c = self.core.complex.as_ref().ok_or_else(|| "no complex")?;
         serde_wasm_bindgen::to_value(&c).map_err(|e| e.to_string())
     }
 
     #[wasm_bindgen(getter)]
     pub fn grid(&self) -> Result<JsValue, String> {
-        let g = self.0.grid.as_ref().ok_or_else(|| "no grid")?;
+        let g = self.core.grid.as_ref().ok_or_else(|| "no grid")?;
         match g {
             mars_core::Grid::Regular(g) => serde_wasm_bindgen::to_value(&g),
             mars_core::Grid::Mesh(g) => serde_wasm_bindgen::to_value(&g),
         }
         .map_err(|e| e.to_string())
+    }
+
+    /// Flattened coordinates for every face of the complex, GL style.
+    pub fn face_positions(&self) -> Result<Vec<f64>, String> {
+        info!("Api.face_positions");
+        let mut ret = Vec::new();
+        let Some(ref c) = self.core.complex else {
+            return Ok(vec![]);
+        };
+        for asd in &c.simplices_per_dim[2] {
+            let e0 = asd.boundary[0] as usize;
+            let e1 = asd.boundary[1] as usize;
+            let e2 = asd.boundary[2] as usize;
+
+            let mut vs = [
+                c.simplices_per_dim[1][e0].boundary[0],
+                c.simplices_per_dim[1][e0].boundary[1],
+                c.simplices_per_dim[1][e1].boundary[0],
+                c.simplices_per_dim[1][e1].boundary[1],
+                c.simplices_per_dim[1][e2].boundary[0],
+                c.simplices_per_dim[1][e2].boundary[1],
+            ];
+            vs.sort();
+
+            let v0 = vs[0] as usize; // Every vert in included twice
+            ret.extend_from_slice(&c.simplices_per_dim[0][v0].coords.unwrap().0);
+            let v1 = vs[2] as usize;
+            ret.extend_from_slice(&c.simplices_per_dim[0][v1].coords.unwrap().0);
+            let v2 = vs[4] as usize;
+            ret.extend_from_slice(&c.simplices_per_dim[0][v2].coords.unwrap().0);
+        }
+
+        Ok(ret)
     }
 }
 
@@ -170,9 +218,11 @@ export class Api {
   free(): void;
   constructor();
 
+  set_on_complex_change(f: () => void): void;
   load_complex(obj: string): void;
   load_mesh_grid(obj: string): void;
   set_grid(grid: VineyardsGrid): void;
+  face_positions(): number[];
 
   readonly complex: any;
   readonly grid: VineyardsGrid | VineyardsGridMesh;

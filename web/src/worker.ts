@@ -1,6 +1,6 @@
-import init, {
+import * as _ from "./global";
+import {
   create_empty_state,
-  my_init_function,
   run_without_prune,
   get_barcode_for_point,
   get_filtration_values_for_point,
@@ -11,11 +11,7 @@ import init, {
   meshgrid_dual_face,
 } from "mars_wasm";
 
-let _init = false;
-const wait = () => new Promise((res) => setTimeout(() => res(0), 10));
-
 async function _run(id: string, fn: string, args: any) {
-  while (!_init) await wait();
   const onMessage = (label: string, i: number, n: number) => {
     postMessage({
       id,
@@ -66,6 +62,7 @@ async function _run(id: string, fn: string, args: any) {
 
 onmessage = (e) => {
   const { id, fn, args } = e.data;
+  if (!fn) return;
   try {
     _run(id, fn, args).then((result) => {
       postMessage({
@@ -83,15 +80,3 @@ onmessage = (e) => {
     });
   }
 };
-
-await init().then(() => {
-  // setInterval(() => {
-  //   const memB = res.memory.buffer.byteLength;
-  //   const memMB = memB / 1024 / 1024;
-  //   console.log(
-  //     `worker wasm memory usage: ${memMB.toFixed(1)} MB (${Math.floor((memMB / 4096) * 100)}%)`,
-  //   );
-  // }, 1000);
-  my_init_function();
-  _init = true;
-});

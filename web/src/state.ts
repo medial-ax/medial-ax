@@ -9,8 +9,14 @@ import {
   Swap,
   Swaps,
 } from "./types";
-import { atomFamily, atomWithReset } from "jotai/utils";
+import { atomFamily, atomWithRefresh, atomWithReset } from "jotai/utils";
 import { swapHasGridIndices } from "./utils";
+import { mars } from "./global";
+
+export const complexFacePositionsAtom = atomWithRefresh<Float32Array>(() => {
+  const ret = new Float32Array(mars().face_positions());
+  return ret;
+});
 
 export const timelinePositionAtom = atom<number>(0);
 export const selectedBirthDeathPair = atom<BirthDeathPair | undefined>(
