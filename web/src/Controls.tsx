@@ -19,10 +19,9 @@ import {
   wireframeAtom,
   workerRunningAtom,
 } from "./state";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { dualFaceQuad } from "./medialaxes";
 import { downloadText, sum } from "./utils";
-import styled from "styled-components";
 import { Index } from "./types";
 import { VineyardsGrid, split_grid } from "mars_wasm";
 import { RESET } from "jotai/utils";
@@ -35,85 +34,8 @@ import { UploadMeshGridFilePicker } from "./controls/UploadMeshGridFilePicker";
 import { UploadObjFilePicker } from "./controls/UploadComplexFilePicker";
 import { UploadStateFilePicker } from "./controls/UploadStateFilePicker";
 import { GridControls } from "./controls/GridControls";
-
-const Loader = styled.span<{
-  $w0: number;
-  $w1: number;
-}>`
-  width: ${(p) => p.$w0}px;
-  height: 12px;
-
-  display: block;
-  margin: 2px auto;
-  position: relative;
-  border-radius: 4px;
-  color: #bbb;
-  background: currentColor;
-  box-sizing: border-box;
-  animation: animloader 0.6s 0.3s ease infinite alternate;
-
-  &::after,
-  &::before {
-    content: "";
-    box-sizing: border-box;
-    width: ${(p) => p.$w0}px;
-    height: 12px;
-    background: currentColor;
-    position: absolute;
-    border-radius: 4px;
-    top: 0;
-    right: 110%;
-    animation: animloader 0.6s ease infinite alternate;
-  }
-  &::after {
-    left: 110%;
-    right: auto;
-    animation-delay: 0.6s;
-  }
-
-  @keyframes animloader {
-    0% {
-      width: ${(p) => p.$w0}px;
-    }
-    100% {
-      width: ${(p) => p.$w1}px;
-    }
-  }
-`;
-
-const CollapseH4 = ({
-  title,
-  children,
-}: React.PropsWithChildren<{ title: string }>) => {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const [height, setHeight] = useState<number>(0);
-  return (
-    <div className="collapse">
-      <h4
-        onClick={() => {
-          if (!ref.current) return;
-          const { height } = ref.current.getBoundingClientRect();
-          if (open) setHeight(Math.ceil(height));
-          setTimeout(() => {
-            setOpen((c) => !c);
-          }, 10);
-        }}
-      >
-        {title}
-      </h4>
-      <div
-        aria-hidden={!open}
-        ref={ref}
-        style={{
-          maxHeight: open ? (height ? height : "initial") : "0",
-        }}
-      >
-        {children}
-      </div>
-    </div>
-  );
-};
+import { Loader } from "./ui/Loader";
+import { CollapseH4 } from "./ui/CollapseH4";
 
 const PruningParameters = ({
   dim,
@@ -475,32 +397,31 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
     const res = split_grid(grid);
     const workerProgress = new Array(4).fill({ label: "Running", i: 0, n: 1 });
     const results = await Promise.all(
-      res.map(([grid, offset]: [VineyardsGrid, Index], i: number) => {
+      res.map(async ([grid, offset]: [VineyardsGrid, Index], i: number) => {
         const { terminate, run } = makeWorker();
-        return run(
-          "run-and-dump",
-          {
-            grid,
-            complex: cplx!.complex,
-            allPruningParams,
-            onlyFirstSwap,
-          },
-          (o) => {
-            workerProgress[i] = o;
-            const totalProgress = {
-              label: o.label,
-              i: sum(workerProgress, (o) => o.i),
-              n: sum(workerProgress, (o) => o.n),
-            };
-            setWorkerProgress(totalProgress);
-          },
-        )
-          .then((state) => {
-            return { state, offset };
-          })
-          .finally(() => {
-            terminate();
-          });
+        try {
+          const state = await run(
+            "run-and-dump",
+            {
+              grid,
+              complex: cplx!.complex,
+              allPruningParams,
+              onlyFirstSwap,
+            },
+            (o) => {
+              workerProgress[i] = o;
+              const totalProgress = {
+                label: o.label,
+                i: sum(workerProgress, (o_1) => o_1.i),
+                n: sum(workerProgress, (o_2) => o_2.n),
+              };
+              setWorkerProgress(totalProgress);
+            },
+          );
+          return { state, offset };
+        } finally {
+          terminate();
+        }
       }),
     );
 
