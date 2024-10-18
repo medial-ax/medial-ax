@@ -1,32 +1,46 @@
-import { useAtomValue, useSetAtom } from "jotai";
-import { complexAtom, gridAtom } from "../state";
+import { useAtomValue } from "jotai";
+import { gridAtom } from "../state";
 import { defaultVineyardsGrid } from "../types";
 import { BasicGridControls } from "./BasicGridControls";
 import { MeshGridControls } from "./MeshGridControls";
+import { mars } from "../global";
+import { marsComplexTick } from "../useMars";
+import { useMemo } from "react";
 
 export const GridControls = () => {
   const grid = useAtomValue(gridAtom);
-  const setGrid = useSetAtom(gridAtom);
-  const cplx = useAtomValue(complexAtom);
+  const _c = useAtomValue(marsComplexTick);
+
+  const complex = useMemo(() => {
+    _c; // reload at need
+    return mars().complex;
+  }, [_c]);
 
   if (!grid)
     return (
       <>
         <h3>Grid controls</h3>
         <button
-          disabled={!cplx}
+          disabled={!complex}
           title={
-            cplx
+            complex
               ? undefined
               : "You need a complex before you can make the grid."
           }
           style={{ width: "fit-content", alignSelf: "center" }}
           onClick={() => {
-            if (!cplx) return;
-            setGrid(defaultVineyardsGrid(cplx.complex));
+            mars().grid = defaultVineyardsGrid(complex);
           }}
         >
           Make grid
+        </button>
+        <button
+          onClick={() => {
+            console.log(complex);
+            console.log(mars().grid);
+          }}
+        >
+          DEBUG
         </button>
       </>
     );

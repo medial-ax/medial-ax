@@ -60,28 +60,6 @@ export const BasicGridControls = ({ grid }: { grid: VineyardsGrid }) => {
     downloadText(obj, "grid.obj");
   }, []);
 
-  if (!grid || grid.type !== "grid")
-    return (
-      <>
-        <h3>Grid controls</h3>
-        <button
-          disabled={!cplx}
-          title={
-            cplx
-              ? undefined
-              : "You need a complex before you can make the grid."
-          }
-          style={{ width: "fit-content", alignSelf: "center" }}
-          onClick={() => {
-            if (!cplx) return;
-            setGrid(defaultVineyardsGrid(cplx.complex, numDots));
-          }}
-        >
-          Make grid
-        </button>
-      </>
-    );
-
   return (
     <>
       <h3>Grid controls</h3>

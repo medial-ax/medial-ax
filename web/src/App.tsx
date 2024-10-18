@@ -1,4 +1,3 @@
-import { mars } from "./global";
 import styled from "styled-components";
 import "./App.css";
 import { Canvas } from "@react-three/fiber";
@@ -9,8 +8,6 @@ import { useAtomValue, useSetAtom } from "jotai";
 import { BarcodeTabs } from "./Barcode";
 import {
   Dim,
-  complexAtom,
-  complexFacePositionsAtom,
   gridForSwapsAtom,
   maFaceSelection,
   selectedGridIndex,
@@ -19,17 +16,14 @@ import {
   showObjectAtom,
   wireframeAtom,
 } from "./state";
-import {
-  RedEdge,
-  RedSphere,
-  RedTriangle,
-  RenderComplex,
-  RenderAnyGrid,
-  RenderMedialAxis,
-  RenderComplex2,
-} from "./Render";
+import { RenderAnyGrid, RenderMedialAxis } from "./Render";
 import { Menu } from "./Controls";
 import DragHandle from "./assets/drag-handle.svg";
+import { useMars } from "./useMars";
+import { RenderComplex2 } from "./render/Complex";
+import { Triangle } from "./render/Triangle";
+import { Edge } from "./render/Edge";
+import { Sphere } from "./render/Sphere";
 
 const ToggleBarcodeButton = styled.button`
   position: absolute;
@@ -72,7 +66,6 @@ const GrabCorner = styled.div<{ $dragging: boolean }>`
 `;
 
 const RenderCanvas = () => {
-  const cplx = useAtomValue(complexAtom);
   const wireframe = useAtomValue(wireframeAtom);
   const [triangle, setTriangle] = useState<THREE.Vector3[] | undefined>(
     undefined,
@@ -105,13 +98,13 @@ const RenderCanvas = () => {
 
         <hemisphereLight color={"#ffffff"} groundColor="#333" intensity={3.0} />
 
-        {cplx && showObject && (
+        {/*cplx && showObject && (
           <RenderComplex
             wireframe={wireframe}
             cplx={cplx.complex}
             key={cplx.filename}
           />
-        )}
+        )*/}
         {showObject && <RenderComplex2 wireframe={wireframe} />}
 
         {showGrid && <RenderAnyGrid />}
@@ -124,13 +117,13 @@ const RenderCanvas = () => {
 
         {triangle && (
           <>
-            <RedTriangle points={triangle} />
-            <RedEdge from={triangle[0]} to={triangle[1]} radius={0.01} />
-            <RedEdge from={triangle[1]} to={triangle[2]} radius={0.01} />
-            <RedEdge from={triangle[2]} to={triangle[0]} radius={0.01} />
-            <RedSphere pos={triangle[0]} radius={0.02} />
-            <RedSphere pos={triangle[1]} radius={0.02} />
-            <RedSphere pos={triangle[2]} radius={0.02} />
+            <Triangle points={triangle} />
+            <Edge from={triangle[0]} to={triangle[1]} radius={0.01} />
+            <Edge from={triangle[1]} to={triangle[2]} radius={0.01} />
+            <Edge from={triangle[2]} to={triangle[0]} radius={0.01} />
+            <Sphere pos={triangle[0]} radius={0.02} />
+            <Sphere pos={triangle[1]} radius={0.02} />
+            <Sphere pos={triangle[2]} radius={0.02} />
           </>
         )}
 
@@ -203,15 +196,7 @@ const RenderBarcodeSideThing = () => {
 };
 
 function App() {
-  const refreshFacePositions = useSetAtom(complexFacePositionsAtom);
-
-  useEffect(() => {
-    mars().set_on_complex_change(() =>
-      setTimeout(() => {
-        refreshFacePositions();
-      }, 0),
-    );
-  }, [refreshFacePositions]);
+  useMars();
 
   return (
     <>

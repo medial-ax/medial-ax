@@ -7,14 +7,15 @@ import {
   Swap,
   Swaps,
 } from "./types";
-import { atomFamily, atomWithRefresh, atomWithReset } from "jotai/utils";
+import { atomFamily, atomWithReset } from "jotai/utils";
 import { swapHasGridIndices } from "./utils";
 import { mars } from "./global";
 import { VineyardsGrid, VineyardsGridMesh } from "mars_wasm";
+import { marsComplexTick } from "./useMars";
 
-export const complexFacePositionsAtom = atomWithRefresh<Float32Array>(() => {
-  const ret = new Float32Array(mars().face_positions());
-  return ret;
+export const complexFacePositionsAtom = atom<Float32Array>((get) => {
+  get(marsComplexTick);
+  return new Float32Array(mars().face_positions());
 });
 
 export const timelinePositionAtom = atom<number>(0);

@@ -108,7 +108,10 @@ pub fn my_init_function() {
 #[derive(Default)]
 pub struct Api {
     core: mars_core::Mars,
+
+    // Callbacks
     on_complex_change: Option<js_sys::Function>,
+    on_grid_change: Option<js_sys::Function>,
 }
 
 #[wasm_bindgen]
@@ -118,12 +121,21 @@ impl Api {
         Default::default()
     }
 
+    fn notify_complex_change(&self) {
+        if let Some(ref f) = self.on_complex_change {
+            let _ = f.call0(&JsValue::null());
+        }
+    }
+
+    fn notify_grid_change(&self) {
+        if let Some(ref f) = self.on_grid_change {
+            let _ = f.call0(&JsValue::null());
+        }
+    }
+
     pub fn load_complex(&mut self, obj_str: String) -> Result<(), String> {
         self.core.load_from_obj_str(&obj_str)?;
-        if let Some(ref f) = self.on_complex_change {
-            let this = JsValue::null();
-            let _ = f.call0(&this);
-        }
+        self.notify_complex_change();
         Ok(())
     }
 
@@ -134,32 +146,47 @@ impl Api {
         self.on_complex_change = Some(f);
     }
 
-    pub fn load_mesh_grid(&mut self, obj_str: String) -> Result<(), String> {
-        self.core.load_meshgrid_from_obj_str(&obj_str)?;
-        Ok(())
+    pub fn set_on_mesh_change(&mut self, f: js_sys::Function) {
+        if self.on_grid_change.is_some() {
+            warn!("If we hit this we probably want a list instead of a single function.");
+        }
+        self.on_grid_change = Some(f);
     }
 
-    pub fn set_grid(&mut self, grid: JsValue) -> Result<(), String> {
-        let grid: VineyardsGrid =
-            serde_wasm_bindgen::from_value(grid).map_err(|e| e.to_string())?;
-        self.core.grid = Some(mars_core::Grid::Regular(grid));
+    pub fn load_mesh_grid(&mut self, obj_str: String) -> Result<(), String> {
+        self.core.load_meshgrid_from_obj_str(&obj_str)?;
+        self.notify_grid_change();
         Ok(())
     }
 
     #[wasm_bindgen(getter)]
     pub fn complex(&self) -> Result<JsValue, String> {
-        let c = self.core.complex.as_ref().ok_or_else(|| "no complex")?;
+        let Some(ref c) = self.core.complex else {
+            return Ok(JsValue::undefined());
+        };
         serde_wasm_bindgen::to_value(&c).map_err(|e| e.to_string())
     }
 
     #[wasm_bindgen(getter)]
     pub fn grid(&self) -> Result<JsValue, String> {
-        let g = self.core.grid.as_ref().ok_or_else(|| "no grid")?;
+        let Some(ref g) = self.core.grid else {
+            return Ok(JsValue::undefined());
+        };
+
         match g {
             mars_core::Grid::Regular(g) => serde_wasm_bindgen::to_value(&g),
             mars_core::Grid::Mesh(g) => serde_wasm_bindgen::to_value(&g),
         }
         .map_err(|e| e.to_string())
+    }
+
+    #[wasm_bindgen(setter)]
+    pub fn set_grid(&mut self, grid: JsValue) -> Result<(), String> {
+        let grid: VineyardsGrid =
+            serde_wasm_bindgen::from_value(grid).map_err(|e| e.to_string())?;
+        self.core.grid = Some(mars_core::Grid::Regular(grid));
+        self.notify_grid_change();
+        Ok(())
     }
 
     /// Flattened coordinates for every face of the complex, GL style.
@@ -219,13 +246,17 @@ export class Api {
   constructor();
 
   set_on_complex_change(f: () => void): void;
+  set_on_mesh_change(f: () => void): void;
+
   load_complex(obj: string): void;
   load_mesh_grid(obj: string): void;
   set_grid(grid: VineyardsGrid): void;
   face_positions(): number[];
 
-  readonly complex: any;
-  readonly grid: VineyardsGrid | VineyardsGridMesh;
+  get complex(): any;
+
+  set grid(g: VineyardsGrid | VineyardsGridMesh): void;
+  get grid(): VineyardsGrid | VineyardsGridMesh;
 }
 "#;
 
