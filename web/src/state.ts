@@ -2,9 +2,7 @@ import { WritableAtom, atom } from "jotai";
 import {
   BirthDeathPair,
   Complex,
-  VineyardsGrid,
   Index,
-  VineyardsGridMesh,
   PruningParam,
   Swap,
   Swaps,
@@ -12,6 +10,7 @@ import {
 import { atomFamily, atomWithRefresh, atomWithReset } from "jotai/utils";
 import { swapHasGridIndices } from "./utils";
 import { mars } from "./global";
+import { VineyardsGrid, VineyardsGridMesh } from "mars_wasm";
 
 export const complexFacePositionsAtom = atomWithRefresh<Float32Array>(() => {
   const ret = new Float32Array(mars().face_positions());

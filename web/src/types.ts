@@ -1,3 +1,5 @@
+import { VineyardsGrid } from "mars_wasm";
+
 export type Point = [number, number, number];
 
 export type Simplex = {
@@ -17,33 +19,6 @@ export type BirthDeathPair = {
   birth: [number, number] | null;
   /** [Death time, simplex index] */
   death: [number, number] | null;
-};
-
-/**
- * The Vineyards-grid if it has been generated as a complete regular grid.
- */
-export type VineyardsGrid = {
-  type: "grid";
-  corner: Point;
-  /**
-   * Grid cell size. I.e the distance between adjacent vertices.
-   */
-  size: number;
-  /**
-   * The number of points along each direction of the grid.
-   */
-  shape: [number, number, number];
-};
-
-/**
- * The Vineyards-grid if it has been uploaded.
- */
-export type VineyardsGridMesh = {
-  type: "meshgrid";
-  points: number[][];
-  neighbors: {
-    [i: number]: number[];
-  };
 };
 
 export type Index = [number, number, number];
