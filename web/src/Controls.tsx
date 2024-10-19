@@ -6,12 +6,12 @@ import {
   gridAtom,
   gridRadiusAtom,
   keypointRadiusAtom,
+  maWireframeAtom,
   menuOpenAtom,
   showGridAtom,
   showMAAtom,
   showObjectAtom,
   swapsAtom,
-  swapsForMA,
   wireframeAtom,
 } from "./state";
 import { useCallback, useState } from "react";
@@ -25,11 +25,10 @@ import { UploadObjFilePicker } from "./controls/UploadComplexFilePicker";
 import { UploadStateFilePicker } from "./controls/UploadStateFilePicker";
 import { GridControls } from "./controls/GridControls";
 import { MedialAxes } from "./controls/MedialAxes";
+import { medialAxesPositions } from "./useMars";
 
 const RenderOptions = () => {
-  const zerothMA = useAtomValue(swapsForMA(0));
-  const firstMA = useAtomValue(swapsForMA(1));
-  const secondMA = useAtomValue(swapsForMA(2));
+  const maPositions = useAtomValue(medialAxesPositions);
 
   const [keypointRadius, setKeypointRadius] = useAtom(keypointRadiusAtom);
   const [gridRadius, setGridRadius] = useAtom(gridRadiusAtom);
@@ -37,6 +36,8 @@ const RenderOptions = () => {
   const [wireframe, setWireframe] = useAtom(wireframeAtom);
   const [showMA, setShowMa] = useAtom(showMAAtom);
   const [showGrid, setShowGrid] = useAtom(showGridAtom);
+
+  const [maWireframe, setMaWireframe] = useAtom(maWireframeAtom);
 
   return (
     <>
@@ -92,6 +93,15 @@ const RenderOptions = () => {
         <p>{keypointRadius.toFixed(3)}</p>
       </fieldset>
 
+      <label>
+        <input
+          type="checkbox"
+          checked={maWireframe}
+          onChange={(e) => setMaWireframe(e.target.checked)}
+        />
+        <p>Medial axes wireframe</p>
+      </label>
+
       <fieldset>
         <legend>Show medial axes</legend>
         <label>
@@ -101,7 +111,7 @@ const RenderOptions = () => {
             onChange={(e) => {
               setShowMa((c) => ({ ...c, 0: e.target.checked }));
             }}
-            disabled={zerothMA.length === 0}
+            disabled={maPositions[0].length === 0}
           />
           <p>Zeroth</p>
         </label>
@@ -112,7 +122,7 @@ const RenderOptions = () => {
             onChange={(e) => {
               setShowMa((c) => ({ ...c, 1: e.target.checked }));
             }}
-            disabled={firstMA.length === 0}
+            disabled={maPositions[1].length === 0}
           />
           <p> First </p>
         </label>
@@ -123,7 +133,7 @@ const RenderOptions = () => {
             onChange={(e) => {
               setShowMa((c) => ({ ...c, 2: e.target.checked }));
             }}
-            disabled={secondMA.length === 0}
+            disabled={maPositions[2].length === 0}
           />
           <p> Second </p>
         </label>

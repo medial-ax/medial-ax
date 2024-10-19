@@ -1,8 +1,12 @@
 import { useAtomValue } from "jotai";
 import { medialAxesPositions } from "../useMars";
 import * as THREE from "three";
+import { maWireframeAtom, showMAAtom } from "../state";
+import { dim2color } from "../constants";
+import { Wireframe } from "@react-three/drei";
 
 const Axis = ({ pos, color }: { pos: Float32Array; color: THREE.Color }) => {
+  const maWireframe = useAtomValue(maWireframeAtom);
   return (
     <mesh key={pos.length}>
       <bufferGeometry attach="geometry">
@@ -13,33 +17,26 @@ const Axis = ({ pos, color }: { pos: Float32Array; color: THREE.Color }) => {
           itemSize={3}
         />
       </bufferGeometry>
-      <meshBasicMaterial
-        side={THREE.DoubleSide}
-        attach="material"
-        color={color}
-        transparent
-        opacity={0.5}
-      />
+      <meshLambertMaterial flatShading side={THREE.DoubleSide} color={color} />
+      {maWireframe && <Wireframe />}
     </mesh>
   );
 };
 
 export const RenderMedialAxis2 = () => {
   const [zeroth, first, second] = useAtomValue(medialAxesPositions);
-  console.log({
-    zeroth,
-    first,
-    second,
-  });
+  const showMA = useAtomValue(showMAAtom);
 
   return (
     <>
-      {zeroth.length && (
-        <Axis pos={zeroth} color={new THREE.Color("#ff0000")} />
+      {zeroth.length && showMA[0] && (
+        <Axis pos={zeroth} color={new THREE.Color(dim2color[0])} />
       )}
-      {first.length && <Axis pos={first} color={new THREE.Color("#00ff00")} />}
-      {second.length && (
-        <Axis pos={second} color={new THREE.Color("#0000ff")} />
+      {first.length && showMA[1] && (
+        <Axis pos={first} color={new THREE.Color(dim2color[1])} />
+      )}
+      {second.length && showMA[2] && (
+        <Axis pos={second} color={new THREE.Color(dim2color[2])} />
       )}
     </>
   );

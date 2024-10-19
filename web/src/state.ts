@@ -41,6 +41,8 @@ export const gridOutOfSync = atom((get) => {
   return g1 !== g2;
 });
 
+export const maWireframeAtom = atom<boolean>(false);
+
 export const maFaceSelection = atom<
   | undefined
   | {
@@ -124,6 +126,9 @@ export const swapsForMA = atomFamily((dim: Dim) =>
   atom((get) => get(swapsAtom)[dim].filter((s) => s[2].v.length > 0)),
 );
 
+/**
+ * Render the medial axis of dims.
+ */
 export const showMAAtom = atom<Record<Dim, boolean>>({
   0: true,
   1: true,
