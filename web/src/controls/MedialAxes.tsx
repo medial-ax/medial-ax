@@ -14,6 +14,23 @@ import { PruningParameters } from "./PruningParameters";
 import { toast } from "../Toast";
 import { Loader } from "../ui/Loader";
 
+import VineyardsWorker from "../worrrker/vineyards?worker";
+
+function performTheComputation() {
+  const w = new VineyardsWorker();
+  let onMessage: (a: Uint8Array) => void = () => {};
+
+  w.onmessage = (e) => {
+    onMessage(e.data);
+  };
+
+  w.postMessage(mars().serialize_core());
+
+  return new Promise<Uint8Array>((res) => {
+    onMessage = res;
+  });
+}
+
 export const MedialAxes = () => {
   // const [swaps, setSwaps] = useAtom(swapsAtom);
   // const anySwaps = useAtomValue(hasAnySwaps);
@@ -124,6 +141,14 @@ export const MedialAxes = () => {
       </label>
 
       <div className="row">
+        <button
+          onClick={async () => {
+            const res = await performTheComputation();
+            mars().deserialize_vineyards(res);
+          }}
+        >
+          DEBUG
+        </button>
         <button
           style={{ flex: 1 }}
           disabled={false /* TODO */}

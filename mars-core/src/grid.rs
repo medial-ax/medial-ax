@@ -21,6 +21,14 @@ impl Index {
     fn x(&self) -> isize {
         self.0[0]
     }
+
+    fn y(&self) -> isize {
+        self.0[1]
+    }
+
+    fn z(&self) -> isize {
+        self.0[2]
+    }
 }
 
 impl std::ops::Add<Index> for Index {
@@ -132,6 +140,39 @@ impl VineyardsGrid {
         self.shape.0[0] * self.shape.0[1] * self.shape.0[2]
     }
 
+    pub fn dual_quad_points(&self, a: Index, b: Index) -> [Pos; 4] {
+        let pa = self.coordinate(a);
+        let pb = self.coordinate(b);
+        let middle = (pa + pb) / 2.0;
+
+        let size = self.size / 2.0;
+
+        if a.x() != b.x() {
+            [
+                Pos([middle.x(), middle.y() - size, middle.z() - size]), // ll
+                Pos([middle.x(), middle.y() - size, middle.z() + size]), // lr
+                Pos([middle.x(), middle.y() + size, middle.z() + size]), // ur
+                Pos([middle.x(), middle.y() + size, middle.z() - size]), // ul
+            ]
+        } else if a.y() != b.y() {
+            [
+                Pos([middle.x() - size, middle.y(), middle.z() - size]),
+                Pos([middle.x() - size, middle.y(), middle.z() + size]),
+                Pos([middle.x() + size, middle.y(), middle.z() + size]),
+                Pos([middle.x() + size, middle.y(), middle.z() - size]),
+            ]
+        } else if a.z() != b.z() {
+            [
+                Pos([middle.x() - size, middle.y() - size, middle.z()]),
+                Pos([middle.x() - size, middle.y() + size, middle.z()]),
+                Pos([middle.x() + size, middle.y() + size, middle.z()]),
+                Pos([middle.x() + size, middle.y() - size, middle.z()]),
+            ]
+        } else {
+            panic!("dual_quad_face: a == b");
+        }
+    }
+
     /// Splits the grid into two along the longest axis.
     /// The [Index] returned is the offset of the second [Grid] wrt. the first [Grid].
     pub fn split_with_overlap(&self) -> (Self, Self, Index) {
@@ -215,9 +256,7 @@ impl VineyardsGrid {
         });
         (hm, all_swaps)
     }
-}
 
-impl VineyardsGrid {
     pub fn visit_edges<F: FnMut(Index, Option<Index>)>(&self, start: Index, mut f: F) {
         let mut queue = std::collections::VecDeque::new();
         queue.push_back((start, None));
@@ -304,6 +343,47 @@ impl VineyardsGridMesh {
 
     pub fn coordinate(&self, index: Index) -> Pos {
         self.points[index.0[0] as usize]
+    }
+
+    pub fn dual_quad_points(&self, a: Index, b: Index) -> [Pos; 4] {
+        let a = self.points[a.0[0] as usize];
+        let b = self.points[b.0[0] as usize];
+        let dist = a.dist(&b);
+
+        let [ax, ay, az] = a.0;
+        let [bx, by, bz] = b.0;
+        let middle = a + (b - a) / 2.0;
+        let ret: [Pos; 4] = if (ax - bx).abs() > 1e-3 {
+            let p = Pos([0.0, dist / 2.0, 0.0]);
+            let q = Pos([0.0, 0.0, dist / 2.0]);
+            [
+                middle - p - q,
+                middle - p + q,
+                middle + p + q,
+                middle + p - q,
+            ]
+        } else if (ay - by).abs() > 1e-3 {
+            let p = Pos([dist / 2.0, 0.0, 0.0]);
+            let q = Pos([0.0, 0.0, dist / 2.0]);
+            [
+                middle - p - q,
+                middle - p + q,
+                middle + p + q,
+                middle + p - q,
+            ]
+        } else if (az - bz).abs() > 1e-3 {
+            let p = Pos([dist / 2.0, 0.0, 0.0]);
+            let q = Pos([0.0, dist / 2.0, 0.0]);
+            [
+                middle - p - q,
+                middle - p + q,
+                middle + p + q,
+                middle + p - q,
+            ]
+        } else {
+            panic!("bad points {:?} {:?}", a, b);
+        };
+        ret
     }
 
     /// Lower- and upper corner of the bounding box.

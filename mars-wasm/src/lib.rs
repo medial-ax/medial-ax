@@ -1,8 +1,8 @@
-use anyhow::{bail, Context, Result};
+use anyhow::{bail, Result};
 use serde::{Deserialize, Serialize, Serializer};
 use wasm_bindgen::prelude::*;
 
-use log::{info, warn};
+use log::{debug, info, warn};
 use mars_core::{
     complex::{Complex, Pos},
     grid::{Index, VineyardsGrid, VineyardsGridMesh},
@@ -104,23 +104,30 @@ pub fn my_init_function() {
     info!("info: my_init_function");
 }
 
+fn mb(u: usize) -> f64 {
+    (u as f64) / 1024.0 / 1024.0
+}
+
 #[wasm_bindgen(skip_typescript)]
 #[derive(Default)]
 pub struct Api {
     core: mars_core::Mars,
+    vineyards: Option<Vineyards>,
 
     // Callbacks
     on_complex_change: Option<js_sys::Function>,
     on_grid_change: Option<js_sys::Function>,
+    on_vineyards_change: Option<js_sys::Function>,
 }
 
 #[wasm_bindgen]
-impl Api {
-    #[wasm_bindgen(constructor)]
-    pub fn new() -> Api {
-        Default::default()
-    }
+#[derive(Serialize, Deserialize, Clone)]
+struct Vineyards {
+    reductions: HashMap<Index, Reduction>,
+    swaps: [Vec<(Index, Index, Swaps)>; 3],
+}
 
+impl Api {
     fn notify_complex_change(&self) {
         if let Some(ref f) = self.on_complex_change {
             let _ = f.call0(&JsValue::null());
@@ -131,6 +138,20 @@ impl Api {
         if let Some(ref f) = self.on_grid_change {
             let _ = f.call0(&JsValue::null());
         }
+    }
+
+    fn notify_vineyards_change(&self) {
+        if let Some(ref f) = self.on_vineyards_change {
+            let _ = f.call0(&JsValue::null());
+        }
+    }
+}
+
+#[wasm_bindgen]
+impl Api {
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> Api {
+        Default::default()
     }
 
     pub fn load_complex(&mut self, obj_str: String) -> Result<(), String> {
@@ -146,11 +167,18 @@ impl Api {
         self.on_complex_change = Some(f);
     }
 
-    pub fn set_on_mesh_change(&mut self, f: js_sys::Function) {
+    pub fn set_on_grid_change(&mut self, f: js_sys::Function) {
         if self.on_grid_change.is_some() {
             warn!("If we hit this we probably want a list instead of a single function.");
         }
         self.on_grid_change = Some(f);
+    }
+
+    pub fn set_on_vineyards_change(&mut self, f: js_sys::Function) {
+        if self.on_vineyards_change.is_some() {
+            warn!("If we hit this we probably want a list instead of a single function.");
+        }
+        self.on_vineyards_change = Some(f);
     }
 
     pub fn load_mesh_grid(&mut self, obj_str: String) -> Result<(), String> {
@@ -222,6 +250,43 @@ impl Api {
         Ok(ret)
     }
 
+    /// Flattened coordinates for every face of the computed medial axes, GL style.
+    pub fn medial_axes_face_positions(&self, dim: usize) -> Result<Vec<f32>, String> {
+        let mut out: Vec<f64> = Vec::new();
+        let Some(ref g) = self.core.grid else {
+            return Ok(Vec::new());
+        };
+        let Some(ref v) = self.vineyards else {
+            return Ok(Vec::new());
+        };
+
+        let swaps = &v.swaps[dim];
+        match g {
+            mars_core::Grid::Regular(grid) => {
+                for s in swaps {
+                    if 0 < s.2.v.len() {
+                        let [a, b, c, d] = grid.dual_quad_points(s.0, s.1);
+                        for p in &[a, b, c, a, c, d] {
+                            out.extend_from_slice(&[p.x(), p.y(), p.z()]);
+                        }
+                    }
+                }
+            }
+            mars_core::Grid::Mesh(grid) => {
+                for s in swaps {
+                    if 0 < s.2.v.len() {
+                        let [a, b, c, d] = grid.dual_quad_points(s.0, s.1);
+                        for p in &[a, b, c, a, c, d] {
+                            out.extend_from_slice(&[p.x(), p.y(), p.z()]);
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(out.into_iter().map(|n| n as f32).collect())
+    }
+
     pub fn split_grid(&self) -> Result<JsValue, String> {
         let Some(ref g) = self.core.grid else {
             return Ok(JsValue::undefined());
@@ -253,6 +318,94 @@ impl Api {
         };
         ret.map_err(|e| e.to_string())
     }
+
+    pub fn serialize_core(&self) -> Result<JsValue, JsValue> {
+        let bytes = rmp_serde::to_vec(&self.core).map_err(|e| e.to_string())?;
+        info!("serialize_core: {:.2} MB", mb(bytes.len()));
+        let serializer = serde_wasm_bindgen::Serializer::new();
+        let ret = serializer.serialize_bytes(&bytes)?;
+        Ok(ret)
+    }
+
+    pub fn deserialize_core(&mut self, value: JsValue) -> Result<(), JsValue> {
+        let bytes: serde_bytes::ByteBuf = serde_wasm_bindgen::from_value(value)?;
+        let core: mars_core::Mars = rmp_serde::from_slice(&bytes)
+            .map_err(|e| format!("rmp_serde failed: {}", e.to_string()))?;
+        info!("deserialize_core: {:.2} MB", mb(bytes.len()));
+        self.core = core;
+        self.notify_complex_change();
+        self.notify_grid_change();
+        Ok(())
+    }
+
+    pub fn serialize_vineyards(&self) -> Result<JsValue, JsValue> {
+        let Some(ref vineyards) = self.vineyards else {
+            info!("serialize_vineyards: no vineyards");
+            return Ok(JsValue::undefined());
+        };
+        let bytes = rmp_serde::to_vec(vineyards).map_err(|e| e.to_string())?;
+        info!("serialize_vineyards: {:.2} MB", mb(bytes.len()));
+        let serializer = serde_wasm_bindgen::Serializer::new();
+        let ret = serializer.serialize_bytes(&bytes)?;
+        Ok(ret)
+    }
+
+    pub fn deserialize_vineyards(&mut self, value: JsValue) -> Result<(), JsValue> {
+        let bytes: serde_bytes::ByteBuf = serde_wasm_bindgen::from_value(value)?;
+        let vineyards: Vineyards = rmp_serde::from_slice(&bytes)
+            .map_err(|e| format!("rmp_serde failed: {}", e.to_string()))?;
+        info!("deserialize_vineyards: {:.2} MB", mb(bytes.len()));
+        self.vineyards = Some(vineyards);
+        self.notify_vineyards_change();
+        Ok(())
+    }
+
+    /// Run vineyards.
+    pub fn run_vineyards(&mut self) -> Result<JsValue, JsValue> {
+        debug!("run_vineyards");
+        let Some(ref c) = self.core.complex else {
+            info!("vineyards: no complex.");
+            return Ok(JsValue::undefined());
+        };
+
+        let Some(ref g) = self.core.grid else {
+            info!("vineyards: no grid.");
+            return Ok(JsValue::undefined());
+        };
+
+        let (reductions, all_swaps) = match g {
+            mars_core::Grid::Regular(r) => {
+                let i0 = Index([0; 3]);
+                let p = r.coordinate(i0);
+                let s0 = reduce_from_scratch(&c, p, false);
+                r.run_vineyards_in_grid(c, i0, s0, false, |i, n| {})
+            }
+            mars_core::Grid::Mesh(m) => m.run_vineyards(&c, false, |i, n| {}),
+        };
+
+        fn filter_dim(v: &[(Index, Index, Swaps)], dim: usize) -> Vec<(Index, Index, Swaps)> {
+            v.iter()
+                .flat_map(|(i, j, s)| {
+                    let v: Vec<_> = s.v.iter().filter(|s| s.dim == dim).cloned().collect();
+                    (0 < v.len()).then(|| (*i, *j, Swaps { v }))
+                })
+                .collect()
+        }
+        debug!("run_vineyards: filter swaps");
+
+        self.vineyards = Some(Vineyards {
+            reductions,
+            swaps: [
+                filter_dim(&all_swaps, 0),
+                filter_dim(&all_swaps, 1),
+                filter_dim(&all_swaps, 2),
+            ],
+        });
+        self.notify_vineyards_change();
+        debug!("run_vineyards: end");
+
+        Ok(JsValue::from_str("ok"))
+    }
 }
 
 #[wasm_bindgen(typescript_custom_section)]
@@ -279,7 +432,8 @@ export class Api {
   constructor();
 
   set_on_complex_change(f: () => void): void;
-  set_on_mesh_change(f: () => void): void;
+  set_on_grid_change(f: () => void): void;
+  set_on_vineyards_change(f: () => void): void;
 
   load_complex(obj: string): void;
   load_mesh_grid(obj: string): void;
@@ -292,6 +446,15 @@ export class Api {
 
   set grid(g: VineyardsGrid | VineyardsGridMesh): void;
   get grid(): VineyardsGrid | VineyardsGridMesh;
+
+  run_vineyards(): void;
+  medial_axes_face_positions(dim: number): Float32Array;
+
+  serialize_core(): Uint8Array;
+  deserialize_core(c: Uint8Array): void;
+
+  serialize_vineyards(): Uint8Array;
+  deserialize_vineyards(c: Uint8Array): void;
 }
 "#;
 
@@ -771,15 +934,6 @@ pub fn run_without_prune(
     info!("run_without_prune");
 
     let (grid, mesh_grid) = mesh_from_jsvalue(grid)?;
-
-    fn filter_dim(v: &[(Index, Index, Swaps)], dim: usize) -> Vec<(Index, Index, Swaps)> {
-        v.iter()
-            .flat_map(|(i, j, s)| {
-                let v: Vec<_> = s.v.iter().filter(|s| s.dim == dim).cloned().collect();
-                (0 < v.len()).then(|| (*i, *j, Swaps { v }))
-            })
-            .collect()
-    }
 
     let new_state = run_without_prune_inner(grid, mesh_grid, complex, options, send_message)
         .map_err(|e| JsValue::from_str(&e.to_string()))?;

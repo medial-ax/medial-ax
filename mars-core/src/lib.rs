@@ -19,13 +19,13 @@ pub mod stats;
 #[cfg(test)]
 pub mod test;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Mars {
     pub complex: Option<Complex>,
     pub grid: Option<Grid>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum Grid {
     Regular(VineyardsGrid),
     Mesh(VineyardsGridMesh),

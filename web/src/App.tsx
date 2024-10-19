@@ -24,6 +24,7 @@ import { RenderComplex2 } from "./render/Complex";
 import { Triangle } from "./render/Triangle";
 import { Edge } from "./render/Edge";
 import { Sphere } from "./render/Sphere";
+import { RenderMedialAxis2 } from "./render/MedialAxes";
 
 const ToggleBarcodeButton = styled.button`
   position: absolute;
@@ -114,6 +115,8 @@ const RenderCanvas = () => {
             if (showMAs[dim]) return <RenderMedialAxis dim={dim} key={dim} />;
             return null;
           })}
+
+        <RenderMedialAxis2 />
 
         {triangle && (
           <>
