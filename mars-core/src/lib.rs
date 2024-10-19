@@ -4,8 +4,8 @@ use std::{
 };
 
 use complex::{Complex, Pos};
-use grid::{VineyardsGrid, VineyardsGridMesh};
-use log::info;
+use grid::{Index, VineyardsGrid, VineyardsGridMesh};
+use log::{info, warn};
 use permutation::Permutation;
 use serde::{Deserialize, Serialize};
 use sneaky_matrix::{SneakyMatrix, CI};
@@ -19,13 +19,13 @@ pub mod stats;
 #[cfg(test)]
 pub mod test;
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Mars {
     pub complex: Option<Complex>,
     pub grid: Option<Grid>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Grid {
     Regular(VineyardsGrid),
     Mesh(VineyardsGridMesh),
@@ -53,8 +53,266 @@ impl Mars {
         )?));
         Ok(())
     }
+
+    /// Return [Err] if we don't have a grid.
+    pub fn split_into_4(&self) -> Result<[SubMars; 4], String> {
+        let Some(ref g) = self.grid else {
+            return Err("Mars::split_into_4: missing grid".to_string());
+        };
+
+        match g {
+            Grid::Regular(grid) => {
+                let (a, b, b_offset) = grid.split_with_overlap();
+
+                let (aa, ab, ab_offset) = a.split_with_overlap();
+                let (ba, bb, bb_offset) = b.split_with_overlap();
+
+                let ret = [
+                    SubMars {
+                        mars: Mars {
+                            complex: self.complex.clone(),
+                            grid: Some(Grid::Regular(aa)),
+                        },
+                        offset: Index([0; 3]),
+                    },
+                    SubMars {
+                        mars: Mars {
+                            complex: self.complex.clone(),
+                            grid: Some(Grid::Regular(ab)),
+                        },
+                        offset: ab_offset,
+                    },
+                    SubMars {
+                        mars: Mars {
+                            complex: self.complex.clone(),
+                            grid: Some(Grid::Regular(ba)),
+                        },
+                        offset: b_offset,
+                    },
+                    SubMars {
+                        mars: Mars {
+                            complex: self.complex.clone(),
+                            grid: Some(Grid::Regular(bb)),
+                        },
+                        offset: b_offset + bb_offset,
+                    },
+                ];
+                Ok(ret)
+            }
+            Grid::Mesh(grid) => {
+                let (a, b) = grid.split_in_half();
+                let (aa, ab) = a.split_in_half();
+                let (ba, bb) = b.split_in_half();
+                let fake = Index::fake(0);
+                let ret = [
+                    SubMars {
+                        mars: Mars {
+                            complex: self.complex.clone(),
+                            grid: Some(Grid::Mesh(aa)),
+                        },
+                        offset: fake,
+                    },
+                    SubMars {
+                        mars: Mars {
+                            complex: self.complex.clone(),
+                            grid: Some(Grid::Mesh(ab)),
+                        },
+                        offset: fake,
+                    },
+                    SubMars {
+                        mars: Mars {
+                            complex: self.complex.clone(),
+                            grid: Some(Grid::Mesh(ba)),
+                        },
+                        offset: fake,
+                    },
+                    SubMars {
+                        mars: Mars {
+                            complex: self.complex.clone(),
+                            grid: Some(Grid::Mesh(bb)),
+                        },
+                        offset: fake,
+                    },
+                ];
+                Ok(ret)
+            }
+        }
+    }
+
+    /// Run Vineyards across the instance.
+    pub fn run<F: Fn(usize, usize)>(&self, progress: F) -> Result<Vineyards, String> {
+        let Some(ref c) = self.complex else {
+            return Err("Vineyards::run: no complex")?;
+        };
+
+        let Some(ref g) = self.grid else {
+            return Err("Vineyards::run: no grid")?;
+        };
+
+        let (reductions, all_swaps) = match g {
+            Grid::Regular(r) => {
+                let i0 = Index([0; 3]);
+                let p = r.coordinate(i0);
+                let s0 = reduce_from_scratch(&c, p, false);
+                r.run_vineyards_in_grid(c, i0, s0, false, progress)
+            }
+            Grid::Mesh(m) => m.run_vineyards(&c, false, progress),
+        };
+
+        // Split up the big list of swaps into one list per dimension, since this is always the
+        // format in which we use it.  It would be better to have the mesh functions return this
+        // data already, since it knows the dimensions of each swap.
+        fn filter_dim(v: &[(Index, Index, Swaps)], dim: usize) -> Vec<(Index, Index, Swaps)> {
+            v.iter()
+                .flat_map(|(i, j, s)| {
+                    let v: Vec<_> = s.v.iter().filter(|s| s.dim == dim).cloned().collect();
+                    (0 < v.len()).then(|| (*i, *j, Swaps { v }))
+                })
+                .collect()
+        }
+
+        Ok(Vineyards {
+            reductions,
+            swaps: [
+                filter_dim(&all_swaps, 0),
+                filter_dim(&all_swaps, 1),
+                filter_dim(&all_swaps, 2),
+            ],
+        })
+    }
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Vineyards {
+    /// A [Reduction] for every [Index] of the grid we ran on.
+    pub reductions: HashMap<Index, Reduction>,
+
+    /// Swaps for each dimension. This is a list of adjacent grid index pairs, together with
+    /// another [Vec]  of [Swap] objects, for each pair of simplices that were swapped in a
+    /// Faustian swap.  Empty pairs are not included.
+    pub swaps: [Vec<(Index, Index, Swaps)>; 3],
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct PruningParam {
+    pub euclidean: bool,
+    pub euclidean_distance: Option<f64>,
+    pub coface: bool,
+    pub face: bool,
+    pub persistence: bool,
+    pub persistence_threshold: Option<f64>,
+}
+
+impl Vineyards {
+    /// Prune the swaps for a given dimension and return a new list of swaps.
+    pub fn prune_dim<F: Fn(usize, usize)>(
+        &self,
+        dim: usize,
+        params: &PruningParam,
+        complex: &Complex,
+        progress: F,
+    ) -> Vec<(Index, Index, Swaps)> {
+        let mut pruned = Vec::new();
+        let n = self.swaps.len();
+        for (i, s) in self.swaps[dim].iter().enumerate() {
+            progress(i, n);
+            if s.2.v.len() == 0 {
+                continue;
+            }
+
+            let mut dim_swaps = s.2.clone();
+
+            if params.euclidean {
+                if let Some(dist) = params.euclidean_distance {
+                    dim_swaps.prune_euclidian(&complex, dist)
+                } else {
+                    warn!(
+                        "params dim {}: euclidean was true but distance was None",
+                        dim
+                    );
+                }
+            }
+
+            if params.face {
+                dim_swaps.prune_common_face(&complex);
+            }
+
+            if params.coface {
+                dim_swaps.prune_coboundary(&complex);
+            }
+
+            if params.persistence {
+                if let Some(dist) = params.persistence_threshold {
+                    let grid_index_a = s.0;
+                    let reduction_at_a = self.reductions.get(&grid_index_a).unwrap();
+                    let grid_index_b = s.1;
+                    let reduction_at_b = self.reductions.get(&grid_index_b).unwrap();
+                    dim_swaps.prune_persistence(&complex, reduction_at_a, reduction_at_b, dist)
+                } else {
+                    warn!(
+                        "params dim {}: persistence was true but threshold was None",
+                        dim
+                    );
+                }
+            }
+
+            if dim_swaps.v.is_empty() {
+                continue;
+            }
+
+            pruned.push((s.0, s.1, dim_swaps));
+        }
+
+        pruned
+    }
+}
+
+pub type SwapList = Vec<(Index, Index, Swaps)>;
+
+/// Sub problems for a [Mars] instance.  This is just like a regular instance, except that we have
+/// a offset for the grid which we need to map the swaps we compute here to the right "coordinate
+/// system"  in the [Mars] instance from which the [SubMars] was created.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SubMars {
+    pub mars: Mars,
+    /// Where this sub-problem is relative to the main problem it was derived from.   
+    pub offset: Index,
+}
+
+impl SubMars {
+    /// Run Vineyards, and map the result swaps back to the original coorinate system of the [Mars]
+    /// instance this [SubMars] instance came from.
+    pub fn run<F: Fn(usize, usize)>(&self, progress: F) -> Result<Vineyards, String> {
+        let inner = self.mars.run(progress)?;
+
+        let reductions = inner
+            .reductions
+            .into_iter()
+            .map(|(index, reduction)| (index + self.offset, reduction))
+            .collect();
+
+        let mut swaps = inner
+            .swaps
+            .into_iter()
+            .map(|s| {
+                s.into_iter()
+                    .map(|(i, j, swaps)| (i + self.offset, j + self.offset, swaps))
+                    .collect()
+            })
+            .collect::<Vec<_>>();
+
+        let swaps2 = swaps.pop().unwrap();
+        let swaps1 = swaps.pop().unwrap();
+        let swaps0 = swaps.pop().unwrap();
+
+        Ok(Vineyards {
+            reductions,
+            swaps: [swaps0, swaps1, swaps2],
+        })
+    }
+}
+
+/// A single Faustian swap.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Swap {
     /// Dimension in which the swap happened.

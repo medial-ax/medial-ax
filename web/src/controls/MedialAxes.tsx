@@ -6,6 +6,7 @@ import { PruningParameters } from "./PruningParameters";
 import { Loader } from "../ui/Loader";
 
 import VineyardsWorker from "../worrrker/vineyards?worker";
+import { range } from "../utils";
 
 const runningWorkerAtom = atom<Worker | undefined>(undefined);
 const runningProgressAtom = atom<
@@ -13,28 +14,62 @@ const runningProgressAtom = atom<
 >(undefined);
 
 const triggerVineyardsAtom = atom(null, async (get, set) => {
-  const w = new VineyardsWorker();
-
-  w.onmessage = (e) => {
-    if (e.data.type === "progress") {
-      set(runningProgressAtom, e.data.data);
-    } else if (e.data.type === "result") {
-      mars().deserialize_vineyards(e.data.data);
-      get(runningWorkerAtom)?.terminate();
-      set(runningWorkerAtom, undefined);
-      set(runningProgressAtom, undefined);
-    } else {
-      console.error(`unhandled worker message of type "${e.data.type}"`, e);
-    }
-  };
-
-  const pruningParams = get(allPruningParamsAtom);
-  const m = mars();
-  w.postMessage({
-    core: m.serialize_core(),
-    pruningParams,
-  });
-  set(runningWorkerAtom, w);
+  window.alert("TODO");
+  // const m = mars();
+  // m.subproblems().map((sub, i) => {
+  //   const w = new VineyardsWorker();
+  //   w.onmessage = (e) => {
+  //     if (e.data.type === "progress") {
+  //       set(runningProgressAtom, e.data.data);
+  //     } else if (e.data.type === "result") {
+  //       m.deserialize_vineyards(e.data.data);
+  //   }
+  // });
+  //
+  // range(0, 4).map((i) => {
+  //   const w = new VineyardsWorker();
+  //
+  //   w.onmessage = (e) => {
+  //     if (e.data.type === "progress") {
+  //       set(runningProgressAtom, e.data.data);
+  //     } else if (e.data.type === "result") {
+  //       mars().deserialize_vineyards(e.data.data);
+  //       get(runningWorkerAtom)?.terminate();
+  //       set(runningWorkerAtom, undefined);
+  //       set(runningProgressAtom, undefined);
+  //     } else {
+  //       console.error(`unhandled worker message of type "${e.data.type}"`, e);
+  //     }
+  //   };
+  //
+  //   const pruningParams = get(allPruningParamsAtom);
+  //   const m = mars();
+  //   w.postMessage({
+  //     core: m.serialize_core(),
+  //     pruningParams,
+  //   });
+  //   set(runningWorkerAtom, w);
+  // });
+  //
+  // w.onmessage = (e) => {
+  //   if (e.data.type === "progress") {
+  //     set(runningProgressAtom, e.data.data);
+  //   } else if (e.data.type === "result") {
+  //     mars().deserialize_vineyards(e.data.data);
+  //     get(runningWorkerAtom)?.terminate();
+  //     set(runningWorkerAtom, undefined);
+  //     set(runningProgressAtom, undefined);
+  //   } else {
+  //     console.error(`unhandled worker message of type "${e.data.type}"`, e);
+  //   }
+  // };
+  //
+  // const pruningParams = get(allPruningParamsAtom);
+  // w.postMessage({
+  //   core: m.serialize_core(),
+  //   pruningParams,
+  // });
+  // set(runningWorkerAtom, w);
 });
 
 export const MedialAxes = () => {
@@ -57,11 +92,20 @@ export const MedialAxes = () => {
         <p>Only first swap </p>
       </label>
 
+      <button
+        onClick={() => {
+          const ret = mars().subproblems();
+          console.log("subproblems", ret);
+        }}
+      >
+        DEBUG
+      </button>
+
       <div className="row">
         <button
           style={{ flex: 1 }}
           disabled={false /* TODO */}
-          onClick={trigger}
+          onClick={() => trigger()}
         >
           {currentWorker ? <Loader $w0={20} $w1={60} /> : "Compute medial axes"}
         </button>

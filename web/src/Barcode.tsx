@@ -24,7 +24,6 @@ import { clamp, max } from "./utils";
 import { colors } from "./constants";
 import { Tabs } from "./Tab";
 import "./Barcode.css";
-import { run } from "./work";
 import { HoverTooltip } from "./HoverTooltip";
 import { Diagram } from "./Diagram";
 import { FaceInfo } from "./FaceInfo";
@@ -845,24 +844,25 @@ export const BarcodeTabs = ({ live }: { live: boolean }) => {
 
     let stop = false;
     setLoading(true);
-    run("get-barcode-for-point", {
-      grid_point: index,
-    })
-      .then((arr) => {
-        if (!stop)
-          setBarcodes({
-            "-1": arr[0],
-            0: arr[1],
-            1: arr[2],
-            2: arr[3],
-          });
-      })
-      .catch((e) => {
-        window.alert(`bad: ${e.message}`);
-      })
-      .finally(() => {
-        setLoading(false);
-      });
+    window.alert("TODO 13a11cb4-af70-4fe0-bc6d-67bb06782cb9");
+    // run("get-barcode-for-point", {
+    //   grid_point: index,
+    // })
+    //   .then((arr) => {
+    //     if (!stop)
+    //       setBarcodes({
+    //         "-1": arr[0],
+    //         0: arr[1],
+    //         1: arr[2],
+    //         2: arr[3],
+    //       });
+    //   })
+    //   .catch((e) => {
+    //     window.alert(`bad: ${e.message}`);
+    //   })
+    //   .finally(() => {
+    //     setLoading(false);
+    //   });
 
     return () => {
       stop = true;

@@ -11,11 +11,9 @@ async function mars(): Promise<Api> {
 }
 
 onmessage = async (e) => {
-  console.log("VW: got message");
-  const m = await mars();
-  console.log("VW: deserialize");
-
   const { core, pruningParams } = e.data;
+
+  const m = await mars();
 
   m.deserialize_core(core);
   console.log("VW: done");

@@ -1,8 +1,7 @@
-import { useAtom, useSetAtom } from "jotai";
-import { Dim, pruningParamAtom, swapsAtom } from "../state";
+import { useAtom } from "jotai";
+import { Dim, pruningParamAtom } from "../state";
 import { useState } from "react";
 import { HoverTooltip } from "../HoverTooltip";
-import { run } from "../work";
 import { RESET } from "jotai/utils";
 
 export const PruningParameters = ({
@@ -13,10 +12,10 @@ export const PruningParameters = ({
   disabled: boolean;
 }) => {
   const [params, set] = useAtom(pruningParamAtom(dim));
-  const [workerProgress, setWorkerProgress] = useState<
+  const [workerProgress] = useState<
     { label: string; i: number; n: number } | undefined
   >(undefined);
-  const setSwaps = useSetAtom(swapsAtom);
+
   return (
     <>
       <label>
@@ -160,14 +159,7 @@ export const PruningParameters = ({
           <button
             disabled={workerProgress !== undefined || disabled}
             onClick={async () => {
-              const swaps = await run("prune-dimension", { dim, params }, (o) =>
-                setWorkerProgress(o),
-              );
-              setSwaps((c) => ({
-                ...c,
-                [dim]: swaps,
-              }));
-              setWorkerProgress(undefined);
+              window.alert("TODO a394e884-5dda-4846-8417-92f685ce0b73");
             }}
           >
             Re-prune

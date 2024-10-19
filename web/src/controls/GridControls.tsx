@@ -28,14 +28,6 @@ export const GridControls = () => {
         >
           Make grid
         </button>
-        <button
-          onClick={() => {
-            console.log(complex);
-            console.log(mars().grid);
-          }}
-        >
-          DEBUG
-        </button>
       </>
     );
 

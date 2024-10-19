@@ -7,16 +7,13 @@ import * as THREE from "three";
 import { useAtomValue, useSetAtom } from "jotai";
 import { BarcodeTabs } from "./Barcode";
 import {
-  Dim,
-  gridForSwapsAtom,
   maFaceSelection,
   selectedGridIndex,
   showGridAtom,
-  showMAAtom,
   showObjectAtom,
   wireframeAtom,
 } from "./state";
-import { RenderAnyGrid, RenderMedialAxis } from "./Render";
+import { RenderAnyGrid } from "./Render";
 import { Menu } from "./Controls";
 import DragHandle from "./assets/drag-handle.svg";
 import { useMars } from "./useMars";
@@ -73,8 +70,6 @@ const RenderCanvas = () => {
   );
   const showGrid = useAtomValue(showGridAtom);
   const showObject = useAtomValue(showObjectAtom);
-  const showMAs = useAtomValue(showMAAtom);
-  const gridForSwaps = useAtomValue(gridForSwapsAtom);
   const setSelectedGridIndex = useSetAtom(selectedGridIndex);
   const setMaFaceSelection = useSetAtom(maFaceSelection);
 
@@ -99,22 +94,9 @@ const RenderCanvas = () => {
 
         <hemisphereLight color={"#ffffff"} groundColor="#333" intensity={3.0} />
 
-        {/*cplx && showObject && (
-          <RenderComplex
-            wireframe={wireframe}
-            cplx={cplx.complex}
-            key={cplx.filename}
-          />
-        )*/}
         {showObject && <RenderComplex2 wireframe={wireframe} />}
 
         {showGrid && <RenderAnyGrid />}
-
-        {gridForSwaps &&
-          ([0, 1, 2] satisfies Dim[]).map((dim) => {
-            if (showMAs[dim]) return <RenderMedialAxis dim={dim} key={dim} />;
-            return null;
-          })}
 
         <RenderMedialAxis2 />
 
