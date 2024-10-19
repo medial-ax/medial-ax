@@ -262,7 +262,10 @@ impl Api {
             return Ok(Vec::new());
         };
 
-        let swaps = &v.swaps[dim];
+        let swaps = v.pruned[dim]
+            .as_ref()
+            .map(|(_, s)| s)
+            .unwrap_or(&v.swaps[dim]);
         match g {
             mars_core::Grid::Regular(grid) => {
                 for s in swaps {
