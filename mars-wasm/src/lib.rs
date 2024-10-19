@@ -341,6 +341,40 @@ impl Api {
         Ok(())
     }
 
+    pub fn deserialize_vineyards_load(&mut self, value: JsValue) -> Result<(), JsValue> {
+        let bytes: serde_bytes::ByteBuf = serde_wasm_bindgen::from_value(value)?;
+        let mut vineyards: mars_core::Vineyards = rmp_serde::from_slice(&bytes)
+            .map_err(|e| format!("rmp_serde failed: {}", e.to_string()))?;
+        info!("deserialize_vineyards_load: {:.2} MB", mb(bytes.len()));
+
+        if let Some(ref mut v) = self.vineyards {
+            for dim in 0..3 {
+                // Properly merge in swaps for existing grid index pairs so that we don't get
+                // duplicates.
+                let swaps = &mut v.swaps[dim];
+                let ij_to_index = swaps
+                    .iter()
+                    .enumerate()
+                    .map(|(i, (a, b, _))| ((*a, *b), i))
+                    .collect::<HashMap<_, _>>();
+
+                for (i, j, new_swaps) in std::mem::take(&mut vineyards.swaps[dim]).into_iter() {
+                    if let Some(k) = ij_to_index.get(&(i, j)) {
+                        swaps[*k].2.v.extend_from_slice(&new_swaps.v);
+                    } else {
+                        swaps.push((i, j, new_swaps));
+                    }
+                }
+            }
+        } else {
+            self.vineyards = Some(vineyards);
+        }
+
+        self.notify_vineyards_change();
+        self.pruned_swaps = [None, None, None];
+        Ok(())
+    }
+
     /// Run vineyards.
     pub fn run_vineyards(
         &mut self,
@@ -407,6 +441,7 @@ const _0: &'static str = r#"
 /** Returns a serialized Vineyards. */
 run_sub_mars(submars: Uint8Array): Uint8Array;
 "#;
+#[wasm_bindgen]
 pub fn run_sub_mars(
     submars: JsValue,
     on_progress: Option<js_sys::Function>,
@@ -482,6 +517,7 @@ export class Api {
   face_positions(): number[];
   medial_axes_face_positions(dim: number): Float32Array;
 
+  /** Return four serialized `SubMars` instances. */
   subproblems(): [Uint8Array, Uint8Array, Uint8Array, Uint8Array];
 
   serialize_core(): Uint8Array;
@@ -489,6 +525,9 @@ export class Api {
 
   serialize_vineyards(): Uint8Array;
   deserialize_vineyards(c: Uint8Array): void;
+  /** Add in more vineyards data.  The data is assumed to have been transformed to the same grid
+   * coordinate system as this instance. */
+  deserialize_vineyards_load(c: Uint8Array): void;
 }
 "#;
 

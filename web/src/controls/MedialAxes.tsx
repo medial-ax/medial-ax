@@ -5,8 +5,10 @@ import { CollapseH4 } from "../ui/CollapseH4";
 import { PruningParameters } from "./PruningParameters";
 import { Loader } from "../ui/Loader";
 
-import VineyardsWorker from "../worrrker/vineyards?worker";
 import { range } from "../utils";
+
+import VineyardsWorker from "../worrrker/vineyards?worker";
+import SubMarsWorker from "../worrrker/vineyards2?worker";
 
 const runningWorkerAtom = atom<Worker | undefined>(undefined);
 const runningProgressAtom = atom<
@@ -14,17 +16,22 @@ const runningProgressAtom = atom<
 >(undefined);
 
 const triggerVineyardsAtom = atom(null, async (get, set) => {
-  window.alert("TODO");
-  // const m = mars();
-  // m.subproblems().map((sub, i) => {
-  //   const w = new VineyardsWorker();
-  //   w.onmessage = (e) => {
-  //     if (e.data.type === "progress") {
-  //       set(runningProgressAtom, e.data.data);
-  //     } else if (e.data.type === "result") {
-  //       m.deserialize_vineyards(e.data.data);
-  //   }
-  // });
+  const m = mars();
+
+  m.subproblems().map((sub, i) => {
+    const w = new SubMarsWorker();
+    w.onmessage = (e) => {
+      if (e.data.type === "progress") {
+        set(runningProgressAtom, e.data.data);
+      } else if (e.data.type === "result") {
+        console.log(`worker ${i} finished`);
+        m.deserialize_vineyards_load(e.data.data);
+        w.terminate();
+      }
+    };
+
+    w.postMessage(sub);
+  });
   //
   // range(0, 4).map((i) => {
   //   const w = new VineyardsWorker();
