@@ -14,12 +14,19 @@ onmessage = async (e) => {
   console.log("VW: got message");
   const m = await mars();
   console.log("VW: deserialize");
-  m.deserialize_core(e.data);
+
+  const { core, pruningParams } = e.data;
+
+  m.deserialize_core(core);
   console.log("VW: done");
 
   const res = m.run_vineyards();
   console.log("VW: vineyards", res);
-  postMessage(m.serialize_vineyards());
+  const vineyards = m.serialize_vineyards();
+  postMessage({
+    type: "result",
+    data: vineyards,
+  });
 };
 
 onmessageerror = (e) => {
