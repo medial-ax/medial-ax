@@ -221,12 +221,45 @@ impl Api {
 
         Ok(ret)
     }
+
+    pub fn split_grid(&self) -> Result<JsValue, String> {
+        let Some(ref g) = self.core.grid else {
+            return Ok(JsValue::undefined());
+        };
+
+        let ret = match g {
+            mars_core::Grid::Regular(grid) => {
+                let (a, b, b_offset) = grid.split_with_overlap();
+
+                let (aa, ab, ab_offset) = a.split_with_overlap();
+                let (ba, bb, bb_offset) = b.split_with_overlap();
+
+                let grids = [
+                    (aa, Index([0; 3])),
+                    (ab, ab_offset),
+                    (ba, b_offset),
+                    (bb, b_offset + bb_offset),
+                ];
+                serde_wasm_bindgen::to_value(&grids)
+            }
+            mars_core::Grid::Mesh(grid) => {
+                let (a, b) = grid.split_in_half();
+                let (aa, ab) = a.split_in_half();
+                let (ba, bb) = b.split_in_half();
+                let fake = Index::fake(0);
+                let grids = [(aa, fake), (ab, fake), (ba, fake), (bb, fake)];
+                serde_wasm_bindgen::to_value(&grids)
+            }
+        };
+        ret.map_err(|e| e.to_string())
+    }
 }
 
 #[wasm_bindgen(typescript_custom_section)]
 const _1: &'static str = r#"
 
 export type Point = [number, number, number];
+export type Index = [number, number, number];
 
 export type VineyardsGrid = {
     corner: Point,
@@ -252,6 +285,8 @@ export class Api {
   load_mesh_grid(obj: string): void;
   set_grid(grid: VineyardsGrid): void;
   face_positions(): number[];
+
+  split_grid(): [VineyardsGrid, Index][] | [VineyardsGridMesh, Index][];
 
   get complex(): any;
 

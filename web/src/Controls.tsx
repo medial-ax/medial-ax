@@ -1,229 +1,30 @@
-import { ExtractAtomValue, useAtom, useAtomValue, useSetAtom } from "jotai";
+import { useAtom, useAtomValue } from "jotai";
 import {
   Dim,
-  allPruningParamsAtom,
   allSettingsAtom,
   complexAtom,
   gridAtom,
-  gridForSwapsAtom,
   gridRadiusAtom,
-  hasAnySwaps,
   keypointRadiusAtom,
   menuOpenAtom,
-  pruningParamAtom,
   showGridAtom,
   showMAAtom,
   showObjectAtom,
   swapsAtom,
   swapsForMA,
   wireframeAtom,
-  workerRunningAtom,
 } from "./state";
 import { useCallback, useState } from "react";
 import { dualFaceQuad } from "./medialaxes";
-import { downloadText, sum } from "./utils";
-import { Index } from "./types";
-import { VineyardsGrid, split_grid } from "mars_wasm";
-import { RESET } from "jotai/utils";
-import { resetWasmWorker, run, makeWorker } from "./work";
+import { downloadText } from "./utils";
 import "./Controls.css";
 import { HoverTooltip } from "./HoverTooltip";
-import { toast } from "./Toast";
 import { BuiltinMeshes } from "./controls/BuiltinMeshes";
 import { UploadMeshGridFilePicker } from "./controls/UploadMeshGridFilePicker";
 import { UploadObjFilePicker } from "./controls/UploadComplexFilePicker";
 import { UploadStateFilePicker } from "./controls/UploadStateFilePicker";
 import { GridControls } from "./controls/GridControls";
-import { Loader } from "./ui/Loader";
-import { CollapseH4 } from "./ui/CollapseH4";
-
-const PruningParameters = ({
-  dim,
-  disabled,
-}: {
-  dim: Dim;
-  disabled: boolean;
-}) => {
-  const [params, set] = useAtom(pruningParamAtom(dim));
-  const [workerProgress, setWorkerProgress] = useState<
-    { label: string; i: number; n: number } | undefined
-  >(undefined);
-  const setSwaps = useSetAtom(swapsAtom);
-  return (
-    <>
-      <label>
-        <input
-          type="checkbox"
-          checked={params.euclidean}
-          onChange={(e) => {
-            set((c) => ({ ...c, euclidean: e.target.checked }));
-          }}
-        />
-        <p>
-          Euclidean pruning{" "}
-          <HoverTooltip>
-            Prunes a Faustian swap if the squared distance between the simplices
-            responsible for the swap is less than the pruning distance.
-          </HoverTooltip>
-        </p>
-      </label>
-      <fieldset className="ranges-with-number" disabled={!params.euclidean}>
-        <p>Pruning distance</p>
-        <input
-          type="range"
-          min={0}
-          max={5}
-          step={0.01}
-          value={params.euclideanDistance ?? 0}
-          style={{ width: "8rem" }}
-          onChange={(e) => {
-            set((c) => ({ ...c, euclideanDistance: Number(e.target.value) }));
-          }}
-        />
-        <input
-          type="number"
-          step={0.01}
-          style={{ width: "5rem" }}
-          value={params.euclideanDistance ?? 0}
-          onChange={(e) => {
-            set((c) => ({ ...c, euclideanDistance: Number(e.target.value) }));
-          }}
-        />
-      </fieldset>
-
-      <label>
-        <input
-          type="checkbox"
-          checked={params.coface && dim !== 2}
-          disabled={dim === 2}
-          onChange={(e) => {
-            set((c) => ({ ...c, coface: e.target.checked }));
-          }}
-        />
-        <p>
-          Coface pruning{" "}
-          <HoverTooltip>
-            {dim === 2
-              ? "This option does not make sense for dimension 2."
-              : "Prunes a Faustian swap if the simplices responsible for the swap share a coface. Only for dimensions 0 and 1."}
-          </HoverTooltip>
-        </p>
-      </label>
-
-      <label>
-        <input
-          type="checkbox"
-          disabled={dim === 0}
-          checked={params.face}
-          onChange={(e) => {
-            set((c) => ({ ...c, face: e.target.checked }));
-          }}
-        />
-        <p>
-          Face pruning{" "}
-          <HoverTooltip>
-            {dim === 0
-              ? "This option does not make sense for dimension 0."
-              : "Prunes a Faustian swap if the simplices responsible for the swap share a face."}
-          </HoverTooltip>
-        </p>
-      </label>
-
-      <label>
-        <input
-          type="checkbox"
-          checked={params.persistence}
-          onChange={(e) => {
-            set((c) => ({ ...c, persistence: e.target.checked }));
-          }}
-        />
-        <p>
-          Persistence pruning{" "}
-          <HoverTooltip>
-            Prunes a Faustian swap if both of the simplices responsible for the
-            swap are associated to a homology class with a lifespan shorter than
-            the pruning lifespan.
-          </HoverTooltip>
-        </p>
-      </label>
-      <fieldset className="ranges-with-number" disabled={!params.persistence}>
-        <p>Pruning lifespan</p>
-        <input
-          disabled={!params.persistence}
-          type="range"
-          min={0}
-          max={1}
-          step={0.01}
-          style={{ width: "8rem" }}
-          value={params.persistenceThreshold ?? 0.01}
-          onChange={(e) => {
-            set((c) => ({
-              ...c,
-              persistenceThreshold: Number(e.target.value),
-            }));
-          }}
-        />
-        <input
-          type="number"
-          step={0.01}
-          style={{ width: "5rem" }}
-          value={params.persistenceThreshold ?? 0}
-          onChange={(e) => {
-            set((c) => ({
-              ...c,
-              persistenceThreshold: Number(e.target.value),
-            }));
-          }}
-        />
-      </fieldset>
-
-      <div
-        style={{
-          display: "flex",
-          gap: "1rem",
-          justifyContent: "end",
-          alignItems: "center",
-        }}
-      >
-        {workerProgress && (
-          <progress value={workerProgress.i / workerProgress.n} />
-        )}
-        <div>
-          <button
-            disabled={workerProgress !== undefined || disabled}
-            onClick={async () => {
-              const swaps = await run("prune-dimension", { dim, params }, (o) =>
-                setWorkerProgress(o),
-              );
-              setSwaps((c) => ({
-                ...c,
-                [dim]: swaps,
-              }));
-              setWorkerProgress(undefined);
-            }}
-          >
-            Re-prune
-          </button>
-          <HoverTooltip
-            style={{
-              opacity: disabled ? 0.5 : 1.0,
-            }}
-          >
-            Reprunes the {{ 0: "0th", 1: "1st", 2: "2nd" }[dim]} medial axis
-            with the given paramters, and updates the visualization.
-          </HoverTooltip>
-        </div>
-
-        <div>
-          <button onClick={() => set(RESET)}>Reset</button>
-          <HoverTooltip>
-            Resets the parameters to the default values.
-          </HoverTooltip>
-        </div>
-      </div>
-    </>
-  );
-};
+import { MedialAxes } from "./controls/MedialAxes";
 
 const RenderOptions = () => {
   const zerothMA = useAtomValue(swapsForMA(0));
@@ -334,26 +135,11 @@ const RenderOptions = () => {
 export const Menu = () => {
   const [cplx] = useAtom(complexAtom);
   const [grid] = useAtom(gridAtom);
-  const [swaps, setSwaps] = useAtom(swapsAtom);
-  const anySwaps = useAtomValue(hasAnySwaps);
-  const [workerRunning, setWorkerRunning] = useAtom(workerRunningAtom);
-  const [workerProgress, setWorkerProgress] = useState<
-    | undefined
-    | {
-        label: string;
-        i: number;
-        n: number;
-      }
-  >(undefined);
-
-  const setGridForSwaps = useSetAtom(gridForSwapsAtom);
-  const allPruningParams = useAtomValue(allPruningParamsAtom);
+  const [swaps] = useAtom(swapsAtom);
 
   const [open, setOpen] = useAtom(menuOpenAtom);
   const shownMA = useAtomValue(showMAAtom);
   const [exportVisible, setExportVisible] = useState(true);
-
-  const [onlyFirstSwap, setOnlyFirstSwap] = useState(false);
 
   const [allSettings, setAllSettings] = useAtom(allSettingsAtom);
 
@@ -387,93 +173,6 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
     const filename = cplx?.filename ?? "complex";
     downloadText(obj, `export-${filename}`);
   }, [cplx?.filename, exportVisible, grid, shownMA, swaps]);
-
-  const compute_the_things = useCallback(async () => {
-    setWorkerRunning(true);
-    await run("create-empty-state", { grid, complex: cplx!.complex }, (o) =>
-      setWorkerProgress(o),
-    );
-
-    const res = split_grid(grid);
-    const workerProgress = new Array(4).fill({ label: "Running", i: 0, n: 1 });
-    const results = await Promise.all(
-      res.map(async ([grid, offset]: [VineyardsGrid, Index], i: number) => {
-        const { terminate, run } = makeWorker();
-        try {
-          const state = await run(
-            "run-and-dump",
-            {
-              grid,
-              complex: cplx!.complex,
-              allPruningParams,
-              onlyFirstSwap,
-            },
-            (o) => {
-              workerProgress[i] = o;
-              const totalProgress = {
-                label: o.label,
-                i: sum(workerProgress, (o_1) => o_1.i),
-                n: sum(workerProgress, (o_2) => o_2.n),
-              };
-              setWorkerProgress(totalProgress);
-            },
-          );
-          return { state, offset };
-        } finally {
-          terminate();
-        }
-      }),
-    );
-
-    results.forEach(async (res: any) => {
-      await run(
-        "load-state",
-        {
-          bytes: res.state,
-          index: res.offset,
-        },
-        (o) => setWorkerProgress(o),
-      );
-    });
-
-    const pruned: ExtractAtomValue<typeof swapsAtom> = {
-      0: await run(
-        "prune-dimension",
-        {
-          dim: 0,
-          params: allPruningParams[0],
-        },
-        (o) => setWorkerProgress(o),
-      ),
-      1: await run(
-        "prune-dimension",
-        {
-          dim: 1,
-          params: allPruningParams[1],
-        },
-        (o) => setWorkerProgress(o),
-      ),
-      2: await run(
-        "prune-dimension",
-        {
-          dim: 2,
-          params: allPruningParams[2],
-        },
-        (o) => setWorkerProgress(o),
-      ),
-    };
-
-    setSwaps(pruned);
-    setGridForSwaps(grid);
-  }, [
-    allPruningParams,
-    cplx,
-    grid,
-    onlyFirstSwap,
-    setGridForSwaps,
-    setSwaps,
-    setWorkerRunning,
-  ]);
 
   return (
     <div id="controls">
@@ -568,76 +267,7 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
 
         <GridControls />
 
-        <h3>Medial axes</h3>
-
-        <label>
-          <input
-            type="checkbox"
-            checked={onlyFirstSwap}
-            onChange={(e) => {
-              setOnlyFirstSwap(e.target.checked);
-            }}
-          />
-          <p>Only first swap</p>
-        </label>
-
-        <div className="row">
-          <button
-            style={{ flex: 1 }}
-            disabled={workerRunning || !grid || !cplx}
-            onClick={async () =>
-              compute_the_things()
-                .catch((err) => {
-                  const s = err instanceof Error ? err.message : String(err);
-                  toast("error", s, 10);
-                })
-                .finally(() => {
-                  setWorkerProgress(undefined);
-                  setWorkerRunning(false);
-                })
-            }
-          >
-            {workerRunning ? (
-              <Loader $w0={20} $w1={60} />
-            ) : (
-              "Compute medial axes"
-            )}
-          </button>
-          {workerRunning && (
-            <button
-              onClick={() => {
-                setWorkerRunning(false);
-                setWorkerProgress(undefined);
-                resetWasmWorker();
-              }}
-            >
-              Abort
-            </button>
-          )}
-        </div>
-
-        {workerProgress && (
-          <label>
-            <p>{workerProgress.label}</p>
-            {0 < workerProgress.n && (
-              <progress value={workerProgress.i / workerProgress.n} />
-            )}
-            <p className="percent">
-              {Math.floor((workerProgress.i / workerProgress.n) * 100)}%
-            </p>
-          </label>
-        )}
-
-        <div className="pruning-param-list">
-          {([0, 1, 2] satisfies Dim[]).map((dim) => (
-            <CollapseH4 key={dim} title={`Pruning dim ${dim}`}>
-              <PruningParameters
-                dim={dim}
-                disabled={workerRunning || !grid || !cplx || !anySwaps}
-              />
-            </CollapseH4>
-          ))}
-        </div>
+        <MedialAxes />
 
         <RenderOptions />
       </div>
