@@ -1,16 +1,21 @@
-import { useAtom, useAtomValue, useSetAtom } from "jotai";
-import { complexAtom, gridAtom, showGridAtom } from "../state";
+import { useAtom, useAtomValue } from "jotai";
+import { showGridAtom } from "../state";
 import { VineyardsGrid } from "mars_wasm";
 import { useCallback, useState } from "react";
 import { downloadText } from "../utils";
 import { defaultVineyardsGrid } from "../types";
 import { Input } from "../ui/Input";
+import { mars } from "../global";
+import { marsComplex } from "../useMars";
 
 export const BasicGridControls = ({ grid }: { grid: VineyardsGrid }) => {
-  const setGrid = useSetAtom(gridAtom);
   const [showGrid] = useAtom(showGridAtom);
 
-  const cplx = useAtomValue(complexAtom);
+  const setGrid = useCallback((grid: VineyardsGrid) => {
+    mars().grid = grid;
+  }, []);
+
+  const cplx = useAtomValue(marsComplex);
   const [numDots, setNumDots] = useState(5);
 
   const exportGridToObj = useCallback((grid: VineyardsGrid) => {
@@ -69,7 +74,7 @@ export const BasicGridControls = ({ grid }: { grid: VineyardsGrid }) => {
           style={{ width: "fit-content" }}
           onClick={() => {
             if (!cplx) return;
-            setGrid(defaultVineyardsGrid(cplx.complex, numDots));
+            setGrid(defaultVineyardsGrid(cplx, numDots));
           }}
         >
           Reset grid
@@ -95,9 +100,10 @@ export const BasicGridControls = ({ grid }: { grid: VineyardsGrid }) => {
           max={20}
           value={numDots}
           onChange={(e) => {
+            if (!cplx) return;
             const n = Number(e.target.value);
             setNumDots(n);
-            setGrid(defaultVineyardsGrid(cplx!.complex, n));
+            setGrid(defaultVineyardsGrid(cplx, n));
           }}
         />
         <span>{numDots}</span>

@@ -1,5 +1,5 @@
 import { useAtomValue } from "jotai";
-import { complexFacePositionsAtom } from "../state";
+import { complexFacePositionsAtom } from "../useMars";
 import { useEffect, useLayoutEffect, useRef } from "react";
 import * as THREE from "three";
 

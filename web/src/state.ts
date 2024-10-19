@@ -9,14 +9,7 @@ import {
 } from "./types";
 import { atomFamily, atomWithReset } from "jotai/utils";
 import { swapHasGridIndices } from "./utils";
-import { mars } from "./global";
 import { VineyardsGrid, VineyardsGridMesh } from "mars_wasm";
-import { marsComplexTick } from "./useMars";
-
-export const complexFacePositionsAtom = atom<Float32Array>((get) => {
-  get(marsComplexTick);
-  return new Float32Array(mars().face_positions());
-});
 
 export const timelinePositionAtom = atom<number>(0);
 export const selectedBirthDeathPair = atom<BirthDeathPair | undefined>(

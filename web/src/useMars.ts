@@ -2,15 +2,15 @@ import { useEffect } from "react";
 import { mars } from "./global";
 import { atom, useSetAtom } from "jotai";
 import { VineyardsGrid, VineyardsGridMesh } from "mars_wasm";
+import { Complex } from "./types";
 
-/**
- * Incrementing counter that gets incremented every time the mars complex
- * changes.
- */
-export const marsComplexTick = atom<number>(0);
+const marsComplexTick = atom<number>(0);
+export const marsComplex = atom<Complex | undefined>((get) => {
+  get(marsComplexTick);
+  return mars().complex;
+});
 
-export const marsMeshTick = atom<number>(0);
-
+const marsMeshTick = atom<number>(0);
 export const marsGrid = atom<VineyardsGrid | VineyardsGridMesh | undefined>(
   (get) => {
     get(marsMeshTick);
@@ -18,6 +18,11 @@ export const marsGrid = atom<VineyardsGrid | VineyardsGridMesh | undefined>(
     return m.grid;
   },
 );
+
+export const complexFacePositionsAtom = atom<Float32Array>((get) => {
+  get(marsComplexTick);
+  return new Float32Array(mars().face_positions());
+});
 
 export const useMars = () => {
   const setComplex = useSetAtom(marsComplexTick);

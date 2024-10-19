@@ -1,20 +1,13 @@
 import { useAtomValue } from "jotai";
-import { gridAtom } from "../state";
 import { defaultVineyardsGrid } from "../types";
 import { BasicGridControls } from "./BasicGridControls";
 import { MeshGridControls } from "./MeshGridControls";
 import { mars } from "../global";
-import { marsComplexTick } from "../useMars";
-import { useMemo } from "react";
+import { marsComplex, marsGrid } from "../useMars";
 
 export const GridControls = () => {
-  const grid = useAtomValue(gridAtom);
-  const _c = useAtomValue(marsComplexTick);
-
-  const complex = useMemo(() => {
-    _c; // reload at need
-    return mars().complex;
-  }, [_c]);
+  const grid = useAtomValue(marsGrid);
+  const complex = useAtomValue(marsComplex);
 
   if (!grid)
     return (
@@ -29,6 +22,7 @@ export const GridControls = () => {
           }
           style={{ width: "fit-content", alignSelf: "center" }}
           onClick={() => {
+            if (!complex) return;
             mars().grid = defaultVineyardsGrid(complex);
           }}
         >
