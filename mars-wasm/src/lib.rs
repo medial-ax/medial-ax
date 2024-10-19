@@ -104,6 +104,7 @@ pub fn my_init_function() {
     info!("info: my_init_function");
 }
 
+/// Turns a [usize] in bytes into a [f64] in MB.
 fn mb(u: usize) -> f64 {
     (u as f64) / 1024.0 / 1024.0
 }
@@ -125,6 +126,7 @@ pub struct Api {
 struct Vineyards {
     reductions: HashMap<Index, Reduction>,
     swaps: [Vec<(Index, Index, Swaps)>; 3],
+    pruned: [Option<(PruningParam, Vec<(Index, Index, Swaps)>)>; 3],
 }
 
 impl Api {
@@ -361,7 +363,10 @@ impl Api {
     }
 
     /// Run vineyards.
-    pub fn run_vineyards(&mut self) -> Result<JsValue, JsValue> {
+    pub fn run_vineyards(
+        &mut self,
+        on_progress: Option<js_sys::Function>,
+    ) -> Result<JsValue, JsValue> {
         debug!("run_vineyards");
         let Some(ref c) = self.core.complex else {
             info!("vineyards: no complex.");
@@ -373,14 +378,27 @@ impl Api {
             return Ok(JsValue::undefined());
         };
 
+        let progress = |i: usize, n: usize| {
+            if i % 15 == 0 {
+                if let Some(ref f) = on_progress {
+                    let _ = f.call3(
+                        &JsValue::NULL,
+                        &JsValue::from_str("Vineyards"),
+                        &JsValue::from_f64(i as f64),
+                        &JsValue::from_f64(n as f64),
+                    );
+                }
+            }
+        };
+
         let (reductions, all_swaps) = match g {
             mars_core::Grid::Regular(r) => {
                 let i0 = Index([0; 3]);
                 let p = r.coordinate(i0);
                 let s0 = reduce_from_scratch(&c, p, false);
-                r.run_vineyards_in_grid(c, i0, s0, false, |i, n| {})
+                r.run_vineyards_in_grid(c, i0, s0, false, progress)
             }
-            mars_core::Grid::Mesh(m) => m.run_vineyards(&c, false, |i, n| {}),
+            mars_core::Grid::Mesh(m) => m.run_vineyards(&c, false, progress),
         };
 
         fn filter_dim(v: &[(Index, Index, Swaps)], dim: usize) -> Vec<(Index, Index, Swaps)> {
@@ -400,11 +418,88 @@ impl Api {
                 filter_dim(&all_swaps, 1),
                 filter_dim(&all_swaps, 2),
             ],
+            pruned: [None, None, None],
         });
         self.notify_vineyards_change();
         debug!("run_vineyards: end");
 
         Ok(JsValue::from_str("ok"))
+    }
+
+    pub fn prune(
+        &mut self,
+        dim: usize,
+        params: JsValue,
+        on_progress: Option<js_sys::Function>,
+    ) -> Result<(), JsValue> {
+        let params: PruningParam = serde_wasm_bindgen::from_value(params)?;
+
+        let Some(ref complex) = self.core.complex else {
+            return Err("Need to have a complex before pruning.".to_string())?;
+        };
+        let Some(ref mut v) = self.vineyards else {
+            return Err("Need to compute vineyards before pruning.".to_string())?;
+        };
+
+        let mut pruned = Vec::new();
+
+        let n = v.swaps[dim].len();
+        for (i, s) in v.swaps[dim].iter().enumerate() {
+            if i % 127 == 0 {
+                if let Some(ref f) = on_progress {
+                    let _ = f.call3(
+                        &JsValue::NULL,
+                        &JsValue::from_str("Pruning"),
+                        &JsValue::from_f64(i as f64),
+                        &JsValue::from_f64(n as f64),
+                    );
+                }
+            }
+            if s.2.v.len() == 0 {
+                continue;
+            }
+
+            let mut dim_swaps = s.2.clone();
+
+            if params.euclidean {
+                if let Some(dist) = params.euclidean_distance {
+                    dim_swaps.prune_euclidian(&complex, dist)
+                } else {
+                    warn!(
+                        "params dim {}: euclidean was true but distance was None",
+                        dim
+                    );
+                }
+            }
+
+            if params.face {
+                dim_swaps.prune_common_face(&complex);
+            }
+
+            if params.coface {
+                dim_swaps.prune_coboundary(&complex);
+            }
+
+            if params.persistence {
+                if let Some(dist) = params.persistence_threshold {
+                    let grid_index_a = s.0;
+                    let reduction_at_a = v.reductions.get(&grid_index_a).unwrap();
+                    let grid_index_b = s.1;
+                    let reduction_at_b = v.reductions.get(&grid_index_b).unwrap();
+                    dim_swaps.prune_persistence(&complex, reduction_at_a, reduction_at_b, dist)
+                } else {
+                    warn!(
+                        "params dim {}: persistence was true but threshold was None",
+                        dim
+                    );
+                }
+            }
+
+            pruned.push((s.0, s.1, dim_swaps));
+        }
+
+        v.pruned[dim] = Some((params, pruned));
+        Ok(())
     }
 }
 
@@ -438,7 +533,6 @@ export class Api {
   load_complex(obj: string): void;
   load_mesh_grid(obj: string): void;
   set_grid(grid: VineyardsGrid): void;
-  face_positions(): number[];
 
   split_grid(): [VineyardsGrid, Index][] | [VineyardsGridMesh, Index][];
 
@@ -447,7 +541,11 @@ export class Api {
   set grid(g: VineyardsGrid | VineyardsGridMesh): void;
   get grid(): VineyardsGrid | VineyardsGridMesh;
 
-  run_vineyards(): void;
+  run_vineyards(progress?: (label: string, i: number, n: number) => void): void;
+
+  prune(dim: number, params: PruningParam, progress?: (label: string, i: number, n: number) => void);
+
+  face_positions(): number[];
   medial_axes_face_positions(dim: number): Float32Array;
 
   serialize_core(): Uint8Array;
@@ -686,7 +784,7 @@ pub fn get_filtration_values_for_point(grid_point: Vec<isize>) -> Result<JsValue
     Ok(js)
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct PruningParam {
     pub euclidean: bool,

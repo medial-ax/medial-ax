@@ -17,14 +17,15 @@ const triggerVineyardsAtom = atom(null, async (get, set) => {
 
   w.onmessage = (e) => {
     if (e.data.type === "progress") {
-      console.log(e.data);
+      set(runningProgressAtom, e.data.data);
     } else if (e.data.type === "result") {
       mars().deserialize_vineyards(e.data.data);
+      get(runningWorkerAtom)?.terminate();
+      set(runningWorkerAtom, undefined);
+      set(runningProgressAtom, undefined);
     } else {
       console.error(`unhandled worker message of type "${e.data.type}"`, e);
     }
-    get(runningWorkerAtom)?.terminate();
-    set(runningWorkerAtom, undefined);
   };
 
   const pruningParams = get(allPruningParamsAtom);
