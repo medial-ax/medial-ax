@@ -1,5 +1,5 @@
 import { Dim } from "../state";
-import { atom, useAtom, useAtomValue, useSetAtom } from "jotai";
+import { atom, useAtomValue, useSetAtom } from "jotai";
 import { mars } from "../global";
 import { CollapseH4 } from "../ui/CollapseH4";
 import { PruningParameters } from "./PruningParameters";
@@ -47,7 +47,6 @@ const triggerVineyardsAtom = atom(null, (_, set) => {
           return ret;
         });
       } else if (e.data.type === "result") {
-        console.log(`worker ${i} finished`);
         m.deserialize_vineyards_load(e.data.data);
         w.terminate();
         set(progressAtom, (curr) => {

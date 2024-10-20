@@ -1,3 +1,4 @@
+#![allow(dead_code, unreachable_code)]
 use std::{
     collections::{HashMap, HashSet},
     iter::zip,
@@ -213,7 +214,7 @@ impl Vineyards {
         progress: F,
     ) -> Vec<(Index, Index, Swaps)> {
         let mut pruned = Vec::new();
-        let n = self.swaps.len();
+        let n = self.swaps[dim].len();
         for (i, s) in self.swaps[dim].iter().enumerate() {
             progress(i, n);
             if s.2.v.len() == 0 {

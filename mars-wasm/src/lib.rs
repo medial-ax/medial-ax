@@ -1,22 +1,14 @@
-use anyhow::{bail, Result};
-use serde::{Deserialize, Serialize, Serializer};
+use anyhow::Result;
+use mars_core::complex::Complex;
+use mars_core::grid::VineyardsGridMesh;
+use mars_core::{Grid, Mars, PruningParam};
+use serde::Serializer;
 use wasm_bindgen::prelude::*;
 
-use log::{debug, info, warn};
-use mars_core::{
-    complex::{Complex, Pos},
-    grid::{Index, VineyardsGrid, VineyardsGridMesh},
-    reduce_from_scratch,
-    sneaky_matrix::CI,
-    stats::StackMem,
-    PruningParam, Reduction, SwapList, Swaps,
-};
+use log::{debug, error, info, warn};
+use mars_core::{grid::VineyardsGrid, SwapList};
 
-use std::{
-    collections::{HashMap, HashSet},
-    panic,
-    sync::Mutex,
-};
+use std::{collections::HashMap, panic};
 
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::sync::atomic::{AtomicIsize, Ordering};
@@ -75,16 +67,12 @@ unsafe impl<A: GlobalAlloc> GlobalAlloc for CountingAllocator<A> {
 static ALLOCATOR: CountingAllocator<System> = CountingAllocator::new(System);
 
 /// Print memory usage info with a label.
-fn info_mem(label: &str) {
+fn info_mem() {
     let bytes = ALLOCATOR.allocated_now();
-    info!(
-        "🐊 {}: {} / {} kB / {} MB / {}% 🐊  ",
-        label,
-        bytes,
-        bytes / 1024,
-        bytes / 1024 / 1024,
-        100.0 * (bytes / 1024 / 1024) as f64 / 4096.0,
-    );
+    let kb = bytes / 1024;
+    let mb = kb / 1024;
+    let perc = 100.0 * mb as f64 / 4096.0;
+    info!("🐊 {bytes:10} / {kb:7} kB / {mb:4} MB / {perc:3.0}% 🐊");
 }
 
 /// Global state.
@@ -147,6 +135,41 @@ impl Api {
             let _ = f.call0(&JsValue::null());
         }
     }
+
+    fn set_mars(&mut self, c: Mars) {
+        self.core = c;
+        self.notify_complex_change();
+        self.notify_grid_change();
+        self.set_vineyards(None);
+    }
+
+    fn set_complex(&mut self, c: Option<Complex>) {
+        self.core.complex = c;
+        self.notify_complex_change();
+        self._set_grid(None);
+    }
+
+    fn _set_grid(&mut self, g: Option<Grid>) {
+        self.core.grid = g;
+        self.notify_grid_change();
+        self.set_vineyards(None);
+    }
+
+    fn set_vineyards(&mut self, v: Option<mars_core::Vineyards>) {
+        self.vineyards = v;
+        self.notify_vineyards_change();
+        self.set_pruned_swaps([None, None, None]);
+    }
+
+    fn set_pruned_swaps(&mut self, ps: [Option<(PruningParam, SwapList)>; 3]) {
+        self.pruned_swaps = ps;
+        self.notify_pruned_change();
+    }
+
+    fn set_one_pruned_swaps(&mut self, i: usize, s: Option<(PruningParam, SwapList)>) {
+        self.pruned_swaps[i] = s;
+        self.notify_pruned_change();
+    }
 }
 
 #[wasm_bindgen]
@@ -154,12 +177,6 @@ impl Api {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Api {
         Default::default()
-    }
-
-    pub fn load_complex(&mut self, obj_str: String) -> Result<(), String> {
-        self.core.load_from_obj_str(&obj_str)?;
-        self.notify_complex_change();
-        Ok(())
     }
 
     pub fn set_on_complex_change(&mut self, f: js_sys::Function) {
@@ -190,9 +207,9 @@ impl Api {
         self.on_pruned_change = Some(f);
     }
 
-    pub fn load_mesh_grid(&mut self, obj_str: String) -> Result<(), String> {
-        self.core.load_meshgrid_from_obj_str(&obj_str)?;
-        self.notify_grid_change();
+    pub fn load_complex(&mut self, obj_str: String) -> Result<(), String> {
+        let cplx = mars_core::complex::Complex::read_from_obj_string(&obj_str)?;
+        self.set_complex(Some(cplx));
         Ok(())
     }
 
@@ -202,6 +219,12 @@ impl Api {
             return Ok(JsValue::undefined());
         };
         serde_wasm_bindgen::to_value(&c).map_err(|e| e.to_string())
+    }
+
+    pub fn load_mesh_grid(&mut self, obj_str: String) -> Result<(), String> {
+        let grid = Grid::Mesh(VineyardsGridMesh::read_from_obj_string(&obj_str)?);
+        self._set_grid(Some(grid));
+        Ok(())
     }
 
     #[wasm_bindgen(getter)]
@@ -221,8 +244,7 @@ impl Api {
     pub fn set_grid(&mut self, grid: JsValue) -> Result<(), String> {
         let grid: VineyardsGrid =
             serde_wasm_bindgen::from_value(grid).map_err(|e| e.to_string())?;
-        self.core.grid = Some(mars_core::Grid::Regular(grid));
-        self.notify_grid_change();
+        self._set_grid(Some(Grid::Regular(grid)));
         Ok(())
     }
 
@@ -294,6 +316,7 @@ impl Api {
                 }
             }
         }
+        info_mem();
 
         Ok(out.into_iter().map(|n| n as f32).collect())
     }
@@ -327,9 +350,7 @@ impl Api {
         let core: mars_core::Mars = rmp_serde::from_slice(&bytes)
             .map_err(|e| format!("rmp_serde failed: {}", e.to_string()))?;
         debug!("deserialize_core: {:.2} MB", mb(bytes.len()));
-        self.core = core;
-        self.notify_complex_change();
-        self.notify_grid_change();
+        self.set_mars(core);
         Ok(())
     }
 
@@ -350,8 +371,7 @@ impl Api {
         let vineyards: mars_core::Vineyards = rmp_serde::from_slice(&bytes)
             .map_err(|e| format!("rmp_serde failed: {}", e.to_string()))?;
         debug!("deserialize_vineyards: {:.2} MB", mb(bytes.len()));
-        self.vineyards = Some(vineyards);
-        self.notify_vineyards_change();
+        self.set_vineyards(Some(vineyards));
         Ok(())
     }
 
@@ -381,11 +401,11 @@ impl Api {
                 }
             }
         } else {
-            self.vineyards = Some(vineyards);
+            self.set_vineyards(Some(vineyards));
         }
 
         self.notify_vineyards_change();
-        self.pruned_swaps = [None, None, None];
+        self.set_pruned_swaps([None, None, None]);
         Ok(())
     }
 
@@ -402,8 +422,7 @@ impl Api {
         let pruned: Option<(PruningParam, SwapList)> = rmp_serde::from_slice(&bytes)
             .map_err(|e| format!("rmp_serde failed: {}", e.to_string()))?;
         debug!("deserialize_vineyards: {:.2} MB", mb(bytes.len()));
-        self.pruned_swaps[dim] = pruned;
-        self.notify_pruned_change();
+        self.set_one_pruned_swaps(dim, pruned);
         Ok(())
     }
 
@@ -453,17 +472,21 @@ impl Api {
         let pruned = v.prune_dim(dim, &params, c, |i, n| {
             if i % 127 == 0 {
                 if let Some(ref f) = on_progress {
-                    let _ = f.call3(
-                        &JsValue::NULL,
-                        &JsValue::from_str("Pruning"),
-                        &JsValue::from_f64(i as f64),
-                        &JsValue::from_f64(n as f64),
-                    );
+                    let _ = f
+                        .call3(
+                            &JsValue::NULL,
+                            &JsValue::from_str("Pruning"),
+                            &JsValue::from_f64(i as f64),
+                            &JsValue::from_f64(n as f64),
+                        )
+                        .map_err(|e| {
+                            error!("{:?}", e);
+                        });
                 }
             }
         });
 
-        self.pruned_swaps[dim] = Some((params, pruned));
+        self.set_one_pruned_swaps(dim, Some((params, pruned)));
         Ok(())
     }
 }

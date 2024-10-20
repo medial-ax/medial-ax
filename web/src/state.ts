@@ -138,11 +138,11 @@ export const showMAAtom = atom<Record<Dim, boolean>>({
 export const pruningParamAtom = atomFamily((dim: Dim) =>
   atomWithReset<PruningParam>({
     euclidean: true,
-    euclideanDistance: 0.01,
+    euclidean_distance: 0.01,
     coface: dim == 0 || dim == 2,
     face: 0 < dim,
     persistence: dim == 1,
-    persistenceThreshold: 0.01,
+    persistence_threshold: 0.01,
   }),
 );
 
