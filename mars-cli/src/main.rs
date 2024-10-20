@@ -124,31 +124,34 @@ fn run(args: &RunArgs) -> Result<()> {
         .context("run mars")?;
 
     if let Some(ref prune) = args.prune {
+        info!("Prune output");
         let prune_params = if let Some(path) = prune {
+            info!("Use pruning parameters from {}", path.display());
             let file_contents = std::fs::read_to_string(path).context("read prune file")?;
             let params: [PruningParam; 3] =
                 serde_json::from_slice(file_contents.as_bytes()).context("read json")?;
             params
         } else {
+            info!("Use default pruning parameters");
             default_pruning_params()
         };
 
         let c = mars.complex.as_ref().unwrap();
 
         let s0 = vin.prune_dim(0, &prune_params[0], &c, |i, n| {
-            if i % 1023 == 0 {
+            if i % 511 == 0 {
                 let percent = (i as f64 / n as f64) * 100.0;
                 info!("prune dim 0: {percent:3.0}%");
             }
         });
         let s1 = vin.prune_dim(1, &prune_params[1], &c, |i, n| {
-            if i % 1023 == 0 {
+            if i % 511 == 0 {
                 let percent = (i as f64 / n as f64) * 100.0;
                 info!("prune dim 1: {percent:3.0}%");
             }
         });
         let s2 = vin.prune_dim(2, &prune_params[2], &c, |i, n| {
-            if i % 1023 == 0 {
+            if i % 511 == 0 {
                 let percent = (i as f64 / n as f64) * 100.0;
                 info!("prune dim 2: {percent:3.0}%");
             }
@@ -157,6 +160,7 @@ fn run(args: &RunArgs) -> Result<()> {
         vin.swaps = [s0, s1, s2];
     }
 
+    info!("Write output");
     let output = (mars, vin);
     let output_bytes = rmp_serde::to_vec(&output)?;
 
@@ -166,7 +170,7 @@ fn run(args: &RunArgs) -> Result<()> {
     } else {
         std::io::stdout()
             .write_all(&output_bytes)
-            .context("write to output file")?;
+            .context("write to stdout")?;
     }
 
     Ok(())
