@@ -269,6 +269,11 @@ impl Vineyards {
     /// Add the swaps from another [Vineyards] instance.  The indices of the other instance is
     /// assumed to already be in the same coordinate system as [Self].
     pub fn add_other(&mut self, mut other: Vineyards) {
+        for (index, state) in other.reductions.into_iter() {
+            self.reductions.entry(index).or_insert(state);
+        }
+
+        // Add swaps
         for dim in 0..3 {
             // Properly merge in swaps for existing grid index pairs so that we don't get
             // duplicates.
@@ -306,14 +311,12 @@ impl SubMars {
     /// Run Vineyards, and map the result swaps back to the original coorinate system of the [Mars]
     /// instance this [SubMars] instance came from.
     pub fn run<F: Fn(usize, usize)>(&self, progress: F) -> Result<Vineyards, String> {
-        trace!("start inner mars run");
         let inner = self.mars.run(progress)?;
-        trace!("end inner mars run");
 
         let reductions = inner
             .reductions
             .into_iter()
-            .map(|(index, reduction)| (index + self.offset, reduction))
+            .map(|(index, reduction)| (index - self.offset, reduction))
             .collect();
 
         let mut swaps = inner
@@ -321,7 +324,7 @@ impl SubMars {
             .into_iter()
             .map(|s| {
                 s.into_iter()
-                    .map(|(i, j, swaps)| (i + self.offset, j + self.offset, swaps))
+                    .map(|(i, j, swaps)| (i - self.offset, j - self.offset, swaps))
                     .collect()
             })
             .collect::<Vec<_>>();

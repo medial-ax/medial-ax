@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use tracing::{info, trace};
+use tracing::{info, instrument, trace};
 
 use crate::{
     complex::{Complex, Pos},
@@ -39,6 +39,17 @@ impl std::ops::Add<Index> for Index {
         let mut arr = [0; 3];
         for i in 0..3 {
             arr[i] = self.0[i] + rhs.0[i];
+        }
+        Index(arr)
+    }
+}
+
+impl std::ops::Sub<Index> for Index {
+    type Output = Index;
+    fn sub(self, rhs: Index) -> Index {
+        let mut arr = [0; 3];
+        for i in 0..3 {
+            arr[i] = self.0[i] - rhs.0[i];
         }
         Index(arr)
     }
@@ -417,6 +428,7 @@ impl VineyardsGridMesh {
         Bbox(Pos([minx, miny, minz]), Pos([maxx, maxy, maxz]))
     }
 
+    #[instrument(skip_all)]
     pub fn split_in_half(&self) -> (Self, Self) {
         let bbox = self.bbox_without_singletons();
         let (dim_i, lim) = {
@@ -447,11 +459,7 @@ impl VineyardsGridMesh {
             }
         }
 
-        trace!(
-            "VineyardsGridMesh::split_in_half: {} / {}",
-            lower_edges.len(),
-            upper_edges.len()
-        );
+        trace!("split {} / {}", lower_edges.len(), upper_edges.len());
 
         (
             VineyardsGridMesh {
