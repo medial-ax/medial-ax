@@ -5,8 +5,8 @@ use mars_core::{Grid, Mars, PruningParam, SubMars, Vineyards};
 use serde::Serializer;
 use wasm_bindgen::prelude::*;
 
-use log::{debug, error, info, warn};
 use mars_core::{grid::VineyardsGrid, SwapList};
+use tracing::{debug, error, info, warn};
 
 use std::{collections::HashMap, panic};
 
@@ -75,20 +75,11 @@ fn info_mem() {
     info!("🐊 {bytes:10} / {kb:7} kB / {mb:4} MB / {perc:3.0}% 🐊");
 }
 
-/// Global state.
-// static STATE: Mutex<Option<State>> = Mutex::new(None);
-
 /// Initializes logging and panic hooks for debugging.
-#[wasm_bindgen]
-pub fn my_init_function() {
-    static mut WAS_INIT: bool = false;
-    panic::set_hook(Box::new(console_error_panic_hook::hook));
-    unsafe {
-        if !WAS_INIT {
-            let _ = console_log::init_with_level(log::Level::Debug);
-            WAS_INIT = true;
-        }
-    }
+#[wasm_bindgen(start)]
+pub fn start() {
+    console_error_panic_hook::set_once();
+    tracing_wasm::set_as_global_default();
     info!("info: my_init_function");
 }
 

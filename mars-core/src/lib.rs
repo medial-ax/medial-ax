@@ -6,10 +6,10 @@ use std::{
 
 use complex::{Complex, Pos};
 use grid::{Index, VineyardsGrid, VineyardsGridMesh};
-use log::{info, warn};
 use permutation::Permutation;
 use serde::{Deserialize, Serialize};
 use sneaky_matrix::{SneakyMatrix, CI};
+use tracing::{info, warn};
 
 pub mod complex;
 pub mod grid;

@@ -6,21 +6,13 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.89"
 clap = { version = "4.5.19", features = ["derive"] }
-console_error_panic_hook = "0.1.7"
-console_log = "1.0.0"
 float-ord = "0.3.2"
 insta = { version = "1.40.0", features = ["json"] }
 js-sys = "0.3.69"
-log = "0.4.20"
 pyo3 = { version = "0.20.0", optional = true }
 rmp = "0.8.12"
 rmp-serde = "1.1.2"
 serde = { version = "1.0.190", features = ["derive"] }
-serde-wasm-bindgen = { version = "0.6.3", optional = true }
 serde_bytes = "0.11.14"
 serde_json = "1.0.111"
-wasm-bindgen = { version = "0.2.91", optional = true }
-
-[features]
-default = ["wasm"]
-wasm = ["dep:wasm-bindgen", 'dep:serde-wasm-bindgen']
+tracing = "0.1.40"

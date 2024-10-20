@@ -1,4 +1,4 @@
-import init, { Api, my_init_function } from "mars_wasm";
+import init, { Api } from "mars_wasm";
 
 function progress(label: string, i: number, n: number) {
   postMessage({
@@ -10,7 +10,6 @@ function progress(label: string, i: number, n: number) {
 onmessage = async (e) => {
   const { core, vineyards, dim, params } = e.data;
   await init();
-  my_init_function();
   progress("Read input", 0, 1);
   const m = new Api();
 

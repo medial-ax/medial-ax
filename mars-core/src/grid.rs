@@ -1,5 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
+use tracing::info;
+
 use crate::{
     complex::{Complex, Pos},
     reduce_from_scratch, vineyards_step, Reduction, Swaps,
@@ -500,8 +502,10 @@ impl VineyardsGridMesh {
 
                 let old_state = reductions.get(&from).expect("from should be in the map");
                 let p = self.coordinate(next);
+                info!("a");
                 let (new_state, swaps) =
                     vineyards_step(complex, old_state, p, require_hom_birth_to_be_first);
+                info!("b");
                 all_swaps.push((from, next, swaps));
 
                 if !reductions.contains_key(&next) {

@@ -1,4 +1,4 @@
-import init, { my_init_function, run_sub_mars } from "mars_wasm";
+import init, { run_sub_mars } from "mars_wasm";
 
 function progress(label: string, i: number, n: number) {
   postMessage({
@@ -9,7 +9,6 @@ function progress(label: string, i: number, n: number) {
 
 onmessage = async (e) => {
   await init();
-  my_init_function();
   const submars = e.data;
   progress("Read input", 0, 1);
   const vineyards = run_sub_mars(submars, progress);
