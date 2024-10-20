@@ -19,6 +19,7 @@ export const marsGrid = atom<VineyardsGrid | VineyardsGridMesh | undefined>(
 );
 
 const marsVineyardsTick = atom<number>(0);
+const marsPrunedTick = atom<number>(0);
 
 export const complexFacePositionsAtom = atom<Float32Array>((get) => {
   get(marsComplexTick);
@@ -29,6 +30,7 @@ export const medialAxesPositions = atom<
   [Float32Array, Float32Array, Float32Array]
 >((get) => {
   get(marsVineyardsTick);
+  get(marsPrunedTick);
   const m = mars();
   return [
     m.medial_axes_face_positions(0),
@@ -41,6 +43,7 @@ export const useMars = () => {
   const setComplex = useSetAtom(marsComplexTick);
   const setGrid = useSetAtom(marsGridTick);
   const setVineyards = useSetAtom(marsVineyardsTick);
+  const setPruned = useSetAtom(marsPrunedTick);
 
   useEffect(() => {
     const m = mars();
@@ -62,5 +65,11 @@ export const useMars = () => {
         setVineyards((c) => c + 1);
       }, 0),
     );
-  }, [setComplex, setGrid, setVineyards]);
+
+    m.set_on_pruned_change(() =>
+      setTimeout(() => {
+        setPruned((c) => c + 1);
+      }, 0),
+    );
+  }, [setComplex, setGrid, setPruned, setVineyards]);
 };

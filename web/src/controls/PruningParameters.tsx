@@ -1,8 +1,50 @@
-import { useAtom } from "jotai";
+import { atom, useAtom, useSetAtom } from "jotai";
 import { Dim, pruningParamAtom } from "../state";
 import { useState } from "react";
 import { HoverTooltip } from "../HoverTooltip";
 import { RESET } from "jotai/utils";
+import PruneWorker from "../worrrker/prune?worker";
+import { mars } from "../global";
+
+type Progress = { label: string; i: number; n: number };
+
+const triggerSinglePrune = atom(
+  null,
+  (get, _, dim: Dim, progress: (p: Progress | undefined) => void) => {
+    const m = mars();
+
+    const w = new PruneWorker();
+    w.onmessage = (e) => {
+      if (e.data.type === "progress") {
+        progress(e.data.data);
+      } else if (e.data.type === "result") {
+        m.deserialize_pruned_swaps(dim, e.data.data);
+        w.terminate();
+        progress(undefined);
+      }
+    };
+
+    w.onerror = (e) => {
+      console.error(e);
+      progress(undefined);
+    };
+
+    const params = get(pruningParamAtom(dim));
+
+    progress({ label: "Serialize input", i: 0, n: 2 });
+    const core = m.serialize_core();
+    progress({ label: "Serialize input", i: 1, n: 2 });
+    const vineyards = m.serialize_vineyards();
+    progress({ label: "Serialize input", i: 2, n: 2 });
+
+    w.postMessage({
+      core,
+      vineyards,
+      dim,
+      params,
+    });
+  },
+);
 
 export const PruningParameters = ({
   dim,
@@ -12,9 +54,11 @@ export const PruningParameters = ({
   disabled: boolean;
 }) => {
   const [params, set] = useAtom(pruningParamAtom(dim));
-  const [workerProgress] = useState<
-    { label: string; i: number; n: number } | undefined
-  >(undefined);
+  const [workerProgress, setWorkerProgress] = useState<Progress | undefined>(
+    undefined,
+  );
+
+  const trigger = useSetAtom(triggerSinglePrune);
 
   return (
     <>
@@ -41,19 +85,19 @@ export const PruningParameters = ({
           min={0}
           max={5}
           step={0.01}
-          value={params.euclideanDistance ?? 0}
+          value={params.euclidean_distance ?? 0}
           style={{ width: "8rem" }}
           onChange={(e) => {
-            set((c) => ({ ...c, euclideanDistance: Number(e.target.value) }));
+            set((c) => ({ ...c, euclidean_distance: Number(e.target.value) }));
           }}
         />
         <input
           type="number"
           step={0.01}
           style={{ width: "5rem" }}
-          value={params.euclideanDistance ?? 0}
+          value={params.euclidean_distance ?? 0}
           onChange={(e) => {
-            set((c) => ({ ...c, euclideanDistance: Number(e.target.value) }));
+            set((c) => ({ ...c, euclidean_distance: Number(e.target.value) }));
           }}
         />
       </fieldset>
@@ -122,11 +166,11 @@ export const PruningParameters = ({
           max={1}
           step={0.01}
           style={{ width: "8rem" }}
-          value={params.persistenceThreshold ?? 0.01}
+          value={params.persistence_threshold ?? 0.01}
           onChange={(e) => {
             set((c) => ({
               ...c,
-              persistenceThreshold: Number(e.target.value),
+              persistence_threshold: Number(e.target.value),
             }));
           }}
         />
@@ -134,11 +178,11 @@ export const PruningParameters = ({
           type="number"
           step={0.01}
           style={{ width: "5rem" }}
-          value={params.persistenceThreshold ?? 0}
+          value={params.persistence_threshold ?? 0}
           onChange={(e) => {
             set((c) => ({
               ...c,
-              persistenceThreshold: Number(e.target.value),
+              persistence_threshold: Number(e.target.value),
             }));
           }}
         />
@@ -159,7 +203,7 @@ export const PruningParameters = ({
           <button
             disabled={workerProgress !== undefined || disabled}
             onClick={async () => {
-              window.alert("TODO a394e884-5dda-4846-8417-92f685ce0b73");
+              trigger(dim, (p) => setWorkerProgress(p));
             }}
           >
             Re-prune

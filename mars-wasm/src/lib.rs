@@ -9,7 +9,7 @@ use mars_core::{
     reduce_from_scratch,
     sneaky_matrix::CI,
     stats::StackMem,
-    PruningParam, Reduction, Swaps,
+    PruningParam, Reduction, SwapList, Swaps,
 };
 
 use std::{
@@ -120,6 +120,7 @@ pub struct Api {
     on_complex_change: Option<js_sys::Function>,
     on_grid_change: Option<js_sys::Function>,
     on_vineyards_change: Option<js_sys::Function>,
+    on_pruned_change: Option<js_sys::Function>,
 }
 
 impl Api {
@@ -137,6 +138,12 @@ impl Api {
 
     fn notify_vineyards_change(&self) {
         if let Some(ref f) = self.on_vineyards_change {
+            let _ = f.call0(&JsValue::null());
+        }
+    }
+
+    fn notify_pruned_change(&self) {
+        if let Some(ref f) = self.on_pruned_change {
             let _ = f.call0(&JsValue::null());
         }
     }
@@ -174,6 +181,13 @@ impl Api {
             warn!("If we hit this we probably want a list instead of a single function.");
         }
         self.on_vineyards_change = Some(f);
+    }
+
+    pub fn set_on_pruned_change(&mut self, f: js_sys::Function) {
+        if self.on_pruned_change.is_some() {
+            warn!("If we hit this we probably want a list instead of a single function.");
+        }
+        self.on_pruned_change = Some(f);
     }
 
     pub fn load_mesh_grid(&mut self, obj_str: String) -> Result<(), String> {
@@ -219,10 +233,10 @@ impl Api {
         let Some(ref c) = self.core.complex else {
             return Ok(vec![]);
         };
-        for asd in &c.simplices_per_dim[2] {
-            let e0 = asd.boundary[0] as usize;
-            let e1 = asd.boundary[1] as usize;
-            let e2 = asd.boundary[2] as usize;
+        for simplex in &c.simplices_per_dim[2] {
+            let e0 = simplex.boundary[0] as usize;
+            let e1 = simplex.boundary[1] as usize;
+            let e2 = simplex.boundary[2] as usize;
 
             let mut vs = [
                 c.simplices_per_dim[1][e0].boundary[0],
@@ -291,7 +305,7 @@ impl Api {
 
         for i in 0..4 {
             let bytes = rmp_serde::to_vec(&subs[i]).map_err(|e| e.to_string())?;
-            info!("serialize_core: {:.2} MB", mb(bytes.len()));
+            debug!("serialize_core: {:.2} MB", mb(bytes.len()));
             let serializer = serde_wasm_bindgen::Serializer::new();
             let ret = serializer.serialize_bytes(&bytes)?;
             buffers.push(ret);
@@ -302,7 +316,7 @@ impl Api {
 
     pub fn serialize_core(&self) -> Result<JsValue, JsValue> {
         let bytes = rmp_serde::to_vec(&self.core).map_err(|e| e.to_string())?;
-        info!("serialize_core: {:.2} MB", mb(bytes.len()));
+        debug!("serialize_core: {:.2} MB", mb(bytes.len()));
         let serializer = serde_wasm_bindgen::Serializer::new();
         let ret = serializer.serialize_bytes(&bytes)?;
         Ok(ret)
@@ -312,7 +326,7 @@ impl Api {
         let bytes: serde_bytes::ByteBuf = serde_wasm_bindgen::from_value(value)?;
         let core: mars_core::Mars = rmp_serde::from_slice(&bytes)
             .map_err(|e| format!("rmp_serde failed: {}", e.to_string()))?;
-        info!("deserialize_core: {:.2} MB", mb(bytes.len()));
+        debug!("deserialize_core: {:.2} MB", mb(bytes.len()));
         self.core = core;
         self.notify_complex_change();
         self.notify_grid_change();
@@ -325,7 +339,7 @@ impl Api {
             return Ok(JsValue::undefined());
         };
         let bytes = rmp_serde::to_vec(vineyards).map_err(|e| e.to_string())?;
-        info!("serialize_vineyards: {:.2} MB", mb(bytes.len()));
+        debug!("serialize_vineyards: {:.2} MB", mb(bytes.len()));
         let serializer = serde_wasm_bindgen::Serializer::new();
         let ret = serializer.serialize_bytes(&bytes)?;
         Ok(ret)
@@ -335,7 +349,7 @@ impl Api {
         let bytes: serde_bytes::ByteBuf = serde_wasm_bindgen::from_value(value)?;
         let vineyards: mars_core::Vineyards = rmp_serde::from_slice(&bytes)
             .map_err(|e| format!("rmp_serde failed: {}", e.to_string()))?;
-        info!("deserialize_vineyards: {:.2} MB", mb(bytes.len()));
+        debug!("deserialize_vineyards: {:.2} MB", mb(bytes.len()));
         self.vineyards = Some(vineyards);
         self.notify_vineyards_change();
         Ok(())
@@ -345,7 +359,7 @@ impl Api {
         let bytes: serde_bytes::ByteBuf = serde_wasm_bindgen::from_value(value)?;
         let mut vineyards: mars_core::Vineyards = rmp_serde::from_slice(&bytes)
             .map_err(|e| format!("rmp_serde failed: {}", e.to_string()))?;
-        info!("deserialize_vineyards_load: {:.2} MB", mb(bytes.len()));
+        debug!("deserialize_vineyards_load: {:.2} MB", mb(bytes.len()));
 
         if let Some(ref mut v) = self.vineyards {
             for dim in 0..3 {
@@ -372,6 +386,24 @@ impl Api {
 
         self.notify_vineyards_change();
         self.pruned_swaps = [None, None, None];
+        Ok(())
+    }
+
+    pub fn serialize_pruned_swaps(&self, dim: usize) -> Result<JsValue, JsValue> {
+        let bytes = rmp_serde::to_vec(&self.pruned_swaps[dim]).map_err(|e| e.to_string())?;
+        debug!("serialize_pruned_swaps: {:.2} MB", mb(bytes.len()));
+        let serializer = serde_wasm_bindgen::Serializer::new();
+        let ret = serializer.serialize_bytes(&bytes)?;
+        Ok(ret)
+    }
+
+    pub fn deserialize_pruned_swaps(&mut self, dim: usize, buffer: JsValue) -> Result<(), JsValue> {
+        let bytes: serde_bytes::ByteBuf = serde_wasm_bindgen::from_value(buffer)?;
+        let pruned: Option<(PruningParam, SwapList)> = rmp_serde::from_slice(&bytes)
+            .map_err(|e| format!("rmp_serde failed: {}", e.to_string()))?;
+        debug!("deserialize_vineyards: {:.2} MB", mb(bytes.len()));
+        self.pruned_swaps[dim] = pruned;
+        self.notify_pruned_change();
         Ok(())
     }
 
@@ -439,7 +471,7 @@ impl Api {
 #[wasm_bindgen(typescript_custom_section)]
 const _0: &'static str = r#"
 /** Returns a serialized Vineyards. */
-run_sub_mars(submars: Uint8Array): Uint8Array;
+export function run_sub_mars(submars: Uint8Array): Uint8Array;
 "#;
 #[wasm_bindgen]
 pub fn run_sub_mars(
@@ -466,7 +498,7 @@ pub fn run_sub_mars(
     let vineyards = submars.run(progress)?;
 
     let bytes = rmp_serde::to_vec(&vineyards).map_err(|e| e.to_string())?;
-    info!("run_sub_mars: {:.2} MB", mb(bytes.len()));
+    debug!("run_sub_mars: {:.2} MB", mb(bytes.len()));
     let serializer = serde_wasm_bindgen::Serializer::new();
     let ret = serializer.serialize_bytes(&bytes)?;
     Ok(ret)
@@ -498,6 +530,7 @@ export class Api {
   set_on_complex_change(f: () => void): void;
   set_on_grid_change(f: () => void): void;
   set_on_vineyards_change(f: () => void): void;
+  set_on_pruned_change(f: () => void): void;
 
   load_complex(obj: string): void;
   load_mesh_grid(obj: string): void;
@@ -507,12 +540,12 @@ export class Api {
 
   get complex(): any;
 
-  set grid(g: VineyardsGrid | VineyardsGridMesh): void;
+  set grid(g: VineyardsGrid | VineyardsGridMesh);
   get grid(): VineyardsGrid | VineyardsGridMesh;
 
   run_vineyards(progress?: (label: string, i: number, n: number) => void): void;
 
-  prune(dim: number, params: PruningParam, progress?: (label: string, i: number, n: number) => void);
+  prune(dim: number, params: any, progress?: (label: string, i: number, n: number) => void): void;
 
   face_positions(): number[];
   medial_axes_face_positions(dim: number): Float32Array;
@@ -528,6 +561,9 @@ export class Api {
   /** Add in more vineyards data.  The data is assumed to have been transformed to the same grid
    * coordinate system as this instance. */
   deserialize_vineyards_load(c: Uint8Array): void;
+
+  serialize_pruned_swaps(dim: number): Uint8Array;
+  deserialize_pruned_swaps(dim: number, buffer: Uint8Array): void;
 }
 "#;
 

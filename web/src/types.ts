@@ -55,14 +55,14 @@ export type Json = {
 
 export type PruningParam = {
   euclidean: boolean;
-  euclideanDistance?: number;
+  euclidean_distance?: number;
 
   coface: boolean;
 
   face: boolean;
 
   persistence: boolean;
-  persistenceThreshold?: number;
+  persistence_threshold?: number;
 };
 
 // TODO: type this up

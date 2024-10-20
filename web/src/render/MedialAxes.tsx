@@ -18,7 +18,13 @@ const Axis = ({ pos, color }: { pos: Float32Array; color: THREE.Color }) => {
         />
       </bufferGeometry>
       <meshLambertMaterial flatShading side={THREE.DoubleSide} color={color} />
-      {maWireframe && <Wireframe />}
+      {maWireframe && (
+        <Wireframe
+          stroke={"#000000"}
+          backfaceStroke={"#000000"}
+          thickness={0.02}
+        />
+      )}
     </mesh>
   );
 };

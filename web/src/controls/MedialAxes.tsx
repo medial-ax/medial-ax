@@ -1,13 +1,10 @@
-import { Dim, allPruningParamsAtom } from "../state";
+import { Dim } from "../state";
 import { atom, useAtom, useAtomValue, useSetAtom } from "jotai";
 import { mars } from "../global";
 import { CollapseH4 } from "../ui/CollapseH4";
 import { PruningParameters } from "./PruningParameters";
 import { Loader } from "../ui/Loader";
 
-import { range } from "../utils";
-
-import VineyardsWorker from "../worrrker/vineyards?worker";
 import SubMarsWorker from "../worrrker/vineyards2?worker";
 
 const runningWorkerAtom = atom<Worker | undefined>(undefined);
@@ -17,6 +14,9 @@ const runningProgressAtom = atom<
 
 const triggerVineyardsAtom = atom(null, async (get, set) => {
   const m = mars();
+
+  window.alert("TODO: 1620e594-7d09-4b32-aaf1-c9351b7058d8");
+  // add terminate, sync workers, and so on.
 
   m.subproblems().map((sub, i) => {
     const w = new SubMarsWorker();

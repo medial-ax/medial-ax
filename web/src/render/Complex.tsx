@@ -7,7 +7,6 @@ export const RenderComplex2 = (_: { wireframe?: boolean }) => {
   const coords = useAtomValue(complexFacePositionsAtom);
   const coords_ref = useRef<number>(0);
   useEffect(() => {
-    console.log(coords);
     coords_ref.current += 1;
   }, [coords]);
 
