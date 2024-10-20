@@ -316,7 +316,7 @@ impl SubMars {
         let reductions = inner
             .reductions
             .into_iter()
-            .map(|(index, reduction)| (index - self.offset, reduction))
+            .map(|(index, reduction)| (index + self.offset, reduction))
             .collect();
 
         let mut swaps = inner
@@ -324,7 +324,7 @@ impl SubMars {
             .into_iter()
             .map(|s| {
                 s.into_iter()
-                    .map(|(i, j, swaps)| (i - self.offset, j - self.offset, swaps))
+                    .map(|(i, j, swaps)| (i + self.offset, j + self.offset, swaps))
                     .collect()
             })
             .collect::<Vec<_>>();

@@ -44,17 +44,6 @@ impl std::ops::Add<Index> for Index {
     }
 }
 
-impl std::ops::Sub<Index> for Index {
-    type Output = Index;
-    fn sub(self, rhs: Index) -> Index {
-        let mut arr = [0; 3];
-        for i in 0..3 {
-            arr[i] = self.0[i] - rhs.0[i];
-        }
-        Index(arr)
-    }
-}
-
 impl std::fmt::Debug for Index {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!(
