@@ -1,7 +1,7 @@
 use anyhow::Result;
 use mars_core::complex::Complex;
 use mars_core::grid::VineyardsGridMesh;
-use mars_core::{Grid, Mars, PruningParam};
+use mars_core::{Grid, Mars, PruningParam, SubMars, Vineyards};
 use serde::Serializer;
 use wasm_bindgen::prelude::*;
 
@@ -295,7 +295,7 @@ impl Api {
         let swaps = swaps.unwrap_or(&v.swaps[dim]);
 
         match g {
-            mars_core::Grid::Regular(grid) => {
+            Grid::Regular(grid) => {
                 for s in swaps {
                     if 0 < s.2.v.len() {
                         let [a, b, c, d] = grid.dual_quad_points(s.0, s.1);
@@ -305,7 +305,7 @@ impl Api {
                     }
                 }
             }
-            mars_core::Grid::Mesh(grid) => {
+            Grid::Mesh(grid) => {
                 for s in swaps {
                     if 0 < s.2.v.len() {
                         let [a, b, c, d] = grid.dual_quad_points(s.0, s.1);
@@ -347,7 +347,7 @@ impl Api {
 
     pub fn deserialize_core(&mut self, value: JsValue) -> Result<(), JsValue> {
         let bytes: serde_bytes::ByteBuf = serde_wasm_bindgen::from_value(value)?;
-        let core: mars_core::Mars = rmp_serde::from_slice(&bytes)
+        let core: Mars = rmp_serde::from_slice(&bytes)
             .map_err(|e| format!("rmp_serde failed: {}", e.to_string()))?;
         debug!("deserialize_core: {:.2} MB", mb(bytes.len()));
         self.set_mars(core);
@@ -368,7 +368,7 @@ impl Api {
 
     pub fn deserialize_vineyards(&mut self, value: JsValue) -> Result<(), JsValue> {
         let bytes: serde_bytes::ByteBuf = serde_wasm_bindgen::from_value(value)?;
-        let vineyards: mars_core::Vineyards = rmp_serde::from_slice(&bytes)
+        let vineyards: Vineyards = rmp_serde::from_slice(&bytes)
             .map_err(|e| format!("rmp_serde failed: {}", e.to_string()))?;
         debug!("deserialize_vineyards: {:.2} MB", mb(bytes.len()));
         self.set_vineyards(Some(vineyards));
@@ -377,7 +377,7 @@ impl Api {
 
     pub fn deserialize_vineyards_load(&mut self, value: JsValue) -> Result<(), JsValue> {
         let bytes: serde_bytes::ByteBuf = serde_wasm_bindgen::from_value(value)?;
-        let mut vineyards: mars_core::Vineyards = rmp_serde::from_slice(&bytes)
+        let mut vineyards: Vineyards = rmp_serde::from_slice(&bytes)
             .map_err(|e| format!("rmp_serde failed: {}", e.to_string()))?;
         debug!("deserialize_vineyards_load: {:.2} MB", mb(bytes.len()));
 
@@ -502,7 +502,7 @@ pub fn run_sub_mars(
     on_progress: Option<js_sys::Function>,
 ) -> Result<JsValue, JsValue> {
     let bytes: serde_bytes::ByteBuf = serde_wasm_bindgen::from_value(submars)?;
-    let submars: mars_core::SubMars = rmp_serde::from_slice(&bytes)
+    let submars: SubMars = rmp_serde::from_slice(&bytes)
         .map_err(|e| format!("rmp_serde failed: {}", e.to_string()))?;
 
     let progress = |i: usize, n: usize| {
@@ -589,531 +589,3 @@ export class Api {
   deserialize_pruned_swaps(dim: number, buffer: Uint8Array): void;
 }
 "#;
-
-// #[derive(Serialize, Deserialize)]
-// pub struct State {
-//     ///
-//     pub grid: Option<VineyardsGrid>,
-//     pub mesh_grid: Option<VineyardsGridMesh>,
-//
-//     pub complex: Complex,
-//     pub grid_index_to_reduction: HashMap<Index, Reduction>,
-//
-//     pub swaps0: Vec<(Index, Index, Swaps)>,
-//     pub swaps1: Vec<(Index, Index, Swaps)>,
-//     pub swaps2: Vec<(Index, Index, Swaps)>,
-// }
-//
-// /// Set state to [None]
-// #[wasm_bindgen]
-// pub fn reset_state() -> Result<(), JsValue> {
-//     let mut guard = STATE.lock().map_err(|_| "STATE.lock failed")?;
-//     *guard = None;
-//     Ok(())
-// }
-//
-// /// Serialize state and return it as a [JsValue].
-// #[wasm_bindgen]
-// pub fn get_state() -> Result<JsValue, JsValue> {
-//     let guard = STATE.lock().map_err(|_| "STATE.lock failed")?;
-//     let state = guard.as_ref().ok_or("No global state")?;
-//     let bytes = rmp_serde::to_vec(&state).map_err(|e| e.to_string())?;
-//     let serializer = serde_wasm_bindgen::Serializer::new();
-//     let ret = serializer.serialize_bytes(&bytes)?;
-//     Ok(ret)
-// }
-//
-// fn mesh_from_jsvalue(
-//     value: JsValue,
-// ) -> Result<(Option<VineyardsGrid>, Option<VineyardsGridMesh>), JsValue> {
-//     if let Ok(grid) = serde_wasm_bindgen::from_value::<VineyardsGrid>(value.clone()) {
-//         Ok((Some(grid), None))
-//     } else {
-//         let grid = serde_wasm_bindgen::from_value::<VineyardsGridMesh>(value)?;
-//         Ok((None, Some(grid)))
-//     }
-// }
-//
-// /// Create a new empty state.  Needs to be called before a bunch of the other functions.
-// #[wasm_bindgen]
-// pub fn create_empty_state(grid: JsValue, complex: JsValue) -> Result<(), JsValue> {
-//     let complex: Complex = serde_wasm_bindgen::from_value(complex)?;
-//     let (grid, mesh_grid) = mesh_from_jsvalue(grid)?;
-//
-//     let mut guard = STATE.lock().map_err(|_| "STATE.lock failed")?;
-//     *guard = Some(State {
-//         grid,
-//         mesh_grid,
-//         complex,
-//         grid_index_to_reduction: HashMap::new(),
-//         swaps0: Vec::new(),
-//         swaps1: Vec::new(),
-//         swaps2: Vec::new(),
-//     });
-//     Ok(())
-// }
-//
-// /// Loads the state from a serialized byte buffer.
-// #[wasm_bindgen]
-// pub fn load_state(
-//     bytes: JsValue,
-//     grid_offset: JsValue,
-//     _: js_sys::Function,
-// ) -> Result<JsValue, JsValue> {
-//     let offset: Index = serde_wasm_bindgen::from_value(grid_offset)?;
-//     info_mem("load-state");
-//     let mut state: State = {
-//         let bytes: serde_bytes::ByteBuf = serde_wasm_bindgen::from_value(bytes)?;
-//         info_mem("after ByteBuf");
-//         rmp_serde::from_slice(&bytes).map_err(|e| format!("rmp_serde failed: {}", e.to_string()))?
-//     };
-//     info_mem("after RMP");
-//
-//     {
-//         let out: StackMem = state
-//             .grid_index_to_reduction
-//             .values()
-//             .flat_map(|r| &r.stacks)
-//             .map(|s| {
-//                 let sm: StackMem = s.into();
-//                 sm
-//             })
-//             .sum();
-//         info!("{:#?}", out);
-//         let total_mem: usize = state
-//             .grid_index_to_reduction
-//             .values()
-//             .flat_map(|r| &r.stacks)
-//             .map(|s| s.mem_usage())
-//             .sum();
-//         info!("total: {}", total_mem)
-//     }
-//
-//     let grid_index_to_reduction = state
-//         .grid_index_to_reduction
-//         .drain()
-//         .map(|(k, v)| (k + offset, v))
-//         .collect::<HashMap<_, _>>();
-//     info_mem("after red drain");
-//
-//     let swaps0: Vec<_> = state
-//         .swaps0
-//         .drain(0..)
-//         .map(|s| (s.0 + offset, s.1 + offset, s.2))
-//         .collect();
-//     info_mem("after state0 drain");
-//     let swaps1: Vec<_> = state
-//         .swaps1
-//         .drain(0..)
-//         .map(|s| (s.0 + offset, s.1 + offset, s.2))
-//         .collect();
-//     info_mem("after state1 drain");
-//     let swaps2: Vec<_> = state
-//         .swaps2
-//         .drain(0..)
-//         .map(|s| (s.0 + offset, s.1 + offset, s.2))
-//         .collect();
-//     info_mem("after state2 drain");
-//
-//     info!(
-//         "swaps: dim0={}  dim1={}  dim2={}",
-//         swaps0.len(),
-//         swaps1.len(),
-//         swaps2.len(),
-//     );
-//
-//     let mut guard = STATE.lock().map_err(|_| "STATE.lock failed")?;
-//     let state = guard.as_mut().ok_or("No global state")?;
-//     state
-//         .grid_index_to_reduction
-//         .extend(grid_index_to_reduction);
-//     info_mem("after red extend");
-//
-//     let existing_indices_0 = state
-//         .swaps0
-//         .iter()
-//         .map(|(a, b, _)| (a, b))
-//         .collect::<HashSet<_>>();
-//     let new_indices_0 = swaps0
-//         .into_iter()
-//         .filter(|(a, b, _)| !existing_indices_0.contains(&(a, b)))
-//         .collect::<Vec<_>>();
-//     state.swaps0.extend(new_indices_0);
-//     info_mem("after state0 extend");
-//     let existing_indices_1 = state
-//         .swaps1
-//         .iter()
-//         .map(|(a, b, _)| (a, b))
-//         .collect::<HashSet<_>>();
-//     let new_indices_1 = swaps1
-//         .into_iter()
-//         .filter(|(a, b, _)| !existing_indices_1.contains(&(a, b)))
-//         .collect::<Vec<_>>();
-//     state.swaps1.extend(new_indices_1);
-//     info_mem("after state1 extend");
-//     let existing_indices_2 = state
-//         .swaps2
-//         .iter()
-//         .map(|(a, b, _)| (a, b))
-//         .collect::<HashSet<_>>();
-//     let new_indices_2 = swaps2
-//         .into_iter()
-//         .filter(|(a, b, _)| !existing_indices_2.contains(&(a, b)))
-//         .collect::<Vec<_>>();
-//     state.swaps2.extend(new_indices_2);
-//     info_mem("after state2 extend");
-//
-//     let out = serde_wasm_bindgen::to_value("okay")?;
-//     info_mem("end");
-//
-//     Ok(out)
-// }
-//
-// /// Get the barcode for a single grid point from the precomputed state.
-// #[wasm_bindgen]
-// pub fn get_barcode_for_point(grid_point: Vec<isize>) -> Result<JsValue, String> {
-//     let index = Index([grid_point[0], grid_point[1], grid_point[2]]);
-//     let guard = STATE.lock().map_err(|_| "STATE.lock failed")?;
-//     let state = guard.as_ref().ok_or("No global state")?;
-//
-//     let reduction = state
-//         .grid_index_to_reduction
-//         .get(&index)
-//         .ok_or("Index not in map")?;
-//
-//     let swaps_1 = reduction.barcode(&state.complex, -1);
-//     let swaps0 = reduction.barcode(&state.complex, 0);
-//     let swaps1 = reduction.barcode(&state.complex, 1);
-//     let swaps2 = reduction.barcode(&state.complex, 2);
-//
-//     let js: JsValue = serde_wasm_bindgen::to_value(&vec![swaps_1, swaps0, swaps1, swaps2])
-//         .map_err(|e| e.to_string())?;
-//     Ok(js)
-// }
-//
-// /// Get the barcode for a single grid point from the precomputed state.
-// #[wasm_bindgen]
-// pub fn get_filtration_values_for_point(grid_point: Vec<isize>) -> Result<JsValue, String> {
-//     let index = Index([grid_point[0], grid_point[1], grid_point[2]]);
-//     let guard = STATE.lock().map_err(|_| "STATE.lock failed")?;
-//     let state = guard.as_ref().ok_or("No global state")?;
-//
-//     let reduction = state
-//         .grid_index_to_reduction
-//         .get(&index)
-//         .ok_or("Index not in map")?;
-//
-//     let filtration_0 = (0..state.complex.simplices_per_dim[0].len() as CI)
-//         .map(|id| reduction.simplex_entering_value(&state.complex, 0, id))
-//         .collect::<Vec<_>>();
-//     let filtration_1 = (0..state.complex.simplices_per_dim[1].len() as CI)
-//         .map(|id| reduction.simplex_entering_value(&state.complex, 1, id))
-//         .collect::<Vec<_>>();
-//     let filtration_2 = (0..state.complex.simplices_per_dim[2].len() as CI)
-//         .map(|id| reduction.simplex_entering_value(&state.complex, 2, id))
-//         .collect::<Vec<_>>();
-//
-//     let js: JsValue = serde_wasm_bindgen::to_value(&vec![filtration_0, filtration_1, filtration_2])
-//         .map_err(|e| e.to_string())?;
-//     Ok(js)
-// }
-//
-// #[wasm_bindgen]
-// /// Read a complex from a `String` consisting of an .obj file.
-// pub fn make_complex_from_obj(obj_body: String) -> Result<JsValue, JsValue> {
-//     let complex = Complex::read_from_obj_string(&obj_body)?;
-//     serde_wasm_bindgen::to_value(&complex).map_err(|e| JsValue::from_str(&format!("{}", e)))
-// }
-//
-// #[wasm_bindgen]
-// /// Read a mesh from a `String` consisting of an .obj file.
-// pub fn make_meshgrid_from_obj(obj_body: String) -> Result<JsValue, JsValue> {
-//     let complex = VineyardsGridMesh::read_from_obj_string(&obj_body)?;
-//     serde_wasm_bindgen::to_value(&complex).map_err(|e| JsValue::from_str(&format!("{}", e)))
-// }
-//
-// /// Run pruning using the [PruningParam]s on the data in [State].
-// pub fn prune<F: FnMut(&str, usize, usize)>(
-//     st: &State,
-//     params: &PruningParam,
-//     dim: usize,
-//     mut send_message: F,
-// ) -> Vec<(Index, Index, Swaps)> {
-//     let reduction_map = &st.grid_index_to_reduction;
-//     let swaps_per_grid_pair = match dim {
-//         0 => &st.swaps0,
-//         1 => &st.swaps1,
-//         2 => &st.swaps2,
-//         _ => panic!("wat"),
-//     };
-//     let complex = &st.complex;
-//
-//     let mut grid_swaps_vec: Vec<(Index, Index, Swaps)> = Vec::new();
-//     let prune_iters = swaps_per_grid_pair.len();
-//
-//     for (i, s) in swaps_per_grid_pair.into_iter().enumerate() {
-//         if i & 127 == 0 {
-//             send_message("Prune", i, prune_iters);
-//         }
-//         if s.2.v.len() == 0 {
-//             continue;
-//         }
-//
-//         let mut dim_swaps = s.2.clone();
-//
-//         if params.euclidean {
-//             if let Some(dist) = params.euclidean_distance {
-//                 dim_swaps.prune_euclidian(&complex, dist)
-//             } else {
-//                 warn!(
-//                     "params dim {}: euclidean was true but distance was None",
-//                     dim
-//                 );
-//             }
-//         }
-//
-//         if params.face {
-//             dim_swaps.prune_common_face(&complex);
-//         }
-//
-//         if params.coface {
-//             dim_swaps.prune_coboundary(&complex);
-//         }
-//
-//         if params.persistence {
-//             if let Some(dist) = params.persistence_threshold {
-//                 let grid_index_a = s.0;
-//                 let reduction_at_a = reduction_map.get(&grid_index_a).unwrap();
-//                 let grid_index_b = s.1;
-//                 let reduction_at_b = reduction_map.get(&grid_index_b).unwrap();
-//                 dim_swaps.prune_persistence(&complex, reduction_at_a, reduction_at_b, dist)
-//             } else {
-//                 warn!(
-//                     "params dim {}: persistence was true but threshold was None",
-//                     dim
-//                 );
-//             }
-//         }
-//
-//         grid_swaps_vec.push((s.0, s.1, dim_swaps));
-//     }
-//
-//     grid_swaps_vec
-// }
-//
-// /// Prune swaps for the given dimension using the [PruningParam]s.
-// #[wasm_bindgen]
-// pub fn prune_dimension(
-//     dim: JsValue,
-//     params: JsValue,
-//     on_message: js_sys::Function,
-// ) -> Result<JsValue, JsValue> {
-//     let dim: usize = serde_wasm_bindgen::from_value(dim)?;
-//     let send_message = |label: &str, i: usize, n: usize| {
-//         on_message
-//             .call3(
-//                 &JsValue::NULL,
-//                 &JsValue::from_str(label),
-//                 &JsValue::from_f64(i as f64),
-//                 &JsValue::from_f64(n as f64),
-//             )
-//             .unwrap();
-//     };
-//
-//     let params: PruningParam = serde_wasm_bindgen::from_value(params)?;
-//     let mut state = STATE.lock().unwrap();
-//     let st = state.as_mut().unwrap();
-//     let new_pruned = prune(st, &params, dim, send_message);
-//     Ok(serde_wasm_bindgen::to_value(&new_pruned)?)
-// }
-//
-// #[wasm_bindgen]
-// pub fn split_grid(grid: JsValue) -> Result<JsValue, JsValue> {
-//     let (grid, meshgrid) = mesh_from_jsvalue(grid)?;
-//     if let Some(grid) = grid {
-//         let (a, b, b_offset) = grid.split_with_overlap();
-//
-//         let (aa, ab, ab_offset) = a.split_with_overlap();
-//         let (ba, bb, bb_offset) = b.split_with_overlap();
-//
-//         let grids = [
-//             (aa, Index([0; 3])),
-//             (ab, ab_offset),
-//             (ba, b_offset),
-//             (bb, b_offset + bb_offset),
-//         ];
-//         Ok(serde_wasm_bindgen::to_value(&grids)?)
-//     } else if let Some(grid) = meshgrid {
-//         let (a, b) = grid.split_in_half();
-//         let (aa, ab) = a.split_in_half();
-//         let (ba, bb) = b.split_in_half();
-//         let fake = Index::fake(0);
-//         let grids = [(aa, fake), (ab, fake), (ba, fake), (bb, fake)];
-//         Ok(serde_wasm_bindgen::to_value(&grids)?)
-//     } else {
-//         Err("Failed to deserialize grid")?
-//     }
-// }
-//
-// /// Options
-// #[derive(Deserialize, Debug, Default)]
-// pub struct RunOptions {
-//     /// Require that the faustian swaps involve the first birth of a given
-//     /// dimension.
-//     require_hom_birth_to_be_first: bool,
-// }
-//
-// pub fn run_without_prune_inner(
-//     grid: Option<VineyardsGrid>,
-//     mesh_grid: Option<VineyardsGridMesh>,
-//     complex: Complex,
-//     options: RunOptions,
-//     send_message: impl Fn(&str, usize, usize),
-// ) -> Result<State> {
-//     let mut results = if let Some(ref grid) = grid {
-//         info!("found regular grid");
-//         let i0 = Index([0; 3]);
-//         let p = grid.coordinate(i0);
-//         send_message("Reduce from scratch", 0, 1);
-//         let s0 = reduce_from_scratch(&complex, p, false);
-//         send_message("Run vineyards", 0, 1);
-//         grid.run_vineyards_in_grid(
-//             &complex,
-//             i0,
-//             s0,
-//             options.require_hom_birth_to_be_first,
-//             |i, n| {
-//                 if i & 15 == 0 {
-//                     send_message("Vineyards", i, n);
-//                 }
-//             },
-//         )
-//     } else if let Some(ref grid) = mesh_grid {
-//         info!("found mesh grid");
-//         grid.run_vineyards(&complex, options.require_hom_birth_to_be_first, |i, n| {
-//             if i & 15 == 0 {
-//                 send_message("Vineyards", i, n);
-//             }
-//         })
-//     } else {
-//         bail!("Hello");
-//     };
-//
-//     // Bake permutations so that it is easier to serialize.
-//     send_message("Bake data 🧑‍🍳", 0, 1);
-//     for reduction in results.0.values_mut() {
-//         for st in reduction.stacks.iter_mut() {
-//             st.D.bake_in_permutations();
-//             st.R.bake_in_permutations();
-//             st.U_t.bake_in_permutations();
-//         }
-//     }
-//
-//     send_message("Move state to global", 0, 1);
-//
-//     fn filter_dim(v: &[(Index, Index, Swaps)], dim: usize) -> Vec<(Index, Index, Swaps)> {
-//         v.iter()
-//             .flat_map(|(i, j, s)| {
-//                 let v: Vec<_> = s.v.iter().filter(|s| s.dim == dim).cloned().collect();
-//                 (0 < v.len()).then(|| (*i, *j, Swaps { v }))
-//             })
-//             .collect()
-//     }
-//
-//     Ok(State {
-//         grid,
-//         mesh_grid,
-//         complex,
-//         grid_index_to_reduction: results.0,
-//         swaps0: filter_dim(&results.1, 0),
-//         swaps1: filter_dim(&results.1, 1),
-//         swaps2: filter_dim(&results.1, 2),
-//     })
-// }
-//
-// /// Run Vineyards, and set the global state with the output.
-// #[wasm_bindgen]
-// pub fn run_without_prune(
-//     grid: JsValue,
-//     complex: JsValue,
-//     options: JsValue,
-//     on_message: js_sys::Function,
-// ) -> Result<(), JsValue> {
-//     let send_message = |label: &str, i: usize, n: usize| {
-//         on_message
-//             .call3(
-//                 &JsValue::NULL,
-//                 &JsValue::from_str(label),
-//                 &JsValue::from_f64(i as f64),
-//                 &JsValue::from_f64(n as f64),
-//             )
-//             .unwrap();
-//     };
-//
-//     let complex: Complex = serde_wasm_bindgen::from_value(complex)?;
-//     let options: RunOptions = serde_wasm_bindgen::from_value(options)?;
-//     info!("run_without_prune");
-//
-//     let (grid, mesh_grid) = mesh_from_jsvalue(grid)?;
-//
-//     let new_state = run_without_prune_inner(grid, mesh_grid, complex, options, send_message)
-//         .map_err(|e| JsValue::from_str(&e.to_string()))?;
-//     let mut state = STATE.lock().unwrap();
-//     *state = Some(new_state);
-//
-//     Ok(())
-// }
-//
-// /// Get the dual face in between two adjacent [Index] values in the grid.
-// /// This only works if the current grid is a [MeshGrid].
-// #[wasm_bindgen]
-// pub fn meshgrid_dual_face(a: JsValue, b: JsValue) -> Result<JsValue, JsValue> {
-//     let a: Index = serde_wasm_bindgen::from_value(a)?;
-//     let b: Index = serde_wasm_bindgen::from_value(b)?;
-//
-//     let guard = STATE.lock().map_err(|_| "STATE.lock failed")?;
-//     let state = guard.as_ref().ok_or("No global state")?;
-//     let Some(ref grid) = state.mesh_grid else {
-//         return Err("No mesh grid")?;
-//     };
-//
-//     let a = grid.points[a.0[0] as usize];
-//     let b = grid.points[b.0[0] as usize];
-//     let dist = a.dist(&b);
-//
-//     let [ax, ay, az] = a.0;
-//     let [bx, by, bz] = b.0;
-//     let middle = a + (b - a) / 2.0;
-//     let ret: [Pos; 4] = if (ax - bx).abs() > 1e-3 {
-//         let p = Pos([0.0, dist / 2.0, 0.0]);
-//         let q = Pos([0.0, 0.0, dist / 2.0]);
-//         [
-//             middle - p - q,
-//             middle - p + q,
-//             middle + p + q,
-//             middle + p - q,
-//         ]
-//     } else if (ay - by).abs() > 1e-3 {
-//         let p = Pos([dist / 2.0, 0.0, 0.0]);
-//         let q = Pos([0.0, 0.0, dist / 2.0]);
-//         [
-//             middle - p - q,
-//             middle - p + q,
-//             middle + p + q,
-//             middle + p - q,
-//         ]
-//     } else if (az - bz).abs() > 1e-3 {
-//         let p = Pos([dist / 2.0, 0.0, 0.0]);
-//         let q = Pos([0.0, dist / 2.0, 0.0]);
-//         [
-//             middle - p - q,
-//             middle - p + q,
-//             middle + p + q,
-//             middle + p - q,
-//         ]
-//     } else {
-//         panic!("bad points {:?} {:?}", a, b);
-//     };
-//
-//     Ok(serde_wasm_bindgen::to_value(&ret)?)
-// }
