@@ -11,14 +11,14 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@react-three/drei": "^9.92.7",
-    "@react-three/fiber": "^8.15.13",
+    "@react-three/drei": "^9.114",
+    "@react-three/fiber": "^8.17",
     "jotai": "^2.10.0",
     "mars_wasm": "file:../mars-wasm/pkg",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "styled-components": "^6.1.6",
-    "three": "^0.160.0",
+    "three": "^0.169.0",
     "vite-plugin-svgr": "^4.2.0",
     "vite-plugin-wasm": "^3.3.0"
   },

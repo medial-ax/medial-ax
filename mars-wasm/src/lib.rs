@@ -6,7 +6,7 @@ use serde::Serializer;
 use wasm_bindgen::prelude::*;
 
 use mars_core::{grid::VineyardsGrid, SwapList};
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info, trace, warn};
 
 use std::{collections::HashMap, panic};
 
@@ -72,7 +72,7 @@ fn info_mem() {
     let kb = bytes / 1024;
     let mb = kb / 1024;
     let perc = 100.0 * mb as f64 / 4096.0;
-    info!("🐊 {bytes:10} / {kb:7} kB / {mb:4} MB / {perc:3.0}% 🐊");
+    trace!("🐊 {bytes:10} {kb:7} kB {mb:4} MB {perc:3.0}% 🐊");
 }
 
 /// Initializes logging and panic hooks for debugging.
@@ -80,7 +80,6 @@ fn info_mem() {
 pub fn start() {
     console_error_panic_hook::set_once();
     tracing_wasm::set_as_global_default();
-    info!("info: my_init_function");
 }
 
 /// Turns a [usize] in bytes into a [f64] in MB.
@@ -171,30 +170,18 @@ impl Api {
     }
 
     pub fn set_on_complex_change(&mut self, f: js_sys::Function) {
-        if self.on_complex_change.is_some() {
-            warn!("If we hit this we probably want a list instead of a single function.");
-        }
         self.on_complex_change = Some(f);
     }
 
     pub fn set_on_grid_change(&mut self, f: js_sys::Function) {
-        if self.on_grid_change.is_some() {
-            warn!("If we hit this we probably want a list instead of a single function.");
-        }
         self.on_grid_change = Some(f);
     }
 
     pub fn set_on_vineyards_change(&mut self, f: js_sys::Function) {
-        if self.on_vineyards_change.is_some() {
-            warn!("If we hit this we probably want a list instead of a single function.");
-        }
         self.on_vineyards_change = Some(f);
     }
 
     pub fn set_on_pruned_change(&mut self, f: js_sys::Function) {
-        if self.on_pruned_change.is_some() {
-            warn!("If we hit this we probably want a list instead of a single function.");
-        }
         self.on_pruned_change = Some(f);
     }
 
