@@ -6,83 +6,79 @@ import { PruningParameters } from "./PruningParameters";
 import { Loader } from "../ui/Loader";
 
 import SubMarsWorker from "../worrrker/vineyards2?worker";
+import { Progress } from "../types";
+import { sum } from "../utils";
 
-const runningWorkerAtom = atom<Worker | undefined>(undefined);
-const runningProgressAtom = atom<
-  { label: string; i: number; n: number } | undefined
->(undefined);
+/** All currently running workers */
+const activeWorkers = atom<Worker[]>([]);
+const progressAtom = atom<(Progress | undefined)[]>();
+const totalProgress = atom<Progress | undefined>((get) => {
+  const ps = get(progressAtom);
+  if (!ps) return undefined;
+  const i = sum(ps, (p) => p?.i ?? 0);
+  const n = sum(ps, (p) => p?.n ?? 0);
+  if (n === 0) return undefined;
+  return { label: "Vineyards", i, n };
+});
 
-const triggerVineyardsAtom = atom(null, async (get, set) => {
+const triggerVineyardsAtom = atom(null, (_, set) => {
   const m = mars();
 
-  window.alert("TODO: 1620e594-7d09-4b32-aaf1-c9351b7058d8");
-  // add terminate, sync workers, and so on.
+  const subproblems = m.subproblems();
+  set(
+    progressAtom,
+    subproblems.map((_) => ({
+      label: "Vineyards",
+      i: 0,
+      n: 1,
+    })),
+  );
 
-  m.subproblems().map((sub, i) => {
+  subproblems.map((sub, i) => {
     const w = new SubMarsWorker();
+    set(activeWorkers, (c) => c.concat([w]));
+
     w.onmessage = (e) => {
       if (e.data.type === "progress") {
-        set(runningProgressAtom, e.data.data);
+        set(progressAtom, (curr) => {
+          if (!curr) return curr;
+          const ret = [...curr];
+          ret[i] = e.data.data;
+          return ret;
+        });
       } else if (e.data.type === "result") {
         console.log(`worker ${i} finished`);
         m.deserialize_vineyards_load(e.data.data);
         w.terminate();
+        set(progressAtom, (curr) => {
+          if (!curr) return curr;
+          const ret = [...curr];
+          ret[i] = undefined;
+          return ret;
+        });
+        set(activeWorkers, (curr) => curr.filter((c) => c !== w));
       }
+    };
+
+    w.onerror = (e) => {
+      console.error(e);
     };
 
     w.postMessage(sub);
   });
-  //
-  // range(0, 4).map((i) => {
-  //   const w = new VineyardsWorker();
-  //
-  //   w.onmessage = (e) => {
-  //     if (e.data.type === "progress") {
-  //       set(runningProgressAtom, e.data.data);
-  //     } else if (e.data.type === "result") {
-  //       mars().deserialize_vineyards(e.data.data);
-  //       get(runningWorkerAtom)?.terminate();
-  //       set(runningWorkerAtom, undefined);
-  //       set(runningProgressAtom, undefined);
-  //     } else {
-  //       console.error(`unhandled worker message of type "${e.data.type}"`, e);
-  //     }
-  //   };
-  //
-  //   const pruningParams = get(allPruningParamsAtom);
-  //   const m = mars();
-  //   w.postMessage({
-  //     core: m.serialize_core(),
-  //     pruningParams,
-  //   });
-  //   set(runningWorkerAtom, w);
-  // });
-  //
-  // w.onmessage = (e) => {
-  //   if (e.data.type === "progress") {
-  //     set(runningProgressAtom, e.data.data);
-  //   } else if (e.data.type === "result") {
-  //     mars().deserialize_vineyards(e.data.data);
-  //     get(runningWorkerAtom)?.terminate();
-  //     set(runningWorkerAtom, undefined);
-  //     set(runningProgressAtom, undefined);
-  //   } else {
-  //     console.error(`unhandled worker message of type "${e.data.type}"`, e);
-  //   }
-  // };
-  //
-  // const pruningParams = get(allPruningParamsAtom);
-  // w.postMessage({
-  //   core: m.serialize_core(),
-  //   pruningParams,
-  // });
-  // set(runningWorkerAtom, w);
+});
+
+const terminateWorkersAtom = atom(null, (get, set) => {
+  const ws = get(activeWorkers);
+  for (const w of ws) w.terminate();
+  set(activeWorkers, []);
+  set(progressAtom, []);
 });
 
 export const MedialAxes = () => {
   const trigger = useSetAtom(triggerVineyardsAtom);
-  const [currentWorker, setCurrentWorker] = useAtom(runningWorkerAtom);
-  const progress = useAtomValue(runningProgressAtom);
+  const terminate = useSetAtom(terminateWorkersAtom);
+  const progress = useAtomValue(totalProgress);
 
   return (
     <>
@@ -99,33 +95,15 @@ export const MedialAxes = () => {
         <p>Only first swap </p>
       </label>
 
-      <button
-        onClick={() => {
-          const ret = mars().subproblems();
-          console.log("subproblems", ret);
-        }}
-      >
-        DEBUG
-      </button>
-
       <div className="row">
         <button
           style={{ flex: 1 }}
           disabled={false /* TODO */}
           onClick={() => trigger()}
         >
-          {currentWorker ? <Loader $w0={20} $w1={60} /> : "Compute medial axes"}
+          {progress ? <Loader $w0={20} $w1={60} /> : "Compute medial axes"}
         </button>
-        {currentWorker && (
-          <button
-            onClick={() => {
-              currentWorker.terminate();
-              setCurrentWorker(undefined);
-            }}
-          >
-            Abort
-          </button>
-        )}
+        {progress && <button onClick={() => terminate()}>Abort</button>}
       </div>
 
       {progress && (

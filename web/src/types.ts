@@ -2,6 +2,8 @@ import { VineyardsGrid } from "mars_wasm";
 
 export type Point = [number, number, number];
 
+export type Progress = { label: string; i: number; n: number };
+
 export type Simplex = {
   id: number;
   coords: number[] | null;

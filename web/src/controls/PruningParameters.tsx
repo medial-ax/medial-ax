@@ -5,8 +5,7 @@ import { HoverTooltip } from "../HoverTooltip";
 import { RESET } from "jotai/utils";
 import PruneWorker from "../worrrker/prune?worker";
 import { mars } from "../global";
-
-type Progress = { label: string; i: number; n: number };
+import { Progress } from "../types";
 
 const triggerSinglePrune = atom(
   null,
