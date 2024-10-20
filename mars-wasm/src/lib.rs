@@ -426,6 +426,17 @@ impl Api {
         Ok(())
     }
 
+    pub fn deserialize_from_cli(&mut self, buffer: JsValue) -> Result<(), JsValue> {
+        let bytes: serde_bytes::ByteBuf = serde_wasm_bindgen::from_value(buffer)?;
+        let (mars, vineyards): (Mars, Vineyards) = rmp_serde::from_slice(&bytes)
+            .map_err(|e| format!("rmp_serde failed: {}", e.to_string()))?;
+
+        self.set_mars(mars);
+        self.set_vineyards(Some(vineyards));
+
+        Ok(())
+    }
+
     /// Run vineyards.
     pub fn run_vineyards(
         &mut self,
@@ -587,5 +598,9 @@ export class Api {
 
   serialize_pruned_swaps(dim: number): Uint8Array;
   deserialize_pruned_swaps(dim: number, buffer: Uint8Array): void;
+
+
+  /** Load a file computed from the CLI. */
+  deserialize_from_cli(buffer: Uint8Array): void;
 }
 "#;

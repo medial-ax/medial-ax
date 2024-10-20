@@ -1,3 +1,5 @@
+import { mars } from "../global";
+
 export const UploadStateFilePicker = () => {
   return (
     <label className="file">
@@ -8,7 +10,7 @@ export const UploadStateFilePicker = () => {
           const f = e.target.files?.[0];
           if (!f) return;
           const bytes = await f.arrayBuffer();
-          window.alert("TODO 597de85d-fff3-4e73-8e68-d1132038e8d8");
+          mars().deserialize_from_cli(new Uint8Array(bytes));
         }}
       />
     </label>
