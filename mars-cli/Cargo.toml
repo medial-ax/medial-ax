@@ -14,3 +14,4 @@ serde_json = "1.0.111"
 tracing = "0.1.40"
 tracing-subscriber = "0.3.18"
 mars_core = { path = "../mars-core" }
+rayon = "1.10.0"

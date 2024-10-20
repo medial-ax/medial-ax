@@ -9,7 +9,7 @@ use grid::{Index, VineyardsGrid, VineyardsGridMesh};
 use permutation::Permutation;
 use serde::{Deserialize, Serialize};
 use sneaky_matrix::{SneakyMatrix, CI};
-use tracing::{info, warn};
+use tracing::{info, trace, warn};
 
 pub mod complex;
 pub mod grid;
@@ -172,14 +172,13 @@ impl Mars {
                 .collect()
         }
 
-        Ok(Vineyards {
-            reductions,
-            swaps: [
-                filter_dim(&all_swaps, 0),
-                filter_dim(&all_swaps, 1),
-                filter_dim(&all_swaps, 2),
-            ],
-        })
+        let swaps = [
+            filter_dim(&all_swaps, 0),
+            filter_dim(&all_swaps, 1),
+            filter_dim(&all_swaps, 2),
+        ];
+
+        Ok(Vineyards { reductions, swaps })
     }
 }
 
@@ -266,6 +265,29 @@ impl Vineyards {
 
         pruned
     }
+
+    /// Add the swaps from another [Vineyards] instance.  The indices of the other instance is
+    /// assumed to already be in the same coordinate system as [Self].
+    pub fn add_other(&mut self, mut other: Vineyards) {
+        for dim in 0..3 {
+            // Properly merge in swaps for existing grid index pairs so that we don't get
+            // duplicates.
+            let swaps = &mut self.swaps[dim];
+            let ij_to_index = swaps
+                .iter()
+                .enumerate()
+                .map(|(i, (a, b, _))| ((*a, *b), i))
+                .collect::<HashMap<_, _>>();
+
+            for (i, j, new_swaps) in std::mem::take(&mut other.swaps[dim]).into_iter() {
+                if let Some(k) = ij_to_index.get(&(i, j)) {
+                    swaps[*k].2.v.extend_from_slice(&new_swaps.v);
+                } else {
+                    swaps.push((i, j, new_swaps));
+                }
+            }
+        }
+    }
 }
 
 pub type SwapList = Vec<(Index, Index, Swaps)>;
@@ -284,7 +306,9 @@ impl SubMars {
     /// Run Vineyards, and map the result swaps back to the original coorinate system of the [Mars]
     /// instance this [SubMars] instance came from.
     pub fn run<F: Fn(usize, usize)>(&self, progress: F) -> Result<Vineyards, String> {
+        trace!("start inner mars run");
         let inner = self.mars.run(progress)?;
+        trace!("end inner mars run");
 
         let reductions = inner
             .reductions

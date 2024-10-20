@@ -113,15 +113,21 @@ fn run(args: &RunArgs) -> Result<()> {
         grid: Some(mars_core::Grid::Mesh(mesh_grid)),
     };
 
-    let mut vin = mars
-        .run(|i, n| {
-            if i % 127 == 0 {
-                let percent = (i as f64 / n as f64) * 100.0;
-                info!("vineyards: {percent:3.0}%");
-            }
+    use rayon::prelude::*;
+    let vin: Vec<_> = {
+        let parts = mars.split_into_4().map_err(|e| anyhow!(e))?;
+        parts.par_iter().map(|sub| sub.run(|_, _| {})).collect()
+    };
+
+    let mut vin = vin
+        .into_iter()
+        .reduce(|a, e| {
+            let mut a = a?;
+            a.add_other(e?);
+            Ok(a)
         })
-        .map_err(|e| anyhow!(e))
-        .context("run mars")?;
+        .expect("should be four vineyards")
+        .map_err(|e| anyhow!(e))?;
 
     if let Some(ref prune) = args.prune {
         info!("Prune output");

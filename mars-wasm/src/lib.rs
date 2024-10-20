@@ -355,29 +355,12 @@ impl Api {
 
     pub fn deserialize_vineyards_load(&mut self, value: JsValue) -> Result<(), JsValue> {
         let bytes: serde_bytes::ByteBuf = serde_wasm_bindgen::from_value(value)?;
-        let mut vineyards: Vineyards = rmp_serde::from_slice(&bytes)
+        let vineyards: Vineyards = rmp_serde::from_slice(&bytes)
             .map_err(|e| format!("rmp_serde failed: {}", e.to_string()))?;
         debug!("deserialize_vineyards_load: {:.2} MB", mb(bytes.len()));
 
         if let Some(ref mut v) = self.vineyards {
-            for dim in 0..3 {
-                // Properly merge in swaps for existing grid index pairs so that we don't get
-                // duplicates.
-                let swaps = &mut v.swaps[dim];
-                let ij_to_index = swaps
-                    .iter()
-                    .enumerate()
-                    .map(|(i, (a, b, _))| ((*a, *b), i))
-                    .collect::<HashMap<_, _>>();
-
-                for (i, j, new_swaps) in std::mem::take(&mut vineyards.swaps[dim]).into_iter() {
-                    if let Some(k) = ij_to_index.get(&(i, j)) {
-                        swaps[*k].2.v.extend_from_slice(&new_swaps.v);
-                    } else {
-                        swaps.push((i, j, new_swaps));
-                    }
-                }
-            }
+            v.add_other(vineyards);
         } else {
             self.set_vineyards(Some(vineyards));
         }

@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use tracing::info;
+use tracing::{info, trace};
 
 use crate::{
     complex::{Complex, Pos},
@@ -389,14 +389,22 @@ impl VineyardsGridMesh {
     }
 
     /// Lower- and upper corner of the bounding box.
-    pub fn bbox(&self) -> Bbox {
+    pub fn bbox_without_singletons(&self) -> Bbox {
         let mut minx = f64::MAX;
         let mut miny = f64::MAX;
         let mut minz = f64::MAX;
         let mut maxx = f64::MIN;
         let mut maxy = f64::MIN;
         let mut maxz = f64::MIN;
-        for p in &self.points {
+        for (i, p) in self.points.iter().enumerate() {
+            if self
+                .neighbors
+                .get(&(i as isize))
+                .map(|ref v| v.len() == 0)
+                .unwrap_or(true)
+            {
+                continue;
+            }
             let [x, y, z] = p.0;
             minx = minx.min(x);
             miny = miny.min(y);
@@ -410,7 +418,7 @@ impl VineyardsGridMesh {
     }
 
     pub fn split_in_half(&self) -> (Self, Self) {
-        let bbox = self.bbox();
+        let bbox = self.bbox_without_singletons();
         let (dim_i, lim) = {
             let dx = bbox.span_x();
             let dy = bbox.span_y();
@@ -438,6 +446,12 @@ impl VineyardsGridMesh {
                 }
             }
         }
+
+        trace!(
+            "VineyardsGridMesh::split_in_half: {} / {}",
+            lower_edges.len(),
+            upper_edges.len()
+        );
 
         (
             VineyardsGridMesh {
