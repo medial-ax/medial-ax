@@ -116,7 +116,23 @@ fn run(args: &RunArgs) -> Result<()> {
     use rayon::prelude::*;
     let vin: Vec<_> = {
         let parts = mars.split_into_4().map_err(|e| anyhow!(e))?;
-        parts.par_iter().map(|sub| sub.run(|_, _| {})).collect()
+        parts
+            .par_iter()
+            .enumerate()
+            .map(|(k, sub)| {
+                sub.run(|i, n| {
+                    if i == 0 {
+                        return;
+                    }
+                    let p = (i as f64 / n as f64 * 100.0).round();
+                    let pprev = ((1.0 + i as f64) / n as f64 * 100.0).round();
+                    let on_step = p != pprev;
+                    if on_step || i == n {
+                        info!(?k, "{:3}%", p);
+                    }
+                })
+            })
+            .collect()
     };
 
     let mut vin = vin
