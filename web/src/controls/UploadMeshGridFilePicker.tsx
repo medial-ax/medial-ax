@@ -1,4 +1,5 @@
 import { toast } from "../Toast";
+import { mars } from "../global";
 
 export const UploadMeshGridFilePicker = () => {
   return (
@@ -12,9 +13,7 @@ export const UploadMeshGridFilePicker = () => {
           const f = e.target.files?.[0];
           if (!f) return;
           f.text()
-            .then((text) => {
-              window.alert("TODO");
-            })
+            .then((text) => mars().load_mesh_grid(text))
             .catch((err: string) => {
               toast("error", `Failed to parse .obj: ${err}`, 3);
             });

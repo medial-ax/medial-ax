@@ -25,7 +25,7 @@ import { UploadObjFilePicker } from "./controls/UploadComplexFilePicker";
 import { UploadStateFilePicker } from "./controls/UploadStateFilePicker";
 import { GridControls } from "./controls/GridControls";
 import { MedialAxes } from "./controls/MedialAxes";
-import { medialAxesPositions } from "./useMars";
+import { marsGrid, medialAxesPositions } from "./useMars";
 
 const RenderOptions = () => {
   const maPositions = useAtomValue(medialAxesPositions);
@@ -144,7 +144,7 @@ const RenderOptions = () => {
 
 export const Menu = () => {
   const [cplx] = useAtom(complexAtom);
-  const [grid] = useAtom(gridAtom);
+  const grid = useAtomValue(marsGrid);
   const [swaps] = useAtom(swapsAtom);
 
   const [open, setOpen] = useAtom(menuOpenAtom);
@@ -153,10 +153,39 @@ export const Menu = () => {
 
   const [allSettings, setAllSettings] = useAtom(allSettingsAtom);
 
+  const mas = useAtomValue(medialAxesPositions);
+
   const exportMAtoObj = useCallback(() => {
     if (!grid) return;
     if (grid.type === "meshgrid") {
-      window.alert("Cannot export using meshgrid yet");
+      let obj = "";
+      let v = 1;
+      for (const ma of [0, 1, 2] satisfies Dim[]) {
+        if (exportVisible && !shownMA[ma]) continue;
+        obj += `o MA-${ma}\n`;
+        const facepos = mas[ma];
+
+        const n = facepos.length;
+        for (let i = 0; i < n; i += 18) {
+          // Point order is ABCACD
+          const a = facepos.slice(i + 0, i + 3);
+          const b = facepos.slice(i + 3, i + 6);
+          const c = facepos.slice(i + 6, i + 9);
+          const d = facepos.slice(i + 15, i + 18);
+
+          obj += `\
+v ${a[0]} ${a[1]} ${a[2]}
+v ${b[0]} ${b[1]} ${b[2]}
+v ${c[0]} ${c[1]} ${c[2]}
+v ${d[0]} ${d[1]} ${d[2]}
+f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
+`;
+          v += 4;
+        }
+      }
+
+      const filename = cplx?.filename ?? "complex";
+      downloadText(obj, `export-${filename}.obj`);
       return;
     }
     let obj = "";
@@ -181,8 +210,8 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
     }
 
     const filename = cplx?.filename ?? "complex";
-    downloadText(obj, `export-${filename}`);
-  }, [cplx?.filename, exportVisible, grid, shownMA, swaps]);
+    downloadText(obj, `export-${filename}.obj`);
+  }, [cplx?.filename, exportVisible, grid, mas, shownMA, swaps]);
 
   return (
     <div id="controls">
@@ -250,9 +279,14 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
         <button
           style={{ alignSelf: "start" }}
           disabled={
-            swaps[0].length === 0 &&
-            swaps[1].length === 0 &&
-            swaps[2].length === 0
+            (grid?.type === "grid" &&
+              swaps[0].length === 0 &&
+              swaps[1].length === 0 &&
+              swaps[2].length === 0) ||
+            (grid?.type === "meshgrid" &&
+              mas[0].length === 0 &&
+              mas[1].length === 0 &&
+              mas[2].length === 0)
           }
           onClick={() => {
             exportMAtoObj();
