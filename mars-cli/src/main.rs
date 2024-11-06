@@ -1,7 +1,7 @@
-use anyhow::{anyhow, Context, Result};
-use mars_core::{complex::Complex, grid::VineyardsGridMesh, PruningParam};
+use anyhow::{anyhow, bail, Context, Result};
+use mars_core::{complex::Complex, grid::VineyardsGridMesh, Grid, PruningParam};
 use std::{io::Write, path::PathBuf};
-use tracing::{info, Level};
+use tracing::{error, info, Level};
 use tracing_subscriber::FmtSubscriber;
 
 use clap::{Args, Parser, Subcommand};
@@ -17,6 +17,7 @@ struct Cli {
 enum Sub {
     PrintPrune,
     Run(RunArgs),
+    Obj(ObjArgs),
 }
 
 #[derive(Debug, Args)]
@@ -54,6 +55,123 @@ struct RunArgs {
         num_args=0..=1
     )]
     prune: Option<Option<PathBuf>>,
+}
+
+#[derive(Debug, Args)]
+struct ObjArgs {
+    #[arg(
+        value_name = "state",
+        help = "Path to the output state file from `mars-cli run`."
+    )]
+    state: PathBuf,
+
+    #[arg(
+        short = 'c',
+        long,
+        help = "Output the complex as an .obj to this path.",
+        value_name = "mesh.obj"
+    )]
+    complex: Option<PathBuf>,
+
+    #[arg(
+        short = 'g',
+        long,
+        help = "Output the grid to this path.",
+        value_name = "grid.obj"
+    )]
+    grid: Option<PathBuf>,
+
+    #[arg(
+        short = 'a',
+        long,
+        help = "Output the medial axes to this path.",
+        value_name = "ma.obj"
+    )]
+    medial_axes: Option<PathBuf>,
+}
+
+impl ObjArgs {
+    fn run(&self) -> Result<()> {
+        info!("Reading input file {}", self.state.display());
+        let bytes = std::fs::read(&self.state).context("read state file")?;
+        let (mars, vin): (mars_core::Mars, mars_core::Vineyards) =
+            rmp_serde::from_slice(&bytes).context("rmp read")?;
+
+        if let Some(ref p) = self.complex {
+            let c = mars
+                .complex
+                .as_ref()
+                .ok_or_else(|| anyhow!("missing complex in state"))?;
+
+            let mut f = std::fs::File::create(p).context("create passed file")?;
+            info!("Write complex to {}", p.display());
+            c.write_as_obj(&mut f).context("write obj")?;
+        }
+
+        if let Some(ref p) = self.grid {
+            let c = mars
+                .grid
+                .as_ref()
+                .ok_or_else(|| anyhow!("missing grid in state"))?;
+
+            let g = match c {
+                mars_core::Grid::Regular(_) => {
+                    error!("Trying to output a grid, but it is a regular grid.");
+                    bail!("Trying to output a grid, but it is a regular grid.");
+                }
+                mars_core::Grid::Mesh(mesh) => mesh,
+            };
+
+            let mut f = std::fs::File::create(p).context("create passed file")?;
+            info!("Write grid to {}", p.display());
+            g.write_as_obj(&mut f).context("write obj")?;
+        }
+
+        if let Some(ref p) = self.medial_axes {
+            let mut f = std::fs::File::create(p).context("create passed file")?;
+
+            info!("Write medial axes to {}", p.display());
+            for dim in 0..3 {
+                let swaps = &vin.swaps[dim];
+
+                writeln!(&mut f, "o ma-dim-{}", dim)?;
+                let mut vi = 0;
+
+                match mars
+                    .grid
+                    .as_ref()
+                    .ok_or_else(|| anyhow!("missing grid in state"))?
+                {
+                    Grid::Regular(grid) => {
+                        for s in swaps {
+                            if 0 < s.2.v.len() {
+                                let pts = grid.dual_quad_points(s.0, s.1);
+                                for p in &pts {
+                                    writeln!(&mut f, "v {} {} {}", p.x(), p.y(), p.z())?;
+                                }
+                                writeln!(&mut f, "f {} {} {} {}", vi + 1, vi + 2, vi + 3, vi + 4)?;
+                                vi += 4;
+                            }
+                        }
+                    }
+                    Grid::Mesh(grid) => {
+                        for s in swaps {
+                            if 0 < s.2.v.len() {
+                                let pts = grid.dual_quad_points(s.0, s.1);
+                                for p in &pts {
+                                    writeln!(&mut f, "v {} {} {}", p.x(), p.y(), p.z())?;
+                                }
+                                writeln!(&mut f, "f {} {} {} {}", vi + 1, vi + 2, vi + 3, vi + 4)?;
+                                vi += 4;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
 }
 
 fn default_pruning_params() -> [PruningParam; 3] {
@@ -211,5 +329,6 @@ fn main() -> Result<()> {
     match cli.command {
         Sub::PrintPrune => print_prune_config(),
         Sub::Run(r) => run(&r),
+        Sub::Obj(o) => o.run(),
     }
 }

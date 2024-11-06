@@ -585,4 +585,25 @@ impl VineyardsGridMesh {
             r#type: "meshgrid".to_string(),
         })
     }
+
+    pub fn write_as_obj<W: std::io::Write>(&self, mut w: W) -> std::io::Result<()> {
+        writeln!(w, "o grid")?;
+
+        for pt in &self.points {
+            writeln!(w, "v {} {} {}", pt.x(), pt.y(), pt.z())?;
+        }
+
+        for (a, neighs) in &self.neighbors {
+            for b in neighs {
+                // Skip these to avoid double outputting
+                if b < a {
+                    continue;
+                }
+
+                writeln!(w, "l {} {}", a + 1, b + 1)?;
+            }
+        }
+
+        Ok(())
+    }
 }

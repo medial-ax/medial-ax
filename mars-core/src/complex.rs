@@ -338,6 +338,28 @@ impl Complex {
         })
     }
 
+    pub fn write_as_obj<W: std::io::Write>(&self, mut w: W) -> std::io::Result<()> {
+        writeln!(w, "o complex")?;
+
+        for s in &self.simplices_per_dim[0] {
+            let c = s.coords.expect("simplex of dim=0 should have coords set");
+            writeln!(w, "v {} {} {}", c.x(), c.y(), c.z())?;
+        }
+
+        for s in &self.simplices_per_dim[2] {
+            let mut vx = Vec::new();
+            for ei in &s.boundary {
+                vx.extend_from_slice(&self.simplices_per_dim[1][*ei as usize].boundary);
+            }
+            vx.sort();
+            vx.dedup();
+            assert_eq!(vx.len(), 3, "a face should have =3 simplex indices");
+            writeln!(w, "f {} {} {}", vx[0] + 1, vx[1] + 1, vx[2] + 1)?;
+        }
+
+        Ok(())
+    }
+
     pub fn distances_to(&self, key_point: Pos) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
         let vertex_distances = self.simplices_per_dim[0]
             .iter()
