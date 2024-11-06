@@ -15,8 +15,22 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Sub {
+    /// Print the default parameters used for pruning.
+    ///
+    /// The output can be used as a starting point for your own pruning parameters, which can then
+    /// be passed to either `mars-cli run` or `mars-cli prune`.
     PrintPrune,
+    /// Run the algorithm and output a file containing the entire state.
+    ///
+    /// If pruning is enabled, default pruning parameters are used.  If the path to a pruning file
+    /// is included, those parameters are used.  The default pruning paramters can be obtained by
+    /// running `mars-cli print-prune`.
+    ///
+    /// Re-pruning a state file is TODO.
     Run(RunArgs),
+    /// Output .obj files from the state file.
+    ///
+    /// The medial axes .obj will contain the three axes as separate objects.
     Obj(ObjArgs),
 }
 
