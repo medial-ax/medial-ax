@@ -1,5 +1,5 @@
 use crate::permutation::Permutation;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 pub type CI = i16;
 
@@ -98,7 +98,70 @@ impl From<Vec<CI>> for Col {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+// #[derive(Serialize, Deserialize)]
+// /// For more efficient serialization of [SneakyMatrix] we convert it to this type and serialize
+// /// this instead.
+// struct SneakyMatrixSerialized {
+//     pairs: Vec<(CI, CI)>,
+//     rows: CI,
+//     cols: CI,
+// }
+//
+// impl Into<SneakyMatrix> for SneakyMatrixSerialized {
+//     fn into(self) -> SneakyMatrix {
+//         let mut columns = vec![Col::new(); self.cols as usize];
+//         for (r, c) in self.pairs {
+//             columns[c as usize].set(r);
+//         }
+//
+//         SneakyMatrix {
+//             columns,
+//             rows: self.rows,
+//             cols: self.cols,
+//             col_perm: None,
+//             row_perm: None,
+//         }
+//     }
+// }
+//
+// impl Into<SneakyMatrixSerialized> for SneakyMatrix {
+//     fn into(mut self) -> SneakyMatrixSerialized {
+//         let mut pairs = Vec::new();
+//         self.bake_in_permutations();
+//         for (c, col) in self.columns.into_iter().enumerate() {
+//             for r in col.0 {
+//                 pairs.push((r, c as CI));
+//             }
+//         }
+//         SneakyMatrixSerialized {
+//             pairs,
+//             rows: self.rows,
+//             cols: self.cols,
+//         }
+//     }
+// }
+//
+// impl Serialize for SneakyMatrix {
+//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+//     where
+//         S: Serializer,
+//     {
+//         let sms: SneakyMatrixSerialized = self.clone().into();
+//         sms.serialize(serializer)
+//     }
+// }
+//
+// impl<'de> Deserialize<'de> for SneakyMatrix {
+//     fn deserialize<D>(deserializer: D) -> Result<SneakyMatrix, D::Error>
+//     where
+//         D: Deserializer<'de>,
+//     {
+//         let sms = SneakyMatrixSerialized::deserialize(deserializer)?;
+//         Ok(sms.into())
+//     }
+// }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SneakyMatrix {
     pub columns: Vec<Col>,
     pub rows: CI,

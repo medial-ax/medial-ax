@@ -35,6 +35,8 @@ enum Sub {
 
     /// Prune swaps from a state file.
     Prune(PruneArgs),
+
+    Stats(StatsArgs),
 }
 
 #[derive(Debug, Args)]
@@ -72,6 +74,30 @@ struct RunArgs {
         num_args=0..=1
     )]
     prune: Option<Option<PathBuf>>,
+}
+
+#[derive(Debug, Args)]
+struct StatsArgs {
+    #[arg(
+        value_name = "state",
+        help = "Path to the output state file from `mars-cli run`."
+    )]
+    state: PathBuf,
+}
+
+impl StatsArgs {
+    fn run(&self) -> Result<()> {
+        info!("Read state");
+        let (mars, mut vin): (mars_core::Mars, mars_core::Vineyards) = {
+            let f = std::fs::File::open(&self.state).context("open file")?;
+            rmp_serde::from_read(&f).context("rmp read")?
+        };
+
+        let vm: mars_core::stats::VineyardsMem = (&vin).into();
+        dbg!(vm);
+
+        Ok(())
+    }
 }
 
 #[derive(Debug, Args)]
@@ -430,5 +456,6 @@ fn main() -> Result<()> {
         Sub::Run(r) => run(&r),
         Sub::Obj(o) => o.run(),
         Sub::Prune(p) => p.run(),
+        Sub::Stats(s) => s.run(),
     }
 }
