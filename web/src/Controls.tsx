@@ -3,7 +3,6 @@ import {
   Dim,
   allSettingsAtom,
   complexAtom,
-  gridAtom,
   gridRadiusAtom,
   keypointRadiusAtom,
   maWireframeAtom,

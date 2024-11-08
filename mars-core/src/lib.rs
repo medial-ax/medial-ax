@@ -564,6 +564,14 @@ pub struct Reduction {
 }
 
 impl Reduction {
+    pub fn bake_all_matrices(&mut self) {
+        for dim in 0..3 {
+            self.stacks[dim].U_t.bake_in_permutations();
+            self.stacks[dim].R.bake_in_permutations();
+            self.stacks[dim].D.bake_in_permutations();
+        }
+    }
+
     /// Returns the Betti numbers for dimensions 0, 1, and 2.
     pub fn betti_numbers(&self) -> Vec<i8> {
         let mut bettis = vec![0; 3];

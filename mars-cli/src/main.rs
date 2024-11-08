@@ -32,6 +32,9 @@ enum Sub {
     ///
     /// The medial axes .obj will contain the three axes as separate objects.
     Obj(ObjArgs),
+
+    /// Prune swaps from a state file.
+    Prune(PruneArgs),
 }
 
 #[derive(Debug, Args)]
@@ -217,6 +220,83 @@ fn default_pruning_params() -> [PruningParam; 3] {
     [dim0, dim1, dim2]
 }
 
+#[derive(Debug, Args)]
+struct PruneArgs {
+    #[arg(value_name = "state", help = "Path to the state file.")]
+    state_path: PathBuf,
+
+    #[arg(
+        short,
+        long,
+        value_name = "pruned-state",
+        help = "Path to the output pruned file."
+    )]
+    output: PathBuf,
+
+    #[arg(
+        short,
+        long,
+        help = "Whether to pre-prune, with an optional prune file",
+        value_name = "PRUNE.json"
+    )]
+    params: Option<PathBuf>,
+}
+
+impl PruneArgs {
+    fn run(&self) -> Result<()> {
+        info!("Read parameters");
+        let params = if let Some(ref p) = self.params {
+            let mut f = std::fs::File::open(p).context("open file")?;
+            serde_json::from_reader(&mut f).context("read prune param file")?
+        } else {
+            default_pruning_params()
+        };
+
+        info!("Read state");
+        let (mars, mut vin): (mars_core::Mars, mars_core::Vineyards) = {
+            let f = std::fs::File::open(&self.state_path).context("open file")?;
+            rmp_serde::from_read(&f).context("rmp read")?
+        };
+
+        let complex = mars
+            .complex
+            .as_ref()
+            .ok_or_else(|| anyhow!("Missing complex in state"))?;
+
+        info!("Prune");
+        for dim in 0..3 {
+            let num_swaps = vin.swaps[dim].iter().map(|s| s.2.v.len()).sum::<usize>();
+            info!(dim = dim, "read {} swaps", num_swaps);
+            let pruned = vin.prune_dim(dim, &params[dim], complex, |i, n| {
+                if i % 127 == 0 {
+                    info!(
+                        dim = dim,
+                        "pruning {}%",
+                        ((i as f64 / n as f64) * 100.0).round()
+                    );
+                }
+            });
+
+            let num_pruned = pruned.iter().map(|s| s.2.v.len()).sum::<usize>();
+            info!(
+                dim = dim,
+                "prnuned to {} swaps ({}%)",
+                num_pruned,
+                ((num_pruned as f64 / num_swaps as f64) * 100.0).round()
+            );
+            vin.swaps[dim] = pruned;
+        }
+
+        info!("Write output");
+        let output = (mars, vin);
+        let output_bytes = rmp_serde::to_vec(&output)?;
+        let mut f = std::fs::File::create(&self.output).context("create output file")?;
+        f.write_all(&output_bytes).context("write to output file")?;
+
+        Ok(())
+    }
+}
+
 fn print_prune_config() -> Result<()> {
     let cfgs = default_pruning_params();
     let string = serde_json::to_string_pretty(&cfgs)?;
@@ -276,6 +356,11 @@ fn run(args: &RunArgs) -> Result<()> {
         })
         .expect("should be four vineyards")
         .map_err(|e| anyhow!(e))?;
+
+    info!("Bake matrices");
+    for r in vin.reductions.values_mut() {
+        r.bake_all_matrices();
+    }
 
     if let Some(ref prune) = args.prune {
         info!("Prune output");
@@ -344,5 +429,6 @@ fn main() -> Result<()> {
         Sub::PrintPrune => print_prune_config(),
         Sub::Run(r) => run(&r),
         Sub::Obj(o) => o.run(),
+        Sub::Prune(p) => p.run(),
     }
 }
