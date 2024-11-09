@@ -1573,6 +1573,26 @@ mod tests {
     use crate::test::*;
 
     #[test]
+    fn snapshot_grid_reductions() {
+        let complex = test_complex_cube();
+
+        let pt = complex::Pos([0.0, 0.0, 0.0]);
+        let mut reduction = reduce_from_scratch(&complex, pt, false);
+        reduction.bake_all_matrices();
+        insta::assert_json_snapshot!(reduction);
+
+        let pt = complex::Pos([0.1, 0.2, 0.3]);
+        let mut reduction = reduce_from_scratch(&complex, pt, false);
+        reduction.bake_all_matrices();
+        insta::assert_json_snapshot!(reduction);
+
+        let pt = complex::Pos([0.0, -0.5, 0.25]);
+        let mut reduction = reduce_from_scratch(&complex, pt, false);
+        reduction.bake_all_matrices();
+        insta::assert_json_snapshot!(reduction);
+    }
+
+    #[test]
     fn snapshot_medial_axes_for_grid() {
         let complex = test_complex_cube();
         let grid = test_grid_for_cube();
