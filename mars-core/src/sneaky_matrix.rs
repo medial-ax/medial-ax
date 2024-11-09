@@ -222,34 +222,208 @@ impl Columns {
     }
 }
 
-// /// A bit-buffer for matrix storage.  Each column is stored as a contiguous list of [u64]s.
-// struct BitBuffer {
-//     bits: Vec<u64>,
-//     /// The number of blocks in each column
-//     blocks: usize,
-// }
-//
-// impl BitBuffer {
-//     fn new(rows: CI, cols: CI) -> Self {
-//         let rows = if rows & 64 == 0 {
-//             rows
-//         } else {
-//             (rows & !0b111111) + 64
-//         } as usize;
-//         let bits = vec![0; rows * cols as usize];
-//         Self {
-//             bits,
-//             blocks: rows >> 6,
-//         }
-//     }
-// }
+/// A bit-buffer for matrix storage.  Each column is stored as a contiguous list of [u64]s.
+#[derive(Debug, Clone)]
+struct BitBuffer {
+    bits: Vec<u64>,
+    /// The number of blocks in each column
+    blocks: CI,
+
+    rows: CI,
+}
+
+impl BitBuffer {
+    fn new(rows: CI, cols: CI) -> Self {
+        let use_rows = (rows >> 6) + if rows & 63 == 0 { 0 } else { 1 };
+        let bits = vec![0; use_rows as usize * cols as usize];
+        Self {
+            bits,
+            blocks: use_rows,
+            rows,
+        }
+    }
+
+    fn eye(n: CI) -> Self {
+        let mut b = Self::new(n, n);
+        for i in 0..n {
+            b.set(i, i, true);
+        }
+        b
+    }
+
+    fn ncols(&self) -> CI {
+        if self.blocks == 0 {
+            0
+        } else {
+            self.bits.len() as CI / self.blocks
+        }
+    }
+
+    fn nrows(&self) -> CI {
+        self.rows
+    }
+
+    fn get_index_offset(&self, r: CI, c: CI) -> (CI, CI) {
+        let rblock = r >> 6;
+        let rindex = r & 63;
+        let col_offset = self.blocks * c;
+        (rindex, col_offset + rblock)
+    }
+
+    fn get(&self, r: CI, c: CI) -> bool {
+        let (ind, off) = self.get_index_offset(r, c);
+        let block = self.bits[off as usize];
+        (block & (1 << ind)) != 0
+    }
+
+    fn set(&mut self, r: CI, c: CI, val: bool) {
+        let (ind, off) = self.get_index_offset(r, c);
+        if val {
+            self.bits[off as usize] |= 1 << ind;
+        } else {
+            self.bits[off as usize] &= !(1 << ind);
+        }
+    }
+
+    fn add_cols(&mut self, c1: CI, c2: CI) {
+        if c1 == c2 {
+            // Adding a column to itself clears it.
+            let off1 = self.blocks * c1;
+            for i in 0..self.blocks {
+                self.bits[(off1 + i) as usize] = 0;
+            }
+            return;
+        }
+
+        let off1 = self.blocks * c1;
+        let off2 = self.blocks * c2;
+
+        for i in 0..self.blocks {
+            self.bits[(off1 + i) as usize] ^= self.bits[(off2 + i) as usize];
+        }
+    }
+
+    fn colmax(&self, c: CI, row_perm: Option<&Permutation>) -> Option<CI> {
+        if row_perm.is_none() {
+            let off = self.blocks * c;
+            for i in (0..self.blocks).rev() {
+                let n = self.bits[(off + i) as usize];
+                if n == 0 {
+                    continue;
+                }
+                let num_offset = (64 * i) as CI;
+                let z = n.trailing_zeros() as CI;
+                let number = num_offset + z;
+                return Some(number);
+            }
+            return None;
+        }
+        let perm = row_perm.unwrap();
+
+        let mut max: CI = -1;
+        let mut ret: CI = -1;
+
+        let off = self.blocks * c;
+        for i in 0..self.blocks {
+            let mut b = self.bits[(off + i) as usize];
+
+            let block_start = (64 * i) as CI;
+            while b != 0 {
+                let z = b.trailing_zeros() as CI;
+                let pre_number = block_start + z;
+                let post_number = perm.map(pre_number);
+                if max < post_number {
+                    max = post_number;
+                    ret = pre_number;
+                }
+                b ^= 1 << z; // Clear the lsb
+            }
+        }
+
+        if ret == -1 {
+            None
+        } else {
+            Some(ret)
+        }
+    }
+
+    fn col_with_low(&self, r: CI, row_perm: Option<&Permutation>) -> Option<CI> {
+        for c in 0..self.ncols() {
+            if !self.get(r, c) {
+                continue;
+            }
+            if self.colmax(c, row_perm) == Some(r) {
+                return Some(c as CI);
+            }
+        }
+        None
+    }
+
+    fn to_pairs(&self) -> Vec<(CI, CI)> {
+        let mut pairs = Vec::new();
+        // TODO: fix this, if it's ever slow.
+        for c in 0..self.ncols() {
+            for r in 0..self.nrows() {
+                if self.get(r, c) {
+                    pairs.push((r, c));
+                }
+            }
+        }
+        pairs
+    }
+
+    fn bottom_pad_with_identity(&mut self) -> Self {
+        let rows = self.rows;
+        let mut next = BitBuffer::new(self.nrows() * 2, self.ncols());
+        for (r, c) in self.to_pairs() {
+            next.set(r, c, true);
+        }
+        for i in 0..rows {
+            next.set(rows + i, i, true);
+        }
+        next
+    }
+
+    fn col_is_empty(&self, c: CI) -> bool {
+        let off = self.blocks * c;
+        for i in 0..self.blocks {
+            let b = self.bits[(off + i) as usize];
+            if b != 0 {
+                return false;
+            }
+        }
+        true
+    }
+
+    fn col_is_not_empty(&self, c: CI) -> bool {
+        !self.col_is_empty(c)
+    }
+
+    fn col_as_vec(&self, c: CI) -> Vec<CI> {
+        let mut v = Vec::new();
+        for r in 0..self.nrows() {
+            if self.get(r, c) {
+                v.push(r);
+            }
+        }
+        v
+    }
+
+    fn mem_usage(&self) -> usize {
+        self.bits.capacity() * 64
+    }
+
+    fn fill_ratio(&self) -> f64 {
+        todo!()
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SneakyMatrix {
     // pub columns: Vec<Col>,
     // pub rows: CI,
     // pub cols: CI,
-    columns: Columns,
+    core: Columns,
 
     /// The column permutation.
     pub col_perm: Option<Permutation>,
@@ -259,25 +433,25 @@ pub struct SneakyMatrix {
 
 impl SneakyMatrix {
     pub fn mem_usage(&self) -> usize {
-        self.columns.mem_usage()
+        self.core.mem_usage()
             + self.col_perm.as_ref().map(|p| p.mem_usage()).unwrap_or(0)
             + self.row_perm.as_ref().map(|p| p.mem_usage()).unwrap_or(0)
     }
 
     pub fn fill_ratio(&self) -> f64 {
-        self.columns.fill_ratio()
+        self.core.fill_ratio()
     }
 
     pub fn count_empty_columns(&self) -> usize {
-        self.columns.columns.iter().filter(|c| c.empty()).count()
+        self.core.columns.iter().filter(|c| c.empty()).count()
     }
 
     pub fn cols(&self) -> CI {
-        self.columns.ncols()
+        self.core.ncols()
     }
 
     pub fn rows(&self) -> CI {
-        self.columns.nrows()
+        self.core.nrows()
     }
 
     fn map_c(&self, c: CI) -> CI {
@@ -298,7 +472,7 @@ impl SneakyMatrix {
 
     /// Returns all entries that are set as `(row, col)` pairs.
     pub fn to_pairs(&self) -> Vec<(CI, CI)> {
-        self.columns
+        self.core
             .to_pairs()
             .into_iter()
             .map(|(r, c)| (self.inv_r(r), self.inv_c(c)))
@@ -318,15 +492,15 @@ impl SneakyMatrix {
         for (r, c) in pairs.iter_mut() {
             std::mem::swap(r, c);
         }
-        Self::from_pairs(pairs, self.columns.nrows(), self.columns.ncols())
+        Self::from_pairs(pairs, self.core.nrows(), self.core.ncols())
     }
 
     /// Double the height of the matrix, and initialize the new block to be the identity.
     pub fn bottom_pad_with_identity(&mut self) {
-        let rows = self.columns.nrows();
-        self.columns.bottom_pad_with_identity();
+        let rows = self.core.nrows();
+        self.core.bottom_pad_with_identity();
         if self.row_perm.is_none() {
-            self.row_perm = Some(Permutation::new(self.columns.nrows()));
+            self.row_perm = Some(Permutation::new(self.core.nrows()));
         }
         if let Some(p) = self.row_perm.as_mut() {
             p.push_n(rows);
@@ -337,7 +511,7 @@ impl SneakyMatrix {
     }
 
     pub fn gauss_jordan(&mut self) {
-        let cols = self.columns.ncols();
+        let cols = self.core.ncols();
         for k in 0..cols {
             // Step 1: ensure that (k, k) = 1
             if !self.get(k, k) {
@@ -363,8 +537,8 @@ impl SneakyMatrix {
 
     pub fn extract_bottom_block_transpose(&self) -> Self {
         let mut pairs = Vec::new();
-        let cols = self.columns.ncols();
-        let rows = self.columns.nrows();
+        let cols = self.core.ncols();
+        let rows = self.core.nrows();
 
         let r0 = rows / 2;
         for c in 0..cols {
@@ -372,7 +546,7 @@ impl SneakyMatrix {
             for r in r0..rows {
                 // NOTE: This is pretty inefficient. Better to loop through the ones that are there and skip the early rows.
                 let rr = self.map_r(r);
-                if self.columns.get(rr, cc) {
+                if self.core.get(rr, cc) {
                     pairs.push((c, r - r0));
                 }
             }
@@ -391,25 +565,25 @@ impl SneakyMatrix {
     /// Shuffle around the data of the matrix so that both the row- and column permutation are
     /// identity (i.e. [None]).
     pub fn bake_in_permutations(&mut self) {
-        let ncols = self.columns.ncols();
+        let ncols = self.core.ncols();
         let mut cols = vec![Col::new(); ncols as usize];
         for c in 0..ncols {
             let cc = self.map_c(c);
-            let mut col = self.columns.col_as_vec(cc);
+            let mut col = self.core.col_as_vec(cc);
             for rr in col.iter_mut() {
                 *rr = self.inv_r(*rr);
             }
             col.sort();
             cols[c as usize] = col.into();
         }
-        self.columns.columns = cols;
+        self.core.columns = cols;
         self.col_perm = None;
         self.row_perm = None;
     }
 
     pub fn zeros(rows: CI, cols: CI) -> Self {
         SneakyMatrix {
-            columns: Columns::new(rows, cols),
+            core: Columns::new(rows, cols),
             col_perm: None,
             row_perm: None,
         }
@@ -417,7 +591,7 @@ impl SneakyMatrix {
 
     pub fn eye(n: CI) -> Self {
         SneakyMatrix {
-            columns: Columns::eye(n),
+            core: Columns::eye(n),
             col_perm: None,
             row_perm: None,
         }
@@ -425,14 +599,14 @@ impl SneakyMatrix {
 
     pub fn __str__(&self) -> String {
         let mut s = String::new();
-        let rows = self.columns.nrows();
-        let cols = self.columns.ncols();
+        let rows = self.core.nrows();
+        let cols = self.core.ncols();
         for r in 0..rows {
             let rr = self.map_r(r);
             s.push('|');
             for c in 0..cols {
                 let cc = self.map_c(c);
-                if self.columns.get(rr, cc) {
+                if self.core.get(rr, cc) {
                     s.push('×');
                 } else {
                     s.push(' ');
@@ -445,13 +619,13 @@ impl SneakyMatrix {
 
     pub fn swap_rows(&mut self, a: CI, b: CI) {
         self.row_perm
-            .get_or_insert_with(|| Permutation::new(self.columns.nrows()))
+            .get_or_insert_with(|| Permutation::new(self.core.nrows()))
             .swap(a, b);
     }
 
     pub fn swap_cols(&mut self, a: CI, b: CI) {
         self.col_perm
-            .get_or_insert_with(|| Permutation::new(self.columns.ncols()))
+            .get_or_insert_with(|| Permutation::new(self.core.ncols()))
             .swap(a, b);
     }
 
@@ -464,14 +638,14 @@ impl SneakyMatrix {
     pub fn add_cols(&mut self, c1: CI, c2: CI) {
         let cc1 = self.map_c(c1);
         let cc2 = self.map_c(c2);
-        self.columns.add_cols(cc1, cc2);
+        self.core.add_cols(cc1, cc2);
     }
 
     /// Searches for the lowest 1 in the given column. The returned row is under
     /// the row permutation, so it is the "logical" row.
     pub fn colmax(&self, c: CI) -> Option<CI> {
         let cc = self.map_c(c);
-        self.columns
+        self.core
             .colmax(cc, self.row_perm.as_ref())
             .map(|rr| self.inv_r(rr))
     }
@@ -479,27 +653,27 @@ impl SneakyMatrix {
     /// Search for the column which lowest one is the given `r`.
     pub fn col_with_low(&self, r: CI) -> Option<CI> {
         let rr = self.map_r(r);
-        self.columns
+        self.core
             .col_with_low(rr, self.row_perm.as_ref())
             .map(|cc| self.inv_c(cc))
     }
 
     /// Return `true` if the column is empty.
     pub fn col_is_empty(&self, c: CI) -> bool {
-        self.columns.col_is_empty(self.map_c(c as CI))
+        self.core.col_is_empty(self.map_c(c as CI))
     }
 
     /// Return `true` if the column is not empty.
     pub fn col_is_not_empty(&self, c: CI) -> bool {
-        self.columns.col_is_not_empty(self.map_c(c))
+        self.core.col_is_not_empty(self.map_c(c))
     }
 
     pub fn set(&mut self, r: CI, c: CI, val: bool) {
-        self.columns.set(self.map_r(r), self.map_c(c), val)
+        self.core.set(self.map_r(r), self.map_c(c), val)
     }
 
     pub fn get(&self, r: CI, c: CI) -> bool {
-        self.columns.get(self.map_r(r), self.map_c(c))
+        self.core.get(self.map_r(r), self.map_c(c))
     }
 
     /// Reduces the matrix.
@@ -507,7 +681,7 @@ impl SneakyMatrix {
         // NOTE: it might be faster to reduce a matrix if we have the reduced
         // matrix of the dimension above.
         let mut adds = Vec::new();
-        for c in 0..self.columns.ncols() {
+        for c in 0..self.core.ncols() {
             if !self.col_is_not_empty(c) {
                 continue;
             }
@@ -759,5 +933,185 @@ mod tests {
 
         println!("answer:");
         println!("{}\n", answer.__str__());
+    }
+
+    #[test]
+    fn bitbuffer_construction() {
+        let bb = BitBuffer::new(7, 4);
+        dbg!(&bb);
+        assert_eq!(bb.nrows(), 7);
+        assert_eq!(bb.ncols(), 4);
+        let bb = BitBuffer::new(63, 63);
+        assert_eq!(bb.nrows(), 63);
+        assert_eq!(bb.ncols(), 63);
+        let bb = BitBuffer::new(64, 64);
+        assert_eq!(bb.nrows(), 64);
+        assert_eq!(bb.ncols(), 64);
+        let bb = BitBuffer::new(65, 65);
+        assert_eq!(bb.nrows(), 65);
+        assert_eq!(bb.ncols(), 65);
+    }
+
+    #[test]
+    fn bitbuffer_eye() {
+        let bb = BitBuffer::eye(5);
+        for i in 0..5 {
+            assert!(bb.get(i, i), "diagonal wasn't set");
+            for j in 0..5 {
+                if i != j {
+                    assert!(!bb.get(i, j), "off diagonal was set");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn bitbuffer_set_get() {
+        let mut bb = BitBuffer::new(5, 5);
+
+        bb.set(1, 3, true);
+        assert!(bb.get(1, 3));
+        bb.set(1, 3, false);
+        assert!(!bb.get(1, 3));
+
+        assert!(!bb.get(3, 2));
+        bb.set(3, 2, true);
+        assert!(bb.get(3, 2));
+
+        assert!(!bb.get(0, 0));
+        assert!(!bb.get(0, 4));
+        assert!(!bb.get(4, 0));
+        assert!(!bb.get(4, 4));
+
+        bb.set(0, 0, true);
+        bb.set(0, 4, true);
+        bb.set(4, 0, true);
+        bb.set(4, 4, true);
+
+        assert!(bb.get(0, 0));
+        assert!(bb.get(0, 4));
+        assert!(bb.get(4, 0));
+        assert!(bb.get(4, 4));
+    }
+
+    #[test]
+    fn bitbuffer_writes_dont_leak() {
+        let mut bb = BitBuffer::new(5, 5);
+
+        bb.set(3, 3, true);
+        assert_eq!(bb.get(2, 3), false);
+        assert_eq!(bb.get(3, 3), true);
+        assert_eq!(bb.get(4, 3), false);
+        assert_eq!(bb.get(5, 3), false);
+
+        bb.set(4, 3, true);
+        assert_eq!(bb.get(2, 3), false);
+        assert_eq!(bb.get(3, 3), true);
+        assert_eq!(bb.get(4, 3), true);
+        assert_eq!(bb.get(5, 3), false);
+
+        bb.set(3, 3, false);
+        assert_eq!(bb.get(2, 3), false);
+        assert_eq!(bb.get(3, 3), false);
+        assert_eq!(bb.get(4, 3), true);
+        assert_eq!(bb.get(5, 3), false);
+
+        bb.set(2, 3, true);
+        assert_eq!(bb.get(2, 3), true);
+        assert_eq!(bb.get(3, 3), false);
+        assert_eq!(bb.get(4, 3), true);
+        assert_eq!(bb.get(5, 3), false);
+    }
+
+    #[test]
+    fn bitbuffer_add_cols() {
+        let mut bb = BitBuffer::eye(5);
+
+        bb.add_cols(0, 1); // [0]: 1 1 0 0 0
+        assert_eq!(bb.get(0, 0), true);
+        assert_eq!(bb.get(1, 0), true);
+        assert_eq!(bb.get(2, 0), false);
+
+        assert_eq!(bb.get(0, 1), false);
+        assert_eq!(bb.get(1, 1), true);
+        assert_eq!(bb.get(2, 1), false);
+
+        bb.add_cols(2, 0);
+        assert_eq!(bb.get(0, 2), true);
+        assert_eq!(bb.get(1, 2), true);
+        assert_eq!(bb.get(2, 2), true);
+        assert_eq!(bb.get(3, 2), false);
+
+        bb.add_cols(1, 1);
+        assert_eq!(bb.get(0, 1), false);
+        assert_eq!(bb.get(1, 1), false);
+        assert_eq!(bb.get(2, 1), false);
+    }
+
+    #[test]
+    fn bitbuffer_colmax_no_perm() {
+        let bb = BitBuffer::eye(5);
+        assert_eq!(bb.colmax(0, None), Some(0));
+        assert_eq!(bb.colmax(1, None), Some(1));
+        assert_eq!(bb.colmax(2, None), Some(2));
+        assert_eq!(bb.colmax(3, None), Some(3));
+        assert_eq!(bb.colmax(4, None), Some(4));
+    }
+
+    #[test]
+    fn bitbuffer_colmax_perm() {
+        let mut perm = Some(Permutation::new(5));
+        let mut bb = BitBuffer::eye(5);
+        for i in 0..5 {
+            for j in i..5 {
+                bb.set(i, j, true);
+            }
+        }
+        assert_eq!(bb.colmax(0, perm.as_ref()), Some(0));
+        assert_eq!(bb.colmax(1, perm.as_ref()), Some(1));
+        assert_eq!(bb.colmax(2, perm.as_ref()), Some(2));
+        assert_eq!(bb.colmax(3, perm.as_ref()), Some(3));
+        assert_eq!(bb.colmax(4, perm.as_ref()), Some(4));
+
+        perm = Some(Permutation::from_forwards(vec![4, 3, 2, 1, 0]));
+        assert_eq!(bb.colmax(0, perm.as_ref()), Some(0));
+        assert_eq!(bb.colmax(1, perm.as_ref()), Some(0));
+        assert_eq!(bb.colmax(2, perm.as_ref()), Some(0));
+        assert_eq!(bb.colmax(3, perm.as_ref()), Some(0));
+        assert_eq!(bb.colmax(4, perm.as_ref()), Some(0));
+    }
+
+    #[test]
+    fn bitbuffer_to_pairs() {
+        let mut bb = BitBuffer::eye(5);
+        for i in 0..5 {
+            for j in i..5 {
+                bb.set(i, j, true);
+            }
+        }
+        let pairs = bb.to_pairs();
+        for (a, b) in pairs {
+            assert!(a <= b);
+        }
+    }
+
+    #[test]
+    fn bitbuffer_col_is_empty() {
+        let mut bb = BitBuffer::eye(5);
+        for i in 0..5 {
+            assert_eq!(bb.col_is_empty(i), false);
+        }
+        bb.set(3, 3, false);
+        assert_eq!(bb.col_is_empty(2), false);
+        assert_eq!(bb.col_is_empty(3), true);
+        assert_eq!(bb.col_is_empty(4), false);
+    }
+
+    #[test]
+    fn bitbuffer_col_as_vec() {
+        let bb = BitBuffer::eye(5);
+        assert_eq!(bb.col_as_vec(0), &[0]);
+        assert_eq!(bb.col_as_vec(1), &[1]);
+        assert_eq!(bb.col_as_vec(2), &[2]);
     }
 }
