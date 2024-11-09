@@ -343,7 +343,7 @@ impl Bbox {
 pub struct VineyardsGridMesh {
     pub points: Vec<Pos>,
     /// Map from vertex index to the list of its neighbors.
-    pub neighbors: HashMap<isize, Vec<isize>>,
+    pub neighbors: Vec<Vec<isize>>,
     /// Should always be `"meshgrid"`. Used for serialization stuff.
     pub r#type: String,
 }
@@ -352,7 +352,7 @@ impl VineyardsGridMesh {
     pub fn empty() -> Self {
         Self {
             points: Vec::new(),
-            neighbors: HashMap::new(),
+            neighbors: Vec::new(),
             r#type: "meshgrid".to_string(),
         }
     }
@@ -413,7 +413,7 @@ impl VineyardsGridMesh {
         for (i, p) in self.points.iter().enumerate() {
             if self
                 .neighbors
-                .get(&(i as isize))
+                .get(i)
                 .map(|ref v| v.len() == 0)
                 .unwrap_or(true)
             {
@@ -447,17 +447,17 @@ impl VineyardsGridMesh {
             }
         };
 
-        let mut lower_edges: HashMap<isize, Vec<isize>> = HashMap::new();
-        let mut upper_edges: HashMap<isize, Vec<isize>> = HashMap::new();
+        let mut lower_edges: Vec<Vec<isize>> = vec![Vec::new(); self.neighbors.len()];
+        let mut upper_edges: Vec<Vec<isize>> = vec![Vec::new(); self.neighbors.len()];
 
-        for (&v, neighbors) in &self.neighbors {
+        for (v, neighbors) in self.neighbors.iter().enumerate() {
             let v_is_lower = self.points[v as usize].0[dim_i] <= lim;
             for &w in neighbors {
                 let w_is_lower = self.points[w as usize].0[dim_i] <= lim;
                 if v_is_lower || w_is_lower {
-                    lower_edges.entry(v).or_default().push(w);
+                    lower_edges[v].push(w);
                 } else {
-                    upper_edges.entry(v).or_default().push(w);
+                    upper_edges[v].push(w);
                 }
             }
         }
@@ -490,25 +490,26 @@ impl VineyardsGridMesh {
         if self.points.len() == 0 {
             return (HashMap::new(), Vec::new());
         }
-        let mut seen_vx = HashSet::new();
+        let mut seen_vx = HashSet::<isize>::new();
 
         // Find a component in the meshgrid that we haven't reached yet.
         // `i0` is any node in this component.
         while let Some(i0) = self
             .neighbors
             .iter()
-            .filter(|(v, _)| !seen_vx.contains(*v))
+            .enumerate()
+            .filter(|(v, _)| !seen_vx.contains(&(*v as isize)))
             .find(|(_, n)| n.len() > 0)
-            .map(|(v, _)| v)
+            .map(|(v, _)| v as isize)
         {
-            seen_vx.insert(*i0);
-            let i0 = Index::fake(*i0);
+            seen_vx.insert(i0);
+            let i0 = Index::fake(i0 as isize);
             let reduction_at_0 = reduce_from_scratch(&complex, self.points[i0.x() as usize], false);
             reductions.insert(i0, reduction_at_0);
 
             let mut stack = self
                 .neighbors
-                .get(&i0.x())
+                .get(i0.x() as usize)
                 .unwrap()
                 .iter()
                 .map(|n| (Index::fake(*n), i0))
@@ -517,7 +518,7 @@ impl VineyardsGridMesh {
             let mut loop_i = 0;
             let num_edges = self
                 .neighbors
-                .values()
+                .iter()
                 .map(|v| v.len() as usize)
                 .sum::<usize>()
                 / 2;
@@ -535,7 +536,7 @@ impl VineyardsGridMesh {
 
                 if !reductions.contains_key(&next) {
                     reductions.insert(next, new_state);
-                    for neighbor in self.neighbors.get(&next.x()).unwrap() {
+                    for neighbor in self.neighbors.get(next.x() as usize).unwrap() {
                         if !seen_vx.contains(neighbor) {
                             stack.push((Index::fake(*neighbor), next));
                         }
@@ -589,10 +590,10 @@ impl VineyardsGridMesh {
             }
         }
 
-        let mut neighbors: HashMap<isize, Vec<isize>> = HashMap::new();
+        let mut neighbors: Vec<Vec<isize>> = vec![Vec::new(); points.len()];
         for (from, to) in edges {
-            neighbors.entry(from).or_default().push(to);
-            neighbors.entry(to).or_default().push(from);
+            neighbors[from as usize].push(to);
+            neighbors[to as usize].push(from);
         }
 
         Ok(Self {
@@ -609,10 +610,10 @@ impl VineyardsGridMesh {
             writeln!(w, "v {} {} {}", pt.x(), pt.y(), pt.z())?;
         }
 
-        for (a, neighs) in &self.neighbors {
+        for (a, neighs) in self.neighbors.iter().enumerate() {
             for b in neighs {
                 // Skip these to avoid double outputting
-                if b < a {
+                if *b < a as isize {
                     continue;
                 }
 

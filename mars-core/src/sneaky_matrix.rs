@@ -340,9 +340,9 @@ impl SneakyMatrix {
         let rr = self.map_r(r);
         for (cc, col) in self.columns.iter().enumerate() {
             // If we don't even have the mapped value, it is for sure not the max under the parm.
-            // if !col.has(rr) {
-            //     continue;
-            // }
+            if !col.has(rr) {
+                continue;
+            }
             if col.max_under(self.row_perm.as_ref()) == Some(rr) {
                 let c = self.inv_c(cc as CI);
                 return Some(c);
