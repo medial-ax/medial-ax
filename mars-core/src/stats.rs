@@ -34,10 +34,10 @@ impl Add for SneakyMatrixMem {
 impl Into<SneakyMatrixMem> for &crate::sneaky_matrix::SneakyMatrix {
     fn into(self) -> SneakyMatrixMem {
         SneakyMatrixMem {
-            column_meta: self.columns.capacity() * std::mem::size_of::<crate::sneaky_matrix::Col>(),
-            column_items: self.columns.iter().map(|v| v.mem_usage()).sum::<usize>(),
-            rows: std::mem::size_of_val(&self.rows),
-            cols: std::mem::size_of_val(&self.cols),
+            column_meta: 0, //self.columns.sta() * std::mem::size_of::<crate::sneaky_matrix::Col>(),
+            column_items: 0, //self.columns.iter().map(|v| v.mem_usage()).sum::<usize>(),
+            rows: std::mem::size_of_val(&self.rows()),
+            cols: std::mem::size_of_val(&self.cols()),
             col_perm: self.col_perm.as_ref().map(|p| p.mem_usage()).unwrap_or(0),
             row_perm: self.col_perm.as_ref().map(|p| p.mem_usage()).unwrap_or(0),
         }

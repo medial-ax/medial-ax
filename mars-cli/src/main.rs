@@ -88,13 +88,28 @@ struct StatsArgs {
 impl StatsArgs {
     fn run(&self) -> Result<()> {
         info!("Read state");
-        let (mars, mut vin): (mars_core::Mars, mars_core::Vineyards) = {
+        let (mars, vin): (mars_core::Mars, mars_core::Vineyards) = {
             let f = std::fs::File::open(&self.state).context("open file")?;
             rmp_serde::from_read(&f).context("rmp read")?
         };
 
+        for (i, r) in vin.reductions.iter().take(10) {
+            for dim in 0..3 {
+                let R = &r.R(dim);
+                let empty = R.count_empty_columns();
+                info!(
+                    "R{} = {:4} by {:4}   {empty} empty ({}%)   {}% filled",
+                    dim,
+                    R.rows(),
+                    R.cols(),
+                    (empty as f64 / R.cols() as f64 * 100.0).round(),
+                    (100.0 * R.fill_ratio()).round()
+                );
+            }
+        }
+
         let vm: mars_core::stats::VineyardsMem = (&vin).into();
-        dbg!(vm);
+        // dbg!(vm);
 
         Ok(())
     }

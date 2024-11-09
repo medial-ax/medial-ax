@@ -9,7 +9,7 @@ use grid::{Index, VineyardsGrid, VineyardsGridMesh};
 use permutation::Permutation;
 use serde::{Deserialize, Serialize};
 use sneaky_matrix::{SneakyMatrix, CI};
-use tracing::{info, trace, warn};
+use tracing::{info, warn};
 
 pub mod complex;
 pub mod grid;
@@ -577,7 +577,7 @@ impl Reduction {
         let mut bettis = vec![0; 3];
         for dim in 0..3 {
             let stack = &self.stacks[dim];
-            for c in 0..stack.R.cols {
+            for c in 0..stack.R.cols() {
                 if stack.R.col_is_empty(c) {
                     bettis[dim] += 1;
                 } else if 0 < dim {
@@ -1060,7 +1060,7 @@ pub fn vineyards_step(
             #[allow(non_snake_case)]
             let R = &reduction.stacks[dim].R;
 
-            for ord_i in 0..R.cols {
+            for ord_i in 0..R.cols() {
                 if R.col_is_not_empty(ord_i) {
                     continue;
                 }
@@ -1134,17 +1134,17 @@ pub fn reduce_from_scratch(complex: &Complex, key_point: Pos, noisy: bool) -> Re
         println!("done");
     }
 
-    let mut V0 = SneakyMatrix::eye(boundary_0.cols);
+    let mut V0 = SneakyMatrix::eye(boundary_0.cols());
     for (target, other) in adds0 {
         V0.add_cols(target, other);
     }
 
-    let mut V1 = SneakyMatrix::eye(boundary_1.cols);
+    let mut V1 = SneakyMatrix::eye(boundary_1.cols());
     for (target, other) in adds1 {
         V1.add_cols(target, other);
     }
 
-    let mut V2 = SneakyMatrix::eye(boundary_2.cols);
+    let mut V2 = SneakyMatrix::eye(boundary_2.cols());
     for (target, other) in adds2 {
         V2.add_cols(target, other);
     }

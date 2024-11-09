@@ -16,17 +16,17 @@ impl Col {
     }
 
     /// Checks if the column contains an entry at the given row.
-    fn has(&self, a: CI) -> bool {
+    pub fn has(&self, a: CI) -> bool {
         self.0.binary_search(&a).is_ok()
     }
 
     /// Checks if the column is empty.
-    fn empty(&self) -> bool {
+    pub fn empty(&self) -> bool {
         self.0.is_empty()
     }
 
-    /// Set the given row.
-    fn set(&mut self, r: CI) {
+    /// Set the given row.  Do nothing if the row is already set.
+    pub fn set(&mut self, r: CI) {
         match self.0.binary_search(&r) {
             Ok(_) => {}
             Err(i) => {
@@ -35,8 +35,8 @@ impl Col {
         }
     }
 
-    /// Clear a row entry.
-    fn unset(&mut self, r: CI) {
+    /// Clear a row entry.  Do nothing if the row is not set.
+    pub fn unset(&mut self, r: CI) {
         match self.0.binary_search(&r) {
             Ok(i) => {
                 self.0.remove(i);
@@ -46,7 +46,7 @@ impl Col {
     }
 
     /// Add in another column in Z/Z2 arithmetic.
-    fn add_mod2(&self, other: &Self) -> Self {
+    pub fn add_mod2(&self, other: &Self) -> Self {
         let mut v = Vec::new();
         let mut i = 0;
         let mut j = 0;
@@ -81,7 +81,7 @@ impl Col {
     ///
     /// Note that the returned (say) row is an `rr`, since we only `max` over the permutation, as
     /// opposed to map the permutation and then max.
-    fn max_under(&self, perm: Option<&Permutation>) -> Option<CI> {
+    pub fn max_under(&self, perm: Option<&Permutation>) -> Option<CI> {
         if let Some(p) = perm {
             self.0.iter().max_by_key(|&&rr| p.inv(rr)).cloned()
         } else {
@@ -101,11 +101,155 @@ impl From<Vec<CI>> for Col {
     }
 }
 
+/// Sparse column storage for a bit matrix.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct Columns {
+    columns: Vec<Col>,
+    rows: CI,
+    cols: CI,
+}
+
+impl Columns {
+    fn new(rows: CI, cols: CI) -> Self {
+        Self {
+            columns: vec![Col::new(); cols as usize],
+            rows,
+            cols,
+        }
+    }
+
+    pub fn eye(n: CI) -> Self {
+        let mut columns = Vec::with_capacity(n as usize);
+        for i in 0..n {
+            let mut v = Vec::with_capacity(1);
+            v.push(i);
+            columns.push(Col(v));
+        }
+        Self {
+            columns,
+            rows: n,
+            cols: n,
+        }
+    }
+
+    fn ncols(&self) -> CI {
+        self.cols
+    }
+
+    fn nrows(&self) -> CI {
+        self.rows
+    }
+
+    fn get(&self, r: CI, c: CI) -> bool {
+        self.columns[c as usize].has(r)
+    }
+
+    fn set(&mut self, r: CI, c: CI, val: bool) {
+        if val {
+            self.columns[c as usize].set(r);
+        } else {
+            self.columns[c as usize].unset(r);
+        }
+    }
+
+    // TODO: do AddAssign instead here
+    fn add_cols(&mut self, c1: CI, c2: CI) {
+        let col_1 = &self.columns[c1 as usize];
+        let col_2 = &self.columns[c2 as usize];
+        let c3 = col_1.add_mod2(col_2);
+        self.columns[c1 as usize] = c3;
+    }
+
+    fn colmax(&self, c: CI, row_perm: Option<&Permutation>) -> Option<CI> {
+        let col = &self.columns[c as usize];
+        col.max_under(row_perm)
+    }
+
+    fn col_with_low(&self, r: CI, row_perm: Option<&Permutation>) -> Option<CI> {
+        for (c, col) in self.columns.iter().enumerate() {
+            // If we don't even have the mapped value, it is for sure not the max under the parm.
+            if !col.has(r) {
+                continue;
+            }
+            if col.max_under(row_perm) == Some(r) {
+                return Some(c as CI);
+            }
+        }
+        None
+    }
+
+    /// Returns all entries that are set as `(row, col)` pairs.
+    fn to_pairs(&self) -> Vec<(CI, CI)> {
+        let mut pairs = Vec::new();
+        for c in 0..self.cols {
+            for r in &self.columns[c as usize].0 {
+                pairs.push((*r, c));
+            }
+        }
+        pairs
+    }
+
+    /// Double the height of the matrix, and initialize the new block to be the identity.
+    fn bottom_pad_with_identity(&mut self) {
+        let rows = self.rows;
+        self.rows *= 2;
+        for i in 0..rows {
+            self.set(rows + i, i, true);
+        }
+    }
+
+    fn col_is_empty(&self, c: CI) -> bool {
+        self.columns[c as usize].empty()
+    }
+
+    fn col_is_not_empty(&self, c: CI) -> bool {
+        !self.col_is_empty(c)
+    }
+
+    fn col_as_vec(&self, c: CI) -> Vec<CI> {
+        self.columns[c as usize].0.clone()
+    }
+
+    fn mem_usage(&self) -> usize {
+        self.columns.iter().map(|c| c.mem_usage()).sum::<usize>()
+            + 2 * std::mem::size_of_val(&self.rows)
+    }
+
+    fn fill_ratio(&self) -> f64 {
+        let max = (self.nrows() * self.ncols()) as f64;
+        let used = self.columns.iter().map(|c| c.0.len() as f64).sum::<f64>();
+        return used / max;
+    }
+}
+
+// /// A bit-buffer for matrix storage.  Each column is stored as a contiguous list of [u64]s.
+// struct BitBuffer {
+//     bits: Vec<u64>,
+//     /// The number of blocks in each column
+//     blocks: usize,
+// }
+//
+// impl BitBuffer {
+//     fn new(rows: CI, cols: CI) -> Self {
+//         let rows = if rows & 64 == 0 {
+//             rows
+//         } else {
+//             (rows & !0b111111) + 64
+//         } as usize;
+//         let bits = vec![0; rows * cols as usize];
+//         Self {
+//             bits,
+//             blocks: rows >> 6,
+//         }
+//     }
+// }
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SneakyMatrix {
-    pub columns: Vec<Col>,
-    pub rows: CI,
-    pub cols: CI,
+    // pub columns: Vec<Col>,
+    // pub rows: CI,
+    // pub cols: CI,
+    columns: Columns,
 
     /// The column permutation.
     pub col_perm: Option<Permutation>,
@@ -115,10 +259,25 @@ pub struct SneakyMatrix {
 
 impl SneakyMatrix {
     pub fn mem_usage(&self) -> usize {
-        self.columns.iter().map(|c| c.mem_usage()).sum::<usize>()
-            + 2 * std::mem::size_of_val(&self.rows)
+        self.columns.mem_usage()
             + self.col_perm.as_ref().map(|p| p.mem_usage()).unwrap_or(0)
             + self.row_perm.as_ref().map(|p| p.mem_usage()).unwrap_or(0)
+    }
+
+    pub fn fill_ratio(&self) -> f64 {
+        self.columns.fill_ratio()
+    }
+
+    pub fn count_empty_columns(&self) -> usize {
+        self.columns.columns.iter().filter(|c| c.empty()).count()
+    }
+
+    pub fn cols(&self) -> CI {
+        self.columns.ncols()
+    }
+
+    pub fn rows(&self) -> CI {
+        self.columns.nrows()
     }
 
     fn map_c(&self, c: CI) -> CI {
@@ -139,17 +298,11 @@ impl SneakyMatrix {
 
     /// Returns all entries that are set as `(row, col)` pairs.
     pub fn to_pairs(&self) -> Vec<(CI, CI)> {
-        let mut pairs = Vec::new();
-        for c in 0..self.cols {
-            let cc = self.map_c(c);
-            for r in 0..self.rows {
-                let rr = self.map_r(r);
-                if self.columns[cc as usize].has(rr) {
-                    pairs.push((r, c));
-                }
-            }
-        }
-        pairs
+        self.columns
+            .to_pairs()
+            .into_iter()
+            .map(|(r, c)| (self.inv_r(r), self.inv_c(c)))
+            .collect()
     }
 
     pub fn from_pairs(pairs: Vec<(CI, CI)>, rows: CI, cols: CI) -> Self {
@@ -165,26 +318,30 @@ impl SneakyMatrix {
         for (r, c) in pairs.iter_mut() {
             std::mem::swap(r, c);
         }
-        Self::from_pairs(pairs, self.rows, self.cols)
+        Self::from_pairs(pairs, self.columns.nrows(), self.columns.ncols())
     }
 
+    /// Double the height of the matrix, and initialize the new block to be the identity.
     pub fn bottom_pad_with_identity(&mut self) {
-        let rows = self.rows;
-        self.rows *= 2;
+        let rows = self.columns.nrows();
+        self.columns.bottom_pad_with_identity();
         if self.row_perm.is_none() {
-            self.row_perm = Some(Permutation::new(self.rows));
+            self.row_perm = Some(Permutation::new(self.columns.nrows()));
         }
-        self.row_perm.as_mut().unwrap().push_n(rows);
+        if let Some(p) = self.row_perm.as_mut() {
+            p.push_n(rows);
+        }
         for i in 0..rows {
             self.set(rows + i, i, true);
         }
     }
 
     pub fn gauss_jordan(&mut self) {
-        for k in 0..self.cols {
+        let cols = self.columns.ncols();
+        for k in 0..cols {
             // Step 1: ensure that (k, k) = 1
             if !self.get(k, k) {
-                let c = (k + 1..self.cols).find(|&kk| self.get(k, kk));
+                let c = (k + 1..cols).find(|&kk| self.get(k, kk));
                 if let Some(c) = c {
                     self.swap_cols(k, c);
                 } else {
@@ -193,7 +350,7 @@ impl SneakyMatrix {
             }
 
             // Step 2: ensure all other columns are zero in the k-th row
-            for c in 0..self.cols {
+            for c in 0..cols {
                 if c == k {
                     continue;
                 }
@@ -206,19 +363,21 @@ impl SneakyMatrix {
 
     pub fn extract_bottom_block_transpose(&self) -> Self {
         let mut pairs = Vec::new();
+        let cols = self.columns.ncols();
+        let rows = self.columns.nrows();
 
-        let r0 = self.rows / 2;
-        for c in 0..self.cols {
+        let r0 = rows / 2;
+        for c in 0..cols {
             let cc = self.map_c(c);
-            for r in r0..self.rows {
+            for r in r0..rows {
                 // NOTE: This is pretty inefficient. Better to loop through the ones that are there and skip the early rows.
                 let rr = self.map_r(r);
-                if self.columns[cc as usize].has(rr) {
+                if self.columns.get(rr, cc) {
                     pairs.push((c, r - r0));
                 }
             }
         }
-        Self::from_pairs(pairs, r0, self.cols)
+        Self::from_pairs(pairs, r0, cols)
     }
 
     pub fn inverse_gauss_jordan(&mut self) -> Self {
@@ -232,50 +391,33 @@ impl SneakyMatrix {
     /// Shuffle around the data of the matrix so that both the row- and column permutation are
     /// identity (i.e. [None]).
     pub fn bake_in_permutations(&mut self) {
-        let mut cols = vec![Col::new(); self.cols as usize];
-        for c in 0..self.cols {
+        let ncols = self.columns.ncols();
+        let mut cols = vec![Col::new(); ncols as usize];
+        for c in 0..ncols {
             let cc = self.map_c(c);
-            let mut col = self.columns[cc as usize].as_vec();
+            let mut col = self.columns.col_as_vec(cc);
             for rr in col.iter_mut() {
                 *rr = self.inv_r(*rr);
             }
             col.sort();
             cols[c as usize] = col.into();
         }
-        self.columns = cols;
+        self.columns.columns = cols;
         self.col_perm = None;
         self.row_perm = None;
     }
-}
 
-impl SneakyMatrix {
     pub fn zeros(rows: CI, cols: CI) -> Self {
-        let mut columns = Vec::with_capacity(cols as usize);
-        for _ in 0..cols {
-            columns.push(Col::new());
-        }
-
         SneakyMatrix {
-            columns,
-            rows,
-            cols,
+            columns: Columns::new(rows, cols),
             col_perm: None,
             row_perm: None,
         }
     }
 
     pub fn eye(n: CI) -> Self {
-        let mut columns = Vec::with_capacity(n as usize);
-        for i in 0..n {
-            let mut v = Vec::with_capacity(1);
-            v.push(i);
-            columns.push(Col(v));
-        }
-
         SneakyMatrix {
-            columns,
-            rows: n,
-            cols: n,
+            columns: Columns::eye(n),
             col_perm: None,
             row_perm: None,
         }
@@ -283,12 +425,14 @@ impl SneakyMatrix {
 
     pub fn __str__(&self) -> String {
         let mut s = String::new();
-        for r in 0..self.rows {
+        let rows = self.columns.nrows();
+        let cols = self.columns.ncols();
+        for r in 0..rows {
             let rr = self.map_r(r);
             s.push('|');
-            for c in 0..self.cols {
+            for c in 0..cols {
                 let cc = self.map_c(c);
-                if self.columns[cc as usize].has(rr) {
+                if self.columns.get(rr, cc) {
                     s.push('×');
                 } else {
                     s.push(' ');
@@ -301,13 +445,13 @@ impl SneakyMatrix {
 
     pub fn swap_rows(&mut self, a: CI, b: CI) {
         self.row_perm
-            .get_or_insert_with(|| Permutation::new(self.rows))
+            .get_or_insert_with(|| Permutation::new(self.columns.nrows()))
             .swap(a, b);
     }
 
     pub fn swap_cols(&mut self, a: CI, b: CI) {
         self.col_perm
-            .get_or_insert_with(|| Permutation::new(self.cols))
+            .get_or_insert_with(|| Permutation::new(self.columns.ncols()))
             .swap(a, b);
     }
 
@@ -320,72 +464,42 @@ impl SneakyMatrix {
     pub fn add_cols(&mut self, c1: CI, c2: CI) {
         let cc1 = self.map_c(c1);
         let cc2 = self.map_c(c2);
-        let col_1 = &self.columns[cc1 as usize];
-        let col_2 = &self.columns[cc2 as usize];
-        let c3 = col_1.add_mod2(col_2);
-        self.columns[cc1 as usize] = c3;
+        self.columns.add_cols(cc1, cc2);
     }
 
     /// Searches for the lowest 1 in the given column. The returned row is under
     /// the row permutation, so it is the "logical" row.
     pub fn colmax(&self, c: CI) -> Option<CI> {
         let cc = self.map_c(c);
-        let col = &self.columns[cc as usize];
-        col.max_under(self.row_perm.as_ref())
+        self.columns
+            .colmax(cc, self.row_perm.as_ref())
             .map(|rr| self.inv_r(rr))
     }
 
     /// Search for the column which lowest one is the given `r`.
     pub fn col_with_low(&self, r: CI) -> Option<CI> {
         let rr = self.map_r(r);
-        for (cc, col) in self.columns.iter().enumerate() {
-            // If we don't even have the mapped value, it is for sure not the max under the parm.
-            if !col.has(rr) {
-                continue;
-            }
-            if col.max_under(self.row_perm.as_ref()) == Some(rr) {
-                let c = self.inv_c(cc as CI);
-                return Some(c);
-            }
-        }
-        None
+        self.columns
+            .col_with_low(rr, self.row_perm.as_ref())
+            .map(|cc| self.inv_c(cc))
     }
 
     /// Return `true` if the column is empty.
     pub fn col_is_empty(&self, c: CI) -> bool {
-        let cc = self.map_c(c);
-        self.columns[cc as usize].empty()
+        self.columns.col_is_empty(self.map_c(c as CI))
     }
 
     /// Return `true` if the column is not empty.
     pub fn col_is_not_empty(&self, c: CI) -> bool {
-        let cc = self.map_c(c);
-        !self.columns[cc as usize].empty()
-    }
-
-    /// `(rows, cols)`
-    pub fn shape(&self) -> (CI, CI) {
-        (self.rows, self.cols)
+        self.columns.col_is_not_empty(self.map_c(c))
     }
 
     pub fn set(&mut self, r: CI, c: CI, val: bool) {
-        let cc = self.map_c(c);
-        let rr = self.map_r(r);
-        if val {
-            self.columns[cc as usize].set(rr);
-        } else {
-            self.columns[cc as usize].unset(rr);
-        }
+        self.columns.set(self.map_r(r), self.map_c(c), val)
     }
 
     pub fn get(&self, r: CI, c: CI) -> bool {
-        let cc = self.map_c(c);
-        let rr = self.map_r(r);
-        self.columns[cc as usize].has(rr)
-    }
-
-    pub fn clone2(&self) -> Self {
-        self.clone()
+        self.columns.get(self.map_r(r), self.map_c(c))
     }
 
     /// Reduces the matrix.
@@ -393,7 +507,7 @@ impl SneakyMatrix {
         // NOTE: it might be faster to reduce a matrix if we have the reduced
         // matrix of the dimension above.
         let mut adds = Vec::new();
-        for c in 0..self.cols {
+        for c in 0..self.columns.ncols() {
             if !self.col_is_not_empty(c) {
                 continue;
             }
