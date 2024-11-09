@@ -1,5 +1,5 @@
 use crate::permutation::Permutation;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Serialize};
 
 pub type CI = i16;
 
@@ -78,6 +78,9 @@ impl Col {
     }
 
     /// Get the lowest 1 in this column, under the permutation.
+    ///
+    /// Note that the returned (say) row is an `rr`, since we only `max` over the permutation, as
+    /// opposed to map the permutation and then max.
     fn max_under(&self, perm: Option<&Permutation>) -> Option<CI> {
         if let Some(p) = perm {
             self.0.iter().max_by_key(|&&rr| p.inv(rr)).cloned()
@@ -97,69 +100,6 @@ impl From<Vec<CI>> for Col {
         Col(v)
     }
 }
-
-// #[derive(Serialize, Deserialize)]
-// /// For more efficient serialization of [SneakyMatrix] we convert it to this type and serialize
-// /// this instead.
-// struct SneakyMatrixSerialized {
-//     pairs: Vec<(CI, CI)>,
-//     rows: CI,
-//     cols: CI,
-// }
-//
-// impl Into<SneakyMatrix> for SneakyMatrixSerialized {
-//     fn into(self) -> SneakyMatrix {
-//         let mut columns = vec![Col::new(); self.cols as usize];
-//         for (r, c) in self.pairs {
-//             columns[c as usize].set(r);
-//         }
-//
-//         SneakyMatrix {
-//             columns,
-//             rows: self.rows,
-//             cols: self.cols,
-//             col_perm: None,
-//             row_perm: None,
-//         }
-//     }
-// }
-//
-// impl Into<SneakyMatrixSerialized> for SneakyMatrix {
-//     fn into(mut self) -> SneakyMatrixSerialized {
-//         let mut pairs = Vec::new();
-//         self.bake_in_permutations();
-//         for (c, col) in self.columns.into_iter().enumerate() {
-//             for r in col.0 {
-//                 pairs.push((r, c as CI));
-//             }
-//         }
-//         SneakyMatrixSerialized {
-//             pairs,
-//             rows: self.rows,
-//             cols: self.cols,
-//         }
-//     }
-// }
-//
-// impl Serialize for SneakyMatrix {
-//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-//     where
-//         S: Serializer,
-//     {
-//         let sms: SneakyMatrixSerialized = self.clone().into();
-//         sms.serialize(serializer)
-//     }
-// }
-//
-// impl<'de> Deserialize<'de> for SneakyMatrix {
-//     fn deserialize<D>(deserializer: D) -> Result<SneakyMatrix, D::Error>
-//     where
-//         D: Deserializer<'de>,
-//     {
-//         let sms = SneakyMatrixSerialized::deserialize(deserializer)?;
-//         Ok(sms.into())
-//     }
-// }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SneakyMatrix {
@@ -399,6 +339,10 @@ impl SneakyMatrix {
     pub fn col_with_low(&self, r: CI) -> Option<CI> {
         let rr = self.map_r(r);
         for (cc, col) in self.columns.iter().enumerate() {
+            // If we don't even have the mapped value, it is for sure not the max under the parm.
+            // if !col.has(rr) {
+            //     continue;
+            // }
             if col.max_under(self.row_perm.as_ref()) == Some(rr) {
                 let c = self.inv_c(cc as CI);
                 return Some(c);

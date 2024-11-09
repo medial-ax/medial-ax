@@ -259,6 +259,38 @@ impl VineyardsGrid {
         (hm, all_swaps)
     }
 
+    /// True if the index is contained in the grid.
+    fn contains(&self, index: &Index) -> bool {
+        let [x, y, z] = index.0;
+        x >= 0
+            && x < self.shape.0[0]
+            && y >= 0
+            && y < self.shape.0[1]
+            && z >= 0
+            && z < self.shape.0[2]
+    }
+
+    /// Iterate over the at most 6 neighbors of a cell.
+    fn iter_neighbors(&self, index: &Index) -> impl Iterator<Item = Index> + '_ {
+        let [x, y, z] = index.0;
+        [
+            Index([x + 1, y, z]),
+            Index([x - 1, y, z]),
+            Index([x, y + 1, z]),
+            Index([x, y - 1, z]),
+            Index([x, y, z + 1]),
+            Index([x, y, z - 1]),
+        ]
+        .into_iter()
+        .filter(|i| self.contains(i))
+    }
+
+    /// Visit each edge of the grid.
+    ///
+    /// The two endpoints of each edge is passed as parameters to `f`.  The first [Index] is a
+    /// potentially new [Index] that we haven't visited before.  The second parameter is the
+    /// [Index] of the vertex that we have visited before, unless it is the very first edge we
+    /// visit.
     pub fn visit_edges<F: FnMut(Index, Option<Index>)>(&self, start: Index, mut f: F) {
         let mut queue = std::collections::VecDeque::new();
         queue.push_back((start, None));
@@ -272,25 +304,7 @@ impl VineyardsGrid {
             f(next, prev);
 
             if !was_visited {
-                for neighbor in [
-                    [next.0[0] + 1, next.0[1], next.0[2]],
-                    [next.0[0] - 1, next.0[1], next.0[2]],
-                    [next.0[0], next.0[1] + 1, next.0[2]],
-                    [next.0[0], next.0[1] - 1, next.0[2]],
-                    [next.0[0], next.0[1], next.0[2] + 1],
-                    [next.0[0], next.0[1], next.0[2] - 1],
-                ]
-                .iter()
-                .filter(|&i| {
-                    i[0] >= 0
-                        && i[0] < self.shape.0[0]
-                        && i[1] >= 0
-                        && i[1] < self.shape.0[1]
-                        && i[2] >= 0
-                        && i[2] < self.shape.0[2]
-                })
-                .map(|&i| Index(i))
-                {
+                for neighbor in self.iter_neighbors(&next) {
                     if !visited.contains(&neighbor) {
                         queue.push_back((neighbor, Some(next)));
                     }
@@ -478,6 +492,8 @@ impl VineyardsGridMesh {
         }
         let mut seen_vx = HashSet::new();
 
+        // Find a component in the meshgrid that we haven't reached yet.
+        // `i0` is any node in this component.
         while let Some(i0) = self
             .neighbors
             .iter()
