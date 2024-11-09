@@ -59,7 +59,7 @@ impl Permutation {
 
     /// Apply the swap to the "end" of the permutation.
     /// ```rust
-    /// # use ma_rs::Permutation;
+    /// # use mars_core::permutation::Permutation;
     /// let mut p = Permutation::new(10);
     /// p.swap(2, 3);
     /// assert_eq!(p.map(0), 0);

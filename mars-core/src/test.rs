@@ -18,6 +18,15 @@ pub fn test_grid_for_cube() -> grid::VineyardsGrid {
     }
 }
 
+pub fn default_pruning_param(dim: usize) -> PruningParam {
+    match dim {
+        0 => default_pruning_param_dim0(),
+        1 => default_pruning_param_dim1(),
+        2 => default_pruning_param_dim2(),
+        _ => panic!("Dimension too high: {}", dim),
+    }
+}
+
 pub fn default_pruning_param_dim0() -> PruningParam {
     PruningParam {
         euclidean: true,

@@ -1577,41 +1577,25 @@ mod tests {
         let complex = test_complex_cube();
         let grid = test_grid_for_cube();
 
-        let state =
-            run_without_prune_inner(Some(grid), None, complex, Default::default(), |_, _, _| {})
-                .unwrap();
+        let mars = Mars {
+            complex: Some(complex),
+            grid: Some(Grid::Regular(grid)),
+        };
 
-        let pruning_params_dim0 = default_pruning_param_dim0();
-        let pruned0 = prune(&state, &pruning_params_dim0, 0, |_, _, _| {});
-        let mut ma0_indices = vec![];
-        for (i, j, swaps) in pruned0 {
-            if swaps.v.len() > 0 {
-                ma0_indices.push((i.min(j), i.max(j)));
-            }
-        }
-        ma0_indices.sort();
-        insta::assert_json_snapshot!(ma0_indices);
+        let no_progress = |_, _| {};
 
-        let pruning_params_dim1 = default_pruning_param_dim1();
-        let pruned1 = prune(&state, &pruning_params_dim1, 1, |_, _, _| {});
-        let mut ma1_indices = vec![];
-        for (i, j, swaps) in pruned1 {
-            if swaps.v.len() > 0 {
-                ma1_indices.push((i.min(j), i.max(j)));
-            }
-        }
-        ma1_indices.sort();
-        insta::assert_json_snapshot!(ma1_indices);
+        let vin = mars.run(&no_progress).expect("failed to run mars");
 
-        let pruning_params_dim2 = default_pruning_param_dim2();
-        let pruned2 = prune(&state, &pruning_params_dim2, 2, |_, _, _| {});
-        let mut ma2_indices = vec![];
-        for (i, j, swaps) in pruned2 {
-            if swaps.v.len() > 0 {
-                ma2_indices.push((i.min(j), i.max(j)));
-            }
+        for dim in 0..3 {
+            let params = default_pruning_param(dim);
+            let pruned = vin.prune_dim(dim, &params, mars.complex.as_ref().unwrap(), no_progress);
+            let mut pairs = pruned
+                .into_iter()
+                .filter(|t| t.2.v.len() > 0)
+                .map(|(i, j, _)| (i.min(j), i.max(j)))
+                .collect::<Vec<_>>();
+            pairs.sort();
+            insta::assert_json_snapshot!(pairs);
         }
-        ma2_indices.sort();
-        insta::assert_json_snapshot!(ma2_indices);
     }
 }
