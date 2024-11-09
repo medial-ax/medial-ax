@@ -189,6 +189,18 @@ impl Columns {
         pairs
     }
 
+    fn from_pairs(rows: CI, cols: CI, pairs: &[(CI, CI)]) -> Self {
+        let mut columns = vec![Col::new(); cols as usize];
+        for &(r, c) in pairs {
+            columns[c as usize].set(r);
+        }
+        Columns {
+            columns,
+            rows,
+            cols,
+        }
+    }
+
     /// Double the height of the matrix, and initialize the new block to be the identity.
     fn bottom_pad_with_identity(&mut self) {
         let rows = self.rows;
@@ -223,7 +235,7 @@ impl Columns {
 }
 
 /// A bit-buffer for matrix storage.  Each column is stored as a contiguous list of [u64]s.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct BitBuffer {
     bits: Vec<u64>,
     /// The number of blocks in each column
@@ -241,6 +253,14 @@ impl BitBuffer {
             blocks: use_rows,
             rows,
         }
+    }
+
+    fn from_pairs(rows: CI, cols: CI, pairs: &[(CI, CI)]) -> Self {
+        let mut bb = BitBuffer::new(rows, cols);
+        for &(r, c) in pairs {
+            bb.set(r, c, true);
+        }
+        bb
     }
 
     fn eye(n: CI) -> Self {
@@ -372,7 +392,7 @@ impl BitBuffer {
         pairs
     }
 
-    fn bottom_pad_with_identity(&mut self) -> Self {
+    fn bottom_pad_with_identity(&mut self) {
         let rows = self.rows;
         let mut next = BitBuffer::new(self.nrows() * 2, self.ncols());
         for (r, c) in self.to_pairs() {
@@ -381,7 +401,7 @@ impl BitBuffer {
         for i in 0..rows {
             next.set(rows + i, i, true);
         }
-        next
+        *self = next;
     }
 
     fn col_is_empty(&self, c: CI) -> bool {
@@ -423,7 +443,7 @@ pub struct SneakyMatrix {
     // pub columns: Vec<Col>,
     // pub rows: CI,
     // pub cols: CI,
-    core: Columns,
+    core: BitBuffer,
 
     /// The column permutation.
     pub col_perm: Option<Permutation>,
@@ -443,7 +463,8 @@ impl SneakyMatrix {
     }
 
     pub fn count_empty_columns(&self) -> usize {
-        self.core.columns.iter().filter(|c| c.empty()).count()
+        todo!();
+        // self.core.count_empty_columns()
     }
 
     pub fn cols(&self) -> CI {
@@ -505,6 +526,7 @@ impl SneakyMatrix {
         if let Some(p) = self.row_perm.as_mut() {
             p.push_n(rows);
         }
+        dbg!(rows, self.core.nrows());
         for i in 0..rows {
             self.set(rows + i, i, true);
         }
@@ -565,25 +587,22 @@ impl SneakyMatrix {
     /// Shuffle around the data of the matrix so that both the row- and column permutation are
     /// identity (i.e. [None]).
     pub fn bake_in_permutations(&mut self) {
-        let ncols = self.core.ncols();
-        let mut cols = vec![Col::new(); ncols as usize];
-        for c in 0..ncols {
-            let cc = self.map_c(c);
-            let mut col = self.core.col_as_vec(cc);
-            for rr in col.iter_mut() {
-                *rr = self.inv_r(*rr);
-            }
-            col.sort();
-            cols[c as usize] = col.into();
-        }
-        self.core.columns = cols;
+        let pairs = self.core.to_pairs();
+        self.core = BitBuffer::from_pairs(
+            self.rows(),
+            self.cols(),
+            &pairs
+                .into_iter()
+                .map(|(rr, cc)| (self.inv_r(rr), self.inv_c(cc)))
+                .collect::<Vec<_>>(),
+        );
         self.col_perm = None;
         self.row_perm = None;
     }
 
     pub fn zeros(rows: CI, cols: CI) -> Self {
         SneakyMatrix {
-            core: Columns::new(rows, cols),
+            core: BitBuffer::new(rows, cols),
             col_perm: None,
             row_perm: None,
         }
@@ -591,7 +610,7 @@ impl SneakyMatrix {
 
     pub fn eye(n: CI) -> Self {
         SneakyMatrix {
-            core: Columns::eye(n),
+            core: BitBuffer::eye(n),
             col_perm: None,
             row_perm: None,
         }
