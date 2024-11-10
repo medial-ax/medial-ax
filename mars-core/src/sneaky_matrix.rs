@@ -718,29 +718,20 @@ impl SneakyMatrix {
         self.core.get(self.map_r(r), self.map_c(c))
     }
 
-    /// Reduces the matrix.
     pub fn reduce(&mut self) -> Vec<(CI, CI)> {
-        // NOTE: it might be faster to reduce a matrix if we have the reduced
-        // matrix of the dimension above.
         let mut adds = Vec::new();
-        for c in 0..self.core.ncols() {
-            if self.col_is_empty(c) {
-                continue;
-            }
+        // Cache for already computd columns. `col_with_low[r] == c` means that `colmax(c) == r`.
+        let mut col_with_low = vec![CI::MAX; self.core.nrows() as usize];
 
-            'outer: loop {
-                let Some(low) = self.colmax(c) else {
+        for c in 0..self.core.ncols() {
+            while let Some(max_in_col) = self.colmax(c) {
+                let col_to_add = col_with_low[max_in_col as usize];
+                if col_to_add == CI::MAX {
+                    col_with_low[max_in_col as usize] = c;
                     break;
-                };
-                for d in 0..c {
-                    let d_low = self.colmax(d);
-                    if d_low == Some(low) {
-                        adds.push((c, d));
-                        self.add_cols(c, d);
-                        continue 'outer;
-                    }
                 }
-                break;
+                adds.push((c, col_to_add));
+                self.add_cols(c, col_to_add);
             }
         }
         adds
