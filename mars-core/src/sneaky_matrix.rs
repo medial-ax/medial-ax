@@ -1,5 +1,6 @@
 use crate::permutation::Permutation;
 use serde::{Deserialize, Serialize};
+use tracing::{info, instrument};
 
 pub type CI = i16;
 
@@ -383,9 +384,14 @@ impl BitBuffer {
         let mut pairs = Vec::new();
         // TODO: fix this, if it's ever slow.
         for c in 0..self.ncols() {
-            for r in 0..self.nrows() {
-                if self.get(r, c) {
+            for bi in 0..self.blocks {
+                let block_start = (64 * bi) as CI;
+                let mut b = self.bits[(c * self.blocks + bi) as usize];
+                while b != 0 {
+                    let z = b.trailing_zeros() as CI;
+                    let r = block_start + z;
                     pairs.push((r, c));
+                    b ^= 1 << z;
                 }
             }
         }
