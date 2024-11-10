@@ -351,7 +351,7 @@ impl BitBuffer {
             while b != 0 {
                 let z = 63 - b.leading_zeros() as CI;
                 let pre_number = block_start + z;
-                let post_number = perm.map(pre_number);
+                let post_number = perm.inv(pre_number);
                 if max < post_number {
                     max = post_number;
                     ret = pre_number;
@@ -732,6 +732,8 @@ impl SneakyMatrix {
 
 #[cfg(test)]
 mod tests {
+    use crate::complex;
+
     use super::*;
 
     #[test]
@@ -1180,5 +1182,25 @@ mod tests {
             insta::assert_snapshot!(boundary.__str__());
             insta::assert_json_snapshot!(adds);
         }
+    }
+
+    #[test]
+    fn snapshot_reduce_with_perm() {
+        let key_point = complex::Pos([0.1, 0.2, 0.3]);
+
+        let complex = crate::test::test_complex_cube();
+        let (v_perm, e_perm, _) = crate::compute_permutations(&complex, key_point);
+        let mut boundary_0 = complex.boundary_matrix(0);
+        boundary_0.col_perm = Some(v_perm.clone());
+        let adds0 = boundary_0.reduce();
+        insta::assert_snapshot!(boundary_0.__str__());
+        insta::assert_json_snapshot!(adds0);
+
+        let mut boundary_1 = complex.boundary_matrix(1);
+        boundary_1.col_perm = Some(e_perm);
+        boundary_1.row_perm = Some(v_perm);
+        let adds1 = boundary_1.reduce();
+        insta::assert_snapshot!(boundary_1.__str__());
+        insta::assert_json_snapshot!(adds1);
     }
 }
