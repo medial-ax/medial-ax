@@ -424,4 +424,13 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn boundary_matrix() {
+        let complex = crate::test::test_complex_cube();
+        for dim in 0..3 {
+            let boundary = complex.boundary_matrix(dim);
+            insta::assert_snapshot!(boundary.__str__());
+        }
+    }
 }

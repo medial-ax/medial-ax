@@ -332,7 +332,7 @@ impl BitBuffer {
                     continue;
                 }
                 let num_offset = (64 * i) as CI;
-                let z = n.trailing_zeros() as CI;
+                let z = 63 - n.leading_zeros() as CI;
                 let number = num_offset + z;
                 return Some(number);
             }
@@ -349,7 +349,7 @@ impl BitBuffer {
 
             let block_start = (64 * i) as CI;
             while b != 0 {
-                let z = b.trailing_zeros() as CI;
+                let z = 63 - b.leading_zeros() as CI;
                 let pre_number = block_start + z;
                 let post_number = perm.map(pre_number);
                 if max < post_number {
@@ -438,12 +438,14 @@ impl BitBuffer {
     }
 }
 
+type Backing = BitBuffer;
+// type Backing = Columns;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SneakyMatrix {
     // pub columns: Vec<Col>,
     // pub rows: CI,
     // pub cols: CI,
-    core: BitBuffer,
+    core: Backing,
 
     /// The column permutation.
     pub col_perm: Option<Permutation>,
@@ -500,9 +502,9 @@ impl SneakyMatrix {
             .collect()
     }
 
-    pub fn from_pairs(pairs: Vec<(CI, CI)>, rows: CI, cols: CI) -> Self {
+    pub fn from_pairs(pairs: &[(CI, CI)], rows: CI, cols: CI) -> Self {
         let mut sm = Self::zeros(rows, cols);
-        for (r, c) in pairs {
+        for &(r, c) in pairs {
             sm.set(r, c, true);
         }
         sm
@@ -513,7 +515,7 @@ impl SneakyMatrix {
         for (r, c) in pairs.iter_mut() {
             std::mem::swap(r, c);
         }
-        Self::from_pairs(pairs, self.core.nrows(), self.core.ncols())
+        Self::from_pairs(&pairs, self.core.nrows(), self.core.ncols())
     }
 
     /// Double the height of the matrix, and initialize the new block to be the identity.
@@ -526,7 +528,6 @@ impl SneakyMatrix {
         if let Some(p) = self.row_perm.as_mut() {
             p.push_n(rows);
         }
-        dbg!(rows, self.core.nrows());
         for i in 0..rows {
             self.set(rows + i, i, true);
         }
@@ -573,7 +574,7 @@ impl SneakyMatrix {
                 }
             }
         }
-        Self::from_pairs(pairs, r0, cols)
+        Self::from_pairs(&pairs, r0, cols)
     }
 
     pub fn inverse_gauss_jordan(&mut self) -> Self {
@@ -588,7 +589,7 @@ impl SneakyMatrix {
     /// identity (i.e. [None]).
     pub fn bake_in_permutations(&mut self) {
         let pairs = self.core.to_pairs();
-        self.core = BitBuffer::from_pairs(
+        self.core = Backing::from_pairs(
             self.rows(),
             self.cols(),
             &pairs
@@ -602,7 +603,7 @@ impl SneakyMatrix {
 
     pub fn zeros(rows: CI, cols: CI) -> Self {
         SneakyMatrix {
-            core: BitBuffer::new(rows, cols),
+            core: Backing::new(rows, cols),
             col_perm: None,
             row_perm: None,
         }
@@ -610,7 +611,7 @@ impl SneakyMatrix {
 
     pub fn eye(n: CI) -> Self {
         SneakyMatrix {
-            core: BitBuffer::eye(n),
+            core: Backing::eye(n),
             col_perm: None,
             row_perm: None,
         }
@@ -701,20 +702,19 @@ impl SneakyMatrix {
         // matrix of the dimension above.
         let mut adds = Vec::new();
         for c in 0..self.core.ncols() {
-            if !self.col_is_not_empty(c) {
+            if self.col_is_empty(c) {
                 continue;
             }
 
             'outer: loop {
-                let low = self.colmax(c);
-                if low.is_none() {
+                let Some(low) = self.colmax(c) else {
                     break;
-                }
-                for cc in 0..c {
-                    let cc_low = self.colmax(cc);
-                    if cc_low == low {
-                        adds.push((c, cc));
-                        self.add_cols(c, cc);
+                };
+                for d in 0..c {
+                    let d_low = self.colmax(d);
+                    if d_low == Some(low) {
+                        adds.push((c, d));
+                        self.add_cols(c, d);
                         continue 'outer;
                     }
                 }
@@ -863,6 +863,43 @@ mod tests {
     }
 
     #[test]
+    fn reduce() {
+        let mut sm =
+            SneakyMatrix::from_pairs(&[(0, 0), (0, 1), (1, 1), (1, 2), (2, 0), (2, 2)], 3, 3);
+        println!("matrix\n{}", sm.__str__());
+
+        sm.reduce();
+        println!("reduced\n{}", sm.__str__());
+        let reduced = SneakyMatrix::from_pairs(&[(0, 0), (0, 1), (1, 1), (2, 0)], 3, 3);
+        assert_eq!(sm.to_pairs(), reduced.to_pairs());
+    }
+
+    #[test]
+    fn colmax() {
+        let mut bb = SneakyMatrix::eye(4);
+        println!("mat\n{}", bb.__str__());
+        for i in 0..4 {
+            assert_eq!(bb.colmax(i), Some(i));
+        }
+        bb.add_cols(0, 1);
+        bb.add_cols(2, 0);
+        bb.add_cols(1, 3);
+        // |× × |
+        // |××× |
+        // |  × |
+        // | × ×|
+
+        println!("mat\n{}", bb.__str__());
+        println!("col {:?}", bb.col_perm);
+        println!("row {:?}", bb.row_perm);
+        println!("core\n{:?}", bb.core);
+        assert_eq!(bb.colmax(0), Some(1));
+        assert_eq!(bb.colmax(1), Some(3));
+        assert_eq!(bb.colmax(2), Some(2));
+        assert_eq!(bb.colmax(3), Some(3));
+    }
+
+    #[test]
     fn gaussian_elimination() {
         let mut sm = SneakyMatrix::zeros(3, 3);
         sm.set(0, 0, false);
@@ -877,7 +914,7 @@ mod tests {
         sm.set(2, 1, true);
         sm.set(2, 2, false);
 
-        let answer = SneakyMatrix::from_pairs(vec![(0, 1), (0, 2), (1, 2), (2, 0), (2, 2)], 3, 3);
+        let answer = SneakyMatrix::from_pairs(&[(0, 1), (0, 2), (1, 2), (2, 0), (2, 2)], 3, 3);
 
         println!("matrix:");
         println!("{}\n", sm.__str__());
@@ -1132,5 +1169,16 @@ mod tests {
         assert_eq!(bb.col_as_vec(0), &[0]);
         assert_eq!(bb.col_as_vec(1), &[1]);
         assert_eq!(bb.col_as_vec(2), &[2]);
+    }
+
+    #[test]
+    fn snapshot_reduce() {
+        let complex = crate::test::test_complex_cube();
+        for dim in 0..3 {
+            let mut boundary = complex.boundary_matrix(dim);
+            let adds = boundary.reduce();
+            insta::assert_snapshot!(boundary.__str__());
+            insta::assert_json_snapshot!(adds);
+        }
     }
 }

@@ -1573,23 +1573,23 @@ mod tests {
     use crate::test::*;
 
     #[test]
-    fn snapshot_grid_reductions() {
+    fn snapshot_grid_reduction_matrices() {
         let complex = test_complex_cube();
 
-        let pt = complex::Pos([0.0, 0.0, 0.0]);
-        let mut reduction = reduce_from_scratch(&complex, pt, false);
-        reduction.bake_all_matrices();
-        insta::assert_json_snapshot!(reduction);
+        fn test(complex: &Complex, pos: complex::Pos) {
+            let mut reduction = reduce_from_scratch(complex, pos, false);
+            reduction.bake_all_matrices();
 
-        let pt = complex::Pos([0.1, 0.2, 0.3]);
-        let mut reduction = reduce_from_scratch(&complex, pt, false);
-        reduction.bake_all_matrices();
-        insta::assert_json_snapshot!(reduction);
+            for dim in 0..3 {
+                insta::assert_snapshot!(reduction.D(dim).__str__());
+                insta::assert_snapshot!(reduction.R(dim).__str__());
+                insta::assert_snapshot!(reduction.U_t(dim).__str__());
+            }
+        }
 
-        let pt = complex::Pos([0.0, -0.5, 0.25]);
-        let mut reduction = reduce_from_scratch(&complex, pt, false);
-        reduction.bake_all_matrices();
-        insta::assert_json_snapshot!(reduction);
+        test(&complex, complex::Pos([0.0, 0.0, 0.0]));
+        test(&complex, complex::Pos([0.1, 0.2, 0.3]));
+        test(&complex, complex::Pos([0.0, -0.5, 0.25]));
     }
 
     #[test]
