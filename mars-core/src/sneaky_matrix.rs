@@ -240,14 +240,16 @@ impl Columns {
 struct BitBuffer {
     bits: Vec<u64>,
     /// The number of blocks in each column
-    blocks: CI,
+    blocks: u32,
 
     rows: CI,
 }
 
 impl BitBuffer {
     fn new(rows: CI, cols: CI) -> Self {
-        let use_rows = (rows >> 6) + if rows & 63 == 0 { 0 } else { 1 };
+        assert!(0 <= rows, "rows must be non-negative");
+        assert!(0 <= cols, "rows must be non-negative");
+        let use_rows = (rows >> 6) as u32 + if rows & 63 == 0 { 0 } else { 1 };
         let bits = vec![0; use_rows as usize * cols as usize];
         Self {
             bits,
@@ -265,6 +267,7 @@ impl BitBuffer {
     }
 
     fn eye(n: CI) -> Self {
+        assert!(0 <= n, "dimension must be non-negative");
         let mut b = Self::new(n, n);
         for i in 0..n {
             b.set(i, i, true);
@@ -276,7 +279,7 @@ impl BitBuffer {
         if self.blocks == 0 {
             0
         } else {
-            self.bits.len() as CI / self.blocks
+            (self.bits.len() / self.blocks as usize) as CI
         }
     }
 
@@ -284,51 +287,57 @@ impl BitBuffer {
         self.rows
     }
 
-    fn get_index_offset(&self, r: CI, c: CI) -> (CI, CI) {
-        let rblock = r >> 6;
-        let rindex = r & 63;
-        let col_offset = self.blocks * c;
-        (rindex, col_offset + rblock)
+    /// Compute the bit-offset and block index for the entry of a row, column pair.
+    fn get_index_offset(&self, r: CI, c: CI) -> (usize, usize) {
+        let bit_in_block = (r & 63) as usize;
+        let block_i = r >> 6;
+        let block = self.first_block(c) + block_i as usize;
+        (bit_in_block, block)
     }
 
     fn get(&self, r: CI, c: CI) -> bool {
         let (ind, off) = self.get_index_offset(r, c);
-        let block = self.bits[off as usize];
+        let block = self.bits[off];
         (block & (1 << ind)) != 0
     }
 
     fn set(&mut self, r: CI, c: CI, val: bool) {
         let (ind, off) = self.get_index_offset(r, c);
         if val {
-            self.bits[off as usize] |= 1 << ind;
+            self.bits[off] |= 1 << ind;
         } else {
-            self.bits[off as usize] &= !(1 << ind);
+            self.bits[off] &= !(1 << ind);
         }
+    }
+
+    /// Get the index of the first block for a column
+    fn first_block(&self, c: CI) -> usize {
+        self.blocks as usize * c as usize
     }
 
     fn add_cols(&mut self, c1: CI, c2: CI) {
         if c1 == c2 {
             // Adding a column to itself clears it.
-            let off1 = self.blocks * c1;
+            let off1 = self.first_block(c1);
             for i in 0..self.blocks {
-                self.bits[(off1 + i) as usize] = 0;
+                self.bits[off1 + i as usize] = 0;
             }
             return;
         }
 
-        let off1 = self.blocks * c1;
-        let off2 = self.blocks * c2;
+        let off1 = self.first_block(c1);
+        let off2 = self.first_block(c2);
 
         for i in 0..self.blocks {
-            self.bits[(off1 + i) as usize] ^= self.bits[(off2 + i) as usize];
+            self.bits[off1 + i as usize] ^= self.bits[off2 + i as usize];
         }
     }
 
     fn colmax(&self, c: CI, row_perm: Option<&Permutation>) -> Option<CI> {
         if row_perm.is_none() {
-            let off = self.blocks * c;
+            let off = self.first_block(c);
             for i in (0..self.blocks).rev() {
-                let n = self.bits[(off + i) as usize];
+                let n = self.bits[off + i as usize];
                 if n == 0 {
                     continue;
                 }
@@ -344,9 +353,9 @@ impl BitBuffer {
         let mut max: CI = -1;
         let mut ret: CI = -1;
 
-        let off = self.blocks * c;
+        let off = self.first_block(c);
         for i in 0..self.blocks {
-            let mut b = self.bits[(off + i) as usize];
+            let mut b = self.bits[off + i as usize];
 
             let block_start = (64 * i) as CI;
             while b != 0 {
@@ -382,11 +391,10 @@ impl BitBuffer {
 
     fn to_pairs(&self) -> Vec<(CI, CI)> {
         let mut pairs = Vec::new();
-        // TODO: fix this, if it's ever slow.
         for c in 0..self.ncols() {
             for bi in 0..self.blocks {
                 let block_start = (64 * bi) as CI;
-                let mut b = self.bits[(c * self.blocks + bi) as usize];
+                let mut b = self.bits[self.first_block(c) + bi as usize];
                 while b != 0 {
                     let z = b.trailing_zeros() as CI;
                     let r = block_start + z;
@@ -400,7 +408,12 @@ impl BitBuffer {
 
     fn bottom_pad_with_identity(&mut self) {
         let rows = self.rows;
-        let mut next = BitBuffer::new(self.nrows() * 2, self.ncols());
+        let mut next = BitBuffer::new(
+            self.nrows()
+                .checked_mul(2)
+                .expect("bottom_pad_with_identity: overflow when doubling matrix"),
+            self.ncols(),
+        );
         for (r, c) in self.to_pairs() {
             next.set(r, c, true);
         }
@@ -411,9 +424,9 @@ impl BitBuffer {
     }
 
     fn col_is_empty(&self, c: CI) -> bool {
-        let off = self.blocks * c;
+        let off = self.first_block(c);
         for i in 0..self.blocks {
-            let b = self.bits[(off + i) as usize];
+            let b = self.bits[off + i as usize];
             if b != 0 {
                 return false;
             }
@@ -608,6 +621,8 @@ impl SneakyMatrix {
     }
 
     pub fn zeros(rows: CI, cols: CI) -> Self {
+        assert!(0 <= rows, "rows must be non-negative");
+        assert!(0 <= cols, "rows must be non-negative");
         SneakyMatrix {
             core: Backing::new(rows, cols),
             col_perm: None,
@@ -616,6 +631,7 @@ impl SneakyMatrix {
     }
 
     pub fn eye(n: CI) -> Self {
+        assert!(0 <= n, "dimension must be non-negative");
         SneakyMatrix {
             core: Backing::eye(n),
             col_perm: None,

@@ -154,13 +154,27 @@ impl Complex {
 
     /// Returns a [SneakyMatrix] of the boundary map from dimension `dim` to `dim - 1`.
     pub fn boundary_matrix(&self, dim: isize) -> SneakyMatrix {
-        assert!(dim >= 0);
+        assert!(0 <= dim);
         let n = self.num_simplices_of_dim(dim);
         let m = self.num_simplices_of_dim(dim - 1);
+        assert!(
+            n < CI::MAX as usize,
+            "Too many simplices of dim {}: {} < {}",
+            dim,
+            n,
+            CI::MAX
+        );
+        assert!(
+            m < CI::MAX as usize,
+            "Too many simplices of dim {}: {} < {}",
+            dim - 1,
+            m,
+            CI::MAX
+        );
         let mut sm = SneakyMatrix::zeros(m as CI, n as CI);
         for s in self.simplices_per_dim[dim as usize].iter() {
             for j in &s.boundary {
-                sm.set(*j as CI, s.id, true);
+                sm.set((*j) as CI, s.id, true);
             }
         }
         sm
@@ -225,6 +239,12 @@ impl Complex {
                     .ok_or("missing field".to_string())
                     .and_then(|n| n.parse::<f64>().map_err(|e| e.to_string()))?;
                 let coords = Pos([x, y, z]);
+                assert!(
+                    vertices.len() <= CI::MAX as usize,
+                    "Too many vertices in input complex (got {}, max {})",
+                    vertices.len(),
+                    CI::MAX
+                );
                 vertices.push(Simplex {
                     id: vertices.len() as CI,
                     coords: Some(coords),
@@ -248,6 +268,12 @@ impl Complex {
                     .and_then(|n| n.parse::<CI>().map_err(|e| e.to_string()))?
                     - 1; // NOTE: .obj is 1-indexed
 
+                assert!(
+                    edges.len() <= CI::MAX as usize,
+                    "Too many edges in input complex (got {}, max {})",
+                    edges.len(),
+                    CI::MAX
+                );
                 let id = edges.len() as CI;
 
                 let (a, b) = (a.min(b), a.max(b));
@@ -286,6 +312,12 @@ impl Complex {
                     .and_then(|n| n.parse::<CI>().map_err(|e| e.to_string()))?
                     - 1;
 
+                assert!(
+                    triangles.len() <= CI::MAX as usize,
+                    "Too many triangles in input complex (got {}, max {})",
+                    triangles.len(),
+                    CI::MAX
+                );
                 triangles.push(Simplex {
                     id: triangles.len() as CI,
                     coords: None,
