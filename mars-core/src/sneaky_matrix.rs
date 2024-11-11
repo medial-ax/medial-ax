@@ -453,7 +453,10 @@ impl BitBuffer {
     }
 
     fn fill_ratio(&self) -> f64 {
-        todo!()
+        let ones = self.bits.iter().map(|b| b.count_ones()).sum::<u32>();
+        let size = self.nrows() as usize * self.ncols() as usize;
+        dbg!(ones, size);
+        ones as f64 / size as f64
     }
 }
 
@@ -484,8 +487,9 @@ impl SneakyMatrix {
     }
 
     pub fn count_empty_columns(&self) -> usize {
-        todo!();
-        // self.core.count_empty_columns()
+        (0..self.cols())
+            .filter(|c| self.core.col_is_empty(*c))
+            .count()
     }
 
     pub fn cols(&self) -> CI {

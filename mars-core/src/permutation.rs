@@ -95,14 +95,7 @@ impl Permutation {
         v.sort_by_key(|&(_, e)| e);
 
         let forwards = v.iter().map(|&(i, _)| i as CI).collect::<Vec<CI>>();
-        let mut backwards: Vec<CI> = vec![0; forwards.len()];
-        for (i, &f) in forwards.iter().enumerate() {
-            backwards[f as usize] = i as CI;
-        }
-        Permutation {
-            forwards,
-            backwards,
-        }
+        Permutation::from_forwards(forwards)
     }
 
     pub fn into_forwards(self) -> Vec<CI> {

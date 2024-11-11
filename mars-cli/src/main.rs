@@ -1,6 +1,9 @@
 use anyhow::{anyhow, bail, Context, Result};
 use mars_core::{complex::Complex, grid::VineyardsGridMesh, Grid, PruningParam};
-use std::{io::Write, path::PathBuf};
+use std::{
+    io::{BufReader, Write},
+    path::PathBuf,
+};
 use tracing::{error, info, Level};
 use tracing_subscriber::FmtSubscriber;
 
@@ -90,7 +93,8 @@ impl StatsArgs {
         info!("Read state");
         let (mars, vin): (mars_core::Mars, mars_core::Vineyards) = {
             let f = std::fs::File::open(&self.state).context("open file")?;
-            rmp_serde::from_read(&f).context("rmp read")?
+            let mut reader = BufReader::new(f);
+            rmp_serde::from_read(&mut reader).context("rmp read")?
         };
 
         for (i, r) in vin.reductions.iter().take(10) {
@@ -98,7 +102,7 @@ impl StatsArgs {
                 let R = &r.R(dim);
                 let empty = R.count_empty_columns();
                 info!(
-                    "R{} = {:4} by {:4}   {empty} empty ({}%)   {}% filled",
+                    "R{} = {:4} by {:4}   {empty} empty ({:.2}%)   {:.2}% filled",
                     dim,
                     R.rows(),
                     R.cols(),
@@ -287,8 +291,9 @@ impl PruneArgs {
     fn run(&self) -> Result<()> {
         info!("Read parameters");
         let params = if let Some(ref p) = self.params {
-            let mut f = std::fs::File::open(p).context("open file")?;
-            serde_json::from_reader(&mut f).context("read prune param file")?
+            let f = std::fs::File::open(p).context("open file")?;
+            let mut reader = BufReader::new(f);
+            serde_json::from_reader(&mut reader).context("rmp read")?
         } else {
             default_pruning_params()
         };
@@ -296,7 +301,8 @@ impl PruneArgs {
         info!("Read state");
         let (mars, mut vin): (mars_core::Mars, mars_core::Vineyards) = {
             let f = std::fs::File::open(&self.state_path).context("open file")?;
-            rmp_serde::from_read(&f).context("rmp read")?
+            let mut reader = BufReader::new(f);
+            rmp_serde::from_read(&mut reader).context("rmp read")?
         };
 
         let complex = mars
@@ -447,10 +453,12 @@ fn run(args: &RunArgs) -> Result<()> {
     if let Some(ref path) = args.output_path {
         let mut f = std::fs::File::create(path).context("create output file")?;
         f.write_all(&output_bytes).context("write to output file")?;
+        info!("Wrote output to {}", path.display());
     } else {
         std::io::stdout()
             .write_all(&output_bytes)
             .context("write to stdout")?;
+        info!("Wrote output to stdout");
     }
 
     Ok(())
