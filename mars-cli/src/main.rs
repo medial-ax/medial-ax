@@ -1,5 +1,10 @@
 use anyhow::{anyhow, bail, Context, Result};
-use mars_core::{complex::Complex, grid::VineyardsGridMesh, Grid, PruningParam};
+use mars_core::{
+    complex::Complex,
+    grid::VineyardsGridMesh,
+    stats::{MarsMem, ReductionMem},
+    Grid, PruningParam,
+};
 use std::{
     io::{BufReader, Write},
     path::PathBuf,
@@ -97,6 +102,9 @@ impl StatsArgs {
             rmp_serde::from_read(&mut reader).context("rmp read")?
         };
 
+        let mm: MarsMem = (&mars).into();
+        info!("{:?}", mm);
+
         for (i, r) in vin.reductions.iter().take(10) {
             for dim in 0..3 {
                 let R = &r.R(dim);
@@ -113,6 +121,17 @@ impl StatsArgs {
         }
 
         let vm: mars_core::stats::VineyardsMem = (&vin).into();
+        let rm = vm
+            .reductions
+            .into_iter()
+            .map(|(i, r)| (size_of_val(&i), r))
+            .fold((0, ReductionMem::default()), |(i, r), (ii, rr)| {
+                (i + ii, r + rr)
+            });
+        info!(rm=?rm);
+        for dim in 0..3 {
+            info!(dim = dim, "swaps: {:>10}", vm.swaps[dim]);
+        }
         // dbg!(vm);
 
         Ok(())

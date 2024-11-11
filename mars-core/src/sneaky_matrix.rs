@@ -103,8 +103,8 @@ impl From<Vec<CI>> for Col {
 }
 
 /// Sparse column storage for a bit matrix.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct Columns {
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub(crate) struct Columns {
     columns: Vec<Col>,
     rows: CI,
     cols: CI,
@@ -223,7 +223,7 @@ impl Columns {
         self.columns[c as usize].0.clone()
     }
 
-    fn mem_usage(&self) -> usize {
+    pub(crate) fn mem_usage(&self) -> usize {
         self.columns.iter().map(|c| c.mem_usage()).sum::<usize>()
             + 2 * std::mem::size_of_val(&self.rows)
     }
@@ -235,9 +235,39 @@ impl Columns {
     }
 }
 
+// impl Serialize for Columns {
+//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+//     where
+//         S: serde::Serializer,
+//     {
+//         let v = self
+//             .columns
+//             .iter()
+//             .zip(0..self.ncols())
+//             .filter(|(c, _)| !c.empty())
+//             .map(|(c, i)| (i, c.clone()))
+//             .collect::<Vec<(CI, Col)>>();
+//         (self.rows, self.cols, v).serialize(serializer)
+//     }
+// }
+//
+// impl<'de> Deserialize<'de> for Columns {
+//     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+//     where
+//         D: serde::Deserializer<'de>,
+//     {
+//         let (rows, cols, v) = <(CI, CI, Vec<(CI, Col)>)>::deserialize(deserializer)?;
+//         let mut cols = Columns::new(rows, cols);
+//         for (c, col) in v {
+//             cols.columns[c as usize] = col;
+//         }
+//         Ok(cols)
+//     }
+// }
+
 /// A bit-buffer for matrix storage.  Each column is stored as a contiguous list of [u64]s.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct BitBuffer {
+pub(crate) struct BitBuffer {
     bits: Vec<u64>,
     /// The number of blocks in each column
     blocks: u32,
@@ -448,8 +478,8 @@ impl BitBuffer {
         v
     }
 
-    fn mem_usage(&self) -> usize {
-        self.bits.capacity() * 64
+    pub fn mem_usage(&self) -> usize {
+        self.bits.capacity() * 64 + size_of_val(self)
     }
 
     fn fill_ratio(&self) -> f64 {
@@ -460,14 +490,14 @@ impl BitBuffer {
     }
 }
 
-type Backing = BitBuffer;
-// type Backing = Columns;
+// type Backing = BitBuffer;
+type Backing = Columns;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SneakyMatrix {
     // pub columns: Vec<Col>,
     // pub rows: CI,
     // pub cols: CI,
-    core: Backing,
+    pub(crate) core: Backing,
 
     /// The column permutation.
     pub col_perm: Option<Permutation>,

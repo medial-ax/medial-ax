@@ -2,10 +2,28 @@ use serde::{Deserialize, Serialize};
 
 use crate::sneaky_matrix::CI;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct Permutation {
     forwards: Vec<CI>,
     backwards: Vec<CI>,
+}
+
+impl Serialize for Permutation {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.forwards.serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for Permutation {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Vec::<CI>::deserialize(deserializer).map(Permutation::from_forwards)
+    }
 }
 
 impl Permutation {

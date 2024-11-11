@@ -1,13 +1,10 @@
 use std::{collections::HashMap, ops::Add};
 
-#[derive(Debug, Default)]
+use crate::{complex, sneaky_matrix::CI, Grid, Mars};
+
+#[derive(Debug, Default, Clone)]
 pub struct SneakyMatrixMem {
-    /// The size of the [Col] objects, as stored in [SneakyMatrix::columns].
-    /// This includes the pointers, the capacity counts, etc. for all columns.
-    pub column_meta: usize,
-    /// The size of the [Vec]s in [Col].
-    /// These are just the indices stored in the column.
-    pub column_items: usize,
+    pub core: usize,
     /// Size of the field rows
     pub rows: usize,
     pub cols: usize,
@@ -21,8 +18,7 @@ impl Add for SneakyMatrixMem {
 
     fn add(self, rhs: Self) -> Self::Output {
         Self {
-            column_meta: self.column_meta + rhs.column_meta,
-            column_items: self.column_items + rhs.column_items,
+            core: self.core + rhs.core,
             rows: self.rows + rhs.rows,
             cols: self.cols + rhs.cols,
             col_perm: self.col_perm + rhs.col_perm,
@@ -34,8 +30,7 @@ impl Add for SneakyMatrixMem {
 impl Into<SneakyMatrixMem> for &crate::sneaky_matrix::SneakyMatrix {
     fn into(self) -> SneakyMatrixMem {
         SneakyMatrixMem {
-            column_meta: 0, //self.columns.sta() * std::mem::size_of::<crate::sneaky_matrix::Col>(),
-            column_items: 0, //self.columns.iter().map(|v| v.mem_usage()).sum::<usize>(),
+            core: self.core.mem_usage(),
             rows: std::mem::size_of_val(&self.rows()),
             cols: std::mem::size_of_val(&self.cols()),
             col_perm: self.col_perm.as_ref().map(|p| p.mem_usage()).unwrap_or(0),
@@ -44,7 +39,7 @@ impl Into<SneakyMatrixMem> for &crate::sneaky_matrix::SneakyMatrix {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 #[allow(non_snake_case)]
 pub struct StackMem {
     pub D: SneakyMatrixMem,
@@ -95,6 +90,20 @@ pub struct ReductionMem {
     pub stacks: [StackMem; 3],
 }
 
+impl Add for ReductionMem {
+    type Output = ReductionMem;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Self {
+            stacks: [
+                self.stacks[0].clone() + rhs.stacks[0].clone(),
+                self.stacks[1].clone() + rhs.stacks[1].clone(),
+                self.stacks[2].clone() + rhs.stacks[2].clone(),
+            ],
+        }
+    }
+}
+
 impl Into<ReductionMem> for &crate::Reduction {
     fn into(self) -> ReductionMem {
         ReductionMem {
@@ -135,8 +144,8 @@ impl std::iter::Sum for SwapsMem {
 
 #[derive(Debug, Default)]
 pub struct VineyardsMem {
-    reductions: HashMap<crate::Index, ReductionMem>,
-    swaps: [usize; 3],
+    pub reductions: HashMap<crate::Index, ReductionMem>,
+    pub swaps: [usize; 3],
 }
 
 impl Into<VineyardsMem> for &crate::Vineyards {
@@ -161,6 +170,65 @@ impl Into<VineyardsMem> for &crate::Vineyards {
                     .map(|(_, _, v)| Into::<SwapsMem>::into(v).v)
                     .sum::<usize>(),
             ],
+        }
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct MarsMem {
+    pub complex: Option<ComplexMem>,
+    pub grid: Option<GridMem>,
+}
+impl Into<MarsMem> for &Mars {
+    fn into(self) -> MarsMem {
+        MarsMem {
+            complex: self.complex.as_ref().map(|c| c.into()),
+            grid: self.grid.as_ref().map(|c| c.into()),
+        }
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct ComplexMem {
+    simplices_per_dim: Vec<usize>,
+}
+
+impl Into<ComplexMem> for &complex::Complex {
+    fn into(self) -> ComplexMem {
+        ComplexMem {
+            simplices_per_dim: self
+                .simplices_per_dim
+                .iter()
+                .map(|v| {
+                    v.iter()
+                        .map(|s| {
+                            size_of::<complex::Simplex>() + s.boundary.capacity() * size_of::<CI>()
+                        })
+                        .sum()
+                })
+                .collect(),
+        }
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct GridMem {
+    points: usize,
+    neighbors: usize,
+}
+
+impl Into<GridMem> for &Grid {
+    fn into(self) -> GridMem {
+        match self {
+            Grid::Regular(_) => GridMem::default(),
+            Grid::Mesh(g) => GridMem {
+                points: g.points.capacity() * size_of::<CI>(),
+                neighbors: g
+                    .neighbors
+                    .iter()
+                    .map(|n| n.capacity() * size_of::<CI>())
+                    .sum(),
+            },
         }
     }
 }
