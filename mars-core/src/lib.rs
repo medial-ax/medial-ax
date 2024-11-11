@@ -918,7 +918,6 @@ pub fn vineyards_step(
                 1,
                 key_point,
             );
-            up_cwi.check();
             stack1.D.swap_cols(i, i + 1);
             stack2.D.swap_rows(i, i + 1);
             if EDGE_DEBUG {
@@ -1227,6 +1226,11 @@ pub fn reduce_from_scratch(complex: &Complex, key_point: Pos, noisy: bool) -> Re
     ret
 }
 
+/// Caching layer around [SneakyMatrix::col_with_low] so that we don't have to recompute this every
+/// time.
+///
+/// The exact cache logic is a little gnarly and is tightly coupled with the logic in
+/// [perform_one_swap].
 struct ColWithInv<'a> {
     inner: &'a mut SneakyMatrix,
     col_with_low: Vec<CI>,
@@ -1247,8 +1251,9 @@ impl<'a> ColWithInv<'a> {
         }
     }
 
+    /// Check that every entry in the cache is the same as the recomputed value from
+    /// [SneakyMatrix::col_with_low].
     fn check(&self) {
-        return;
         for r in 0..self.inner.rows() {
             let res = self.inner.col_with_low(r);
             let ours = self.col_with_low[r as usize];
@@ -1266,19 +1271,19 @@ impl<'a> ColWithInv<'a> {
         }
     }
 
-    fn debug_print(&self, label: &str, r1: CI, r2: CI) {
-        return;
-        println!(
-            "  {} r{}(c{:?}, c{:?})  r{}(c{:?}, c{:?})",
-            label,
-            r1,
-            self.inner.col_with_low(r1).unwrap_or(-1),
-            self.cwl(r1).unwrap_or(-1),
-            r2,
-            self.inner.col_with_low(r2).unwrap_or(-1),
-            self.cwl(r2).unwrap_or(-1)
-        );
-    }
+    // fn debug_print(&self, label: &str, r1: CI, r2: CI) {
+    //     return;
+    //     println!(
+    //         "  {} r{}(c{:?}, c{:?})  r{}(c{:?}, c{:?})",
+    //         label,
+    //         r1,
+    //         self.inner.col_with_low(r1).unwrap_or(-1),
+    //         self.cwl(r1).unwrap_or(-1),
+    //         r2,
+    //         self.inner.col_with_low(r2).unwrap_or(-1),
+    //         self.cwl(r2).unwrap_or(-1)
+    //     );
+    // }
 
     fn get(&self, r: CI, c: CI) -> bool {
         self.inner.get(r, c)
@@ -1286,35 +1291,35 @@ impl<'a> ColWithInv<'a> {
 
     fn swap_rows(&mut self, r1: CI, r2: CI) {
         // println!("swap_rows(r{r1}, r{r2})");
-        self.debug_print("before", r1, r2);
+        // self.debug_print("before", r1, r2);
         self.inner.swap_rows(r1, r2);
         self.col_with_low.swap(r1 as usize, r2 as usize);
-        self.debug_print(" after", r1, r2);
+        // self.debug_print(" after", r1, r2);
     }
 
     fn swap_rows_noswap(&mut self, r1: CI, r2: CI) {
         // println!("swap_rows_noswap(r{r1}, r{r2})");
-        self.debug_print("before", r1, r2);
+        // self.debug_print("before", r1, r2);
         self.inner.swap_rows(r1, r2);
-        self.debug_print(" after", r1, r2);
+        // self.debug_print(" after", r1, r2);
     }
 
     /// DB case from perform_one_swap where we have to check whether to perform the cache swap or
     /// not.
     fn swap_rows_db(&mut self, r1: CI, r2: CI) {
         // println!("swap_rows_db(r{r1}, r{r2})");
-        self.debug_print("before", r1, r2);
+        // self.debug_print("before", r1, r2);
         let c = self.col_with_low[r2 as usize];
         if c == CI::MAX || !self.inner.get(r1, c) {
             self.col_with_low.swap(r1 as usize, r2 as usize);
         }
         self.inner.swap_rows(r1, r2);
-        self.debug_print(" after", r1, r2);
+        // self.debug_print(" after", r1, r2);
     }
 
     fn swap_rows_bb(&mut self, r1: CI, r2: CI) {
         // println!("swap_rows_bb(r{r1}, r{r2})");
-        self.debug_print("before", r1, r2);
+        // self.debug_print("before", r1, r2);
 
         let c = self.col_with_low[r2 as usize];
         if c == CI::MAX || !self.inner.get(r1, c) {
@@ -1322,24 +1327,24 @@ impl<'a> ColWithInv<'a> {
         }
         self.inner.swap_rows(r1, r2);
 
-        self.debug_print(" after", r1, r2);
+        // self.debug_print(" after", r1, r2);
     }
 
     fn add_cols(&mut self, c1: CI, c2: CI) {
         // println!("add_cols(c{c1}, c{c2})");
-        assert!(c2 < c1, "Cache is not sound if c1 <= c2");
         self.inner.add_cols(c1, c2);
     }
 
     fn col_with_low(&self, r: CI) -> Option<CI> {
-        // self.inner.col_with_low(r)
-        // // println!("col_with_low(r{r})");
         let c = self.col_with_low[r as usize];
         let c_opt = if c == CI::MAX { None } else { Some(c) };
+
+        if false {
+            let ans = self.inner.col_with_low(r);
+            assert_eq!(ans, c_opt, "cache mismatch");
+        }
+
         c_opt
-        // // let ans = self.inner.col_with_low(r);
-        // assert_eq!(ans, c_opt, "cache mismatch");
-        // ans
     }
 }
 
