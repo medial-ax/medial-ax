@@ -2,6 +2,7 @@
 use std::{
     collections::{HashMap, HashSet},
     iter::zip,
+    sync::atomic::{AtomicUsize, Ordering},
 };
 
 use complex::{Complex, Pos};
@@ -845,9 +846,6 @@ fn compute_permutations(
     (v_perm, e_perm, t_perm)
 }
 
-/// Returns a [Vec] with one element per faustian swap. The elements are `(dim,
-/// (i, j))` where `dim` is the dimension of the simplices that were swapped,
-/// and `i` and `j` are the canonical indices of the swapped simplices.
 pub fn vineyards_step(
     complex: &Complex,
     reduction: &Reduction,
@@ -894,17 +892,33 @@ pub fn vineyards_step(
         let vine_ordering1 = Permutation::from_to(&stack1.ordering, &e_perm);
         let (swap_is1, simplices_that_got_swapped1) =
             compute_transpositions(vine_ordering1.clone().into_forwards());
+
+        // info!(
+        //     "swaps: {} ({:3} %)  max={}",
+        //     swap_is1.len(),
+        //     (swap_is1.len() as f64
+        //         / (vine_ordering1.len() as f64 * (vine_ordering1.len() as f64 - 1.0) / 2.0)
+        //         * 100.0)
+        //         .round(),
+        //     (vine_ordering1.len() as f64 * (vine_ordering1.len() as f64 - 1.0) / 2.0)
+        // );
+
+        let up_U_t = &mut stack2.U_t;
+        let mut up_cwi = ColWithInv::new(&mut stack2.R);
+
         for (swap_i, &i) in swap_is1.iter().enumerate() {
             let res = perform_one_swap(
                 i,
                 &mut stack1,
-                &mut stack2,
+                &mut up_cwi,
+                up_U_t,
                 &reduction.stacks[1],
                 &reduction.stacks[2],
                 complex,
                 1,
                 key_point,
             );
+            up_cwi.check();
             stack1.D.swap_cols(i, i + 1);
             stack2.D.swap_rows(i, i + 1);
             if EDGE_DEBUG {
@@ -998,11 +1012,15 @@ pub fn vineyards_step(
     let (swap_is0, simplices_that_got_swapped0) =
         compute_transpositions(vine_ordering0.clone().into_forwards());
 
+    let up_U_t = &mut stack1.U_t;
+    let mut up_cwi = ColWithInv::new(&mut stack1.R);
+
     for (swap_i, &i) in swap_is0.iter().enumerate() {
         let res = perform_one_swap(
             i,
             &mut stack0,
-            &mut stack1,
+            &mut up_cwi,
+            up_U_t,
             &reduction.stacks[0],
             &reduction.stacks[1],
             complex,
@@ -1102,6 +1120,7 @@ pub fn vineyards_step(
 
 #[allow(non_snake_case)]
 pub fn reduce_from_scratch(complex: &Complex, key_point: Pos, noisy: bool) -> Reduction {
+    info!("reduce from scratch");
     let (mut v_perm, mut e_perm, mut t_perm) = compute_permutations(complex, key_point);
 
     let mut boundary_0 = complex.boundary_matrix(0);
@@ -1198,6 +1217,7 @@ pub fn reduce_from_scratch(complex: &Complex, key_point: Pos, noisy: bool) -> Re
     };
 
     ret.assert_ordering(&complex);
+    info!("reduce from scratch done");
 
     // println!(
     //     "reduce_from_scratch: stack0.ordering: {:?}",
@@ -1207,11 +1227,129 @@ pub fn reduce_from_scratch(complex: &Complex, key_point: Pos, noisy: bool) -> Re
     ret
 }
 
+struct ColWithInv<'a> {
+    inner: &'a mut SneakyMatrix,
+    col_with_low: Vec<CI>,
+}
+
+impl<'a> ColWithInv<'a> {
+    fn new(inner: &'a mut SneakyMatrix) -> ColWithInv {
+        let mut col_with_low = vec![CI::MAX; inner.rows() as usize];
+        for c in 0..inner.cols() {
+            if let Some(r) = inner.colmax(c) {
+                col_with_low[r as usize] = c;
+            }
+        }
+
+        Self {
+            inner,
+            col_with_low,
+        }
+    }
+
+    fn check(&self) {
+        return;
+        for r in 0..self.inner.rows() {
+            let res = self.inner.col_with_low(r);
+            let ours = self.col_with_low[r as usize];
+            let ours_opt = if ours == CI::MAX { None } else { Some(ours) };
+            assert_eq!(res, ours_opt, "Mismatch {r}");
+        }
+    }
+
+    fn cwl(&self, r: CI) -> Option<CI> {
+        let entry = self.col_with_low[r as usize];
+        if entry == CI::MAX {
+            None
+        } else {
+            Some(entry)
+        }
+    }
+
+    fn debug_print(&self, label: &str, r1: CI, r2: CI) {
+        return;
+        println!(
+            "  {} r{}(c{:?}, c{:?})  r{}(c{:?}, c{:?})",
+            label,
+            r1,
+            self.inner.col_with_low(r1).unwrap_or(-1),
+            self.cwl(r1).unwrap_or(-1),
+            r2,
+            self.inner.col_with_low(r2).unwrap_or(-1),
+            self.cwl(r2).unwrap_or(-1)
+        );
+    }
+
+    fn get(&self, r: CI, c: CI) -> bool {
+        self.inner.get(r, c)
+    }
+
+    fn swap_rows(&mut self, r1: CI, r2: CI) {
+        // println!("swap_rows(r{r1}, r{r2})");
+        self.debug_print("before", r1, r2);
+        self.inner.swap_rows(r1, r2);
+        self.col_with_low.swap(r1 as usize, r2 as usize);
+        self.debug_print(" after", r1, r2);
+    }
+
+    fn swap_rows_noswap(&mut self, r1: CI, r2: CI) {
+        // println!("swap_rows_noswap(r{r1}, r{r2})");
+        self.debug_print("before", r1, r2);
+        self.inner.swap_rows(r1, r2);
+        self.debug_print(" after", r1, r2);
+    }
+
+    /// DB case from perform_one_swap where we have to check whether to perform the cache swap or
+    /// not.
+    fn swap_rows_db(&mut self, r1: CI, r2: CI) {
+        // println!("swap_rows_db(r{r1}, r{r2})");
+        self.debug_print("before", r1, r2);
+        let c = self.col_with_low[r2 as usize];
+        if c == CI::MAX || !self.inner.get(r1, c) {
+            self.col_with_low.swap(r1 as usize, r2 as usize);
+        }
+        self.inner.swap_rows(r1, r2);
+        self.debug_print(" after", r1, r2);
+    }
+
+    fn swap_rows_bb(&mut self, r1: CI, r2: CI) {
+        // println!("swap_rows_bb(r{r1}, r{r2})");
+        self.debug_print("before", r1, r2);
+
+        let c = self.col_with_low[r2 as usize];
+        if c == CI::MAX || !self.inner.get(r1, c) {
+            self.col_with_low.swap(r1 as usize, r2 as usize);
+        }
+        self.inner.swap_rows(r1, r2);
+
+        self.debug_print(" after", r1, r2);
+    }
+
+    fn add_cols(&mut self, c1: CI, c2: CI) {
+        // println!("add_cols(c{c1}, c{c2})");
+        assert!(c2 < c1, "Cache is not sound if c1 <= c2");
+        self.inner.add_cols(c1, c2);
+    }
+
+    fn col_with_low(&self, r: CI) -> Option<CI> {
+        // self.inner.col_with_low(r)
+        // // println!("col_with_low(r{r})");
+        let c = self.col_with_low[r as usize];
+        let c_opt = if c == CI::MAX { None } else { Some(c) };
+        c_opt
+        // // let ans = self.inner.col_with_low(r);
+        // assert_eq!(ans, c_opt, "cache mismatch");
+        // ans
+    }
+}
+
 #[allow(non_snake_case)]
 fn perform_one_swap(
     i: CI,
     stack: &mut Stack,
-    up_stack: &mut Stack,
+    up_cwi: &mut ColWithInv,
+    up_U_t: &mut SneakyMatrix,
+
     old_stack: &Stack,
     old_stack_above: &Stack,
     complex: &Complex,
@@ -1238,28 +1376,32 @@ fn perform_one_swap(
     let gives_death_i_1 = gives_death(&stack.R, i + 1);
     let gives_birth_i_1 = !gives_death_i_1;
 
+    // @perf: The branch ratio here is around
+    //     bb=45.0  bd=22.0  db=23.0  dd=11.0
+
     // if gives_birth_i and gives_birth_i_1:
     if gives_birth_i && gives_birth_i_1 {
+        // println!("bb");
         // U_t[i + 1, i] = 0
         stack.U_t.set(i + 1, i, false);
         // k = low_inv(i)
-        let k = low_inv(&up_stack.R, i);
+        let k = up_cwi.col_with_low(i);
         // l = low_inv(i + 1)
-        let l = low_inv(&up_stack.R, i + 1);
+        let l = up_cwi.col_with_low(i + 1);
         // if k != None and l != None and R[i, l] == 1:
         if let (Some(k), Some(l)) = (k, l) {
-            if up_stack.R.get(i, l) {
+            if up_cwi.get(i, l) {
                 // if k < l:
                 if k < l {
                     // R.swap_cols_and_rows(i, i + 1)  # PRP
                     stack.R.swap_cols(i, i + 1);
-                    up_stack.R.swap_rows(i, i + 1);
+                    up_cwi.swap_rows(i, i + 1);
                     // R.add_cols(l, k)  # PRPV
-                    up_stack.R.add_cols(l, k);
+                    up_cwi.add_cols(l, k);
                     // U_t.swap_cols_and_rows(i, i + 1)  # PUP
                     stack.U_t.swap_cols_and_rows(i, i + 1);
                     // U_t.add_cols(k, l)  # VPUP
-                    up_stack.U_t.add_cols(k, l);
+                    up_U_t.add_cols(k, l);
                     // return (R, U_t, None)
                     return None;
                 }
@@ -1267,13 +1409,13 @@ fn perform_one_swap(
                 if l < k {
                     // R.swap_cols_and_rows(i, i + 1)  # PRP
                     stack.R.swap_cols(i, i + 1);
-                    up_stack.R.swap_rows(i, i + 1);
+                    up_cwi.swap_rows_noswap(i, i + 1);
                     // R.add_cols(k, l)  # PRPV
-                    up_stack.R.add_cols(k, l);
+                    up_cwi.add_cols(k, l);
                     // U_t.swap_cols_and_rows(i, i + 1)  # PUP
                     stack.U_t.swap_cols_and_rows(i, i + 1);
                     // U_t.add_cols(l, k)  # VPUP
-                    up_stack.U_t.add_cols(l, k);
+                    up_U_t.add_cols(l, k);
                     // return (R, U_t, False)
                     return Some(false);
                 }
@@ -1283,10 +1425,12 @@ fn perform_one_swap(
             }
         }
 
+        // println!("k={:?} l={:?}", k, l);
+
         // else case
         // R.swap_cols_and_rows(i, i + 1)  # PRP
         stack.R.swap_cols(i, i + 1);
-        up_stack.R.swap_rows(i, i + 1);
+        up_cwi.swap_rows_bb(i, i + 1);
         // U_t.swap_cols_and_rows(i, i + 1)  # PUP
         stack.U_t.swap_cols_and_rows(i, i + 1);
         // return (R, U_t, None)
@@ -1294,6 +1438,7 @@ fn perform_one_swap(
     }
     // if gives_death_i and gives_death_i_1:
     if gives_death_i && gives_death_i_1 {
+        // println!("dd");
         // if U_t[i + 1, i] == 1:
         if stack.U_t.get(i + 1, i) {
             // low_i = low(i)
@@ -1306,7 +1451,7 @@ fn perform_one_swap(
             stack.R.add_cols(i + 1, i);
             // R.swap_cols_and_rows(i, i + 1)  # P R W P
             stack.R.swap_cols(i, i + 1);
-            up_stack.R.swap_rows(i, i + 1);
+            up_cwi.swap_rows(i, i + 1);
             // U_t.swap_cols_and_rows(i, i + 1)  # P W U P
             stack.U_t.swap_cols_and_rows(i, i + 1);
             // if low_i < low_i_1:
@@ -1326,7 +1471,7 @@ fn perform_one_swap(
         } else {
             // R.swap_cols_and_rows(i, i + 1)  # P R P
             stack.R.swap_cols(i, i + 1);
-            up_stack.R.swap_rows(i, i + 1);
+            up_cwi.swap_rows(i, i + 1);
             // U_t.swap_cols_and_rows(i, i + 1)  # P U P
             stack.U_t.swap_cols_and_rows(i, i + 1);
             // return (R, U_t, None)
@@ -1335,6 +1480,7 @@ fn perform_one_swap(
     }
     // if gives_death_i and gives_birth_i_1:
     if gives_death_i && gives_birth_i_1 {
+        // println!("db");
         // if U_t[i + 1, i] == 1:
         if stack.U_t.get(i + 1, i) {
             // U_t.add_cols(i, i + 1)  # W U
@@ -1343,7 +1489,7 @@ fn perform_one_swap(
             stack.R.add_cols(i + 1, i);
             // R.swap_cols_and_rows(i, i + 1)  # P R W P
             stack.R.swap_cols(i, i + 1);
-            up_stack.R.swap_rows(i, i + 1);
+            up_cwi.swap_rows_db(i, i + 1);
             // R.add_cols(i + 1, i)  # (P R W P) W
             stack.R.add_cols(i + 1, i);
             // U_t.swap_cols_and_rows(i, i + 1)  # P W U P
@@ -1356,7 +1502,7 @@ fn perform_one_swap(
         } else {
             // R.swap_cols_and_rows(i, i + 1)  # P R P
             stack.R.swap_cols(i, i + 1);
-            up_stack.R.swap_rows(i, i + 1);
+            up_cwi.swap_rows(i, i + 1);
             // U_t.swap_cols_and_rows(i, i + 1)  # P U P
             stack.U_t.swap_cols_and_rows(i, i + 1);
             // return (R, U_t, None)
@@ -1365,11 +1511,12 @@ fn perform_one_swap(
     }
     // if gives_birth_i and gives_death_i_1:
     if gives_birth_i && gives_death_i_1 {
+        // println!("bd");
         // U_t[i + 1, i] = 0
         stack.U_t.set(i + 1, i, false);
         // R.swap_cols_and_rows(i, i + 1)  # P R P
         stack.R.swap_cols(i, i + 1);
-        up_stack.R.swap_rows(i, i + 1);
+        up_cwi.swap_rows(i, i + 1);
         // U_t.swap_cols_and_rows(i, i + 1)  # P U P
         stack.U_t.swap_cols_and_rows(i, i + 1);
         // return (R, U_t, None)
