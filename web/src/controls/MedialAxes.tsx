@@ -6,13 +6,13 @@ import { PruningParameters } from "./PruningParameters";
 import { Loader } from "../ui/Loader";
 
 import SubMarsWorker from "../worrrker/vineyards2?worker";
-import { Progress } from "../types";
+import { Progress as TriggerButton } from "../types";
 import { sum } from "../utils";
 
 /** All currently running workers */
 const activeWorkers = atom<Worker[]>([]);
-const progressAtom = atom<(Progress | undefined)[]>();
-const totalProgress = atom<Progress | undefined>((get) => {
+const progressAtom = atom<(TriggerButton | undefined)[]>();
+const totalProgress = atom<TriggerButton | undefined>((get) => {
   const ps = get(progressAtom);
   if (!ps) return undefined;
   const i = sum(ps, (p) => p?.i ?? 0);
@@ -27,14 +27,14 @@ const triggerVineyardsAtom = atom(null, (_, set) => {
   const subproblems = m.subproblems();
   set(
     progressAtom,
-    subproblems.map((_) => ({
+    subproblems.map((_: any) => ({
       label: "Vineyards",
       i: 0,
       n: 1,
     })),
   );
 
-  subproblems.map((sub, i) => {
+  subproblems.map((sub: any, i: any) => {
     const w = new SubMarsWorker();
     set(activeWorkers, (c) => c.concat([w]));
 
@@ -74,11 +74,36 @@ const terminateWorkersAtom = atom(null, (get, set) => {
   set(progressAtom, []);
 });
 
-export const MedialAxes = () => {
+const TriggerButton = () => {
   const trigger = useSetAtom(triggerVineyardsAtom);
   const terminate = useSetAtom(terminateWorkersAtom);
   const progress = useAtomValue(totalProgress);
+  return (
+    <>
+      <div className="row">
+        <button
+          style={{ flex: 1 }}
+          disabled={false /* TODO */}
+          onClick={() => trigger()}
+        >
+          {progress ? <Loader $w0={20} $w1={60} /> : "Compute medial axes"}
+        </button>
+        {progress && <button onClick={() => terminate()}>Abort</button>}
+      </div>
+      {progress && (
+        <label>
+          <p>{progress.label}</p>
+          {0 < progress.n && <progress value={progress.i / progress.n} />}
+          <p className="percent">
+            {Math.floor((progress.i / progress.n) * 100)}%
+          </p>
+        </label>
+      )}
+    </>
+  );
+};
 
+export const MedialAxes = () => {
   return (
     <>
       <h3>Medial axes</h3>
@@ -93,27 +118,7 @@ export const MedialAxes = () => {
         />
         <p>Only first swap </p>
       </label>
-
-      <div className="row">
-        <button
-          style={{ flex: 1 }}
-          disabled={false /* TODO */}
-          onClick={() => trigger()}
-        >
-          {progress ? <Loader $w0={20} $w1={60} /> : "Compute medial axes"}
-        </button>
-        {progress && <button onClick={() => terminate()}>Abort</button>}
-      </div>
-
-      {progress && (
-        <label>
-          <p>{progress.label}</p>
-          {0 < progress.n && <progress value={progress.i / progress.n} />}
-          <p className="percent">
-            {Math.floor((progress.i / progress.n) * 100)}%
-          </p>
-        </label>
-      )}
+      <TriggerButton />
 
       <div className="pruning-param-list">
         {([0, 1, 2] satisfies Dim[]).map((dim) => (

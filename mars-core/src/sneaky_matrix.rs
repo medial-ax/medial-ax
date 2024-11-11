@@ -1,6 +1,5 @@
 use crate::permutation::Permutation;
 use serde::{Deserialize, Serialize};
-use tracing::{info, instrument};
 
 pub type CI = i16;
 
