@@ -59,6 +59,7 @@ export const useMars = () => {
   const setComplex = useSetAtom(marsComplexTick);
   const setGrid = useSetAtom(marsGridTick);
   const setVineyards = useSetAtom(marsVineyardsTick);
+  const setCurrentGridIndex = useSetAtom(currentGridIndex);
   const setPruned = useSetAtom(marsPrunedTick);
 
   useEffect(() => {
@@ -73,6 +74,7 @@ export const useMars = () => {
     m.set_on_grid_change(() =>
       setTimeout(() => {
         setGrid((c) => c + 1);
+        setCurrentGridIndex(undefined);
       }, 0),
     );
 
@@ -87,5 +89,5 @@ export const useMars = () => {
         setPruned((c) => c + 1);
       }, 0),
     );
-  }, [setComplex, setGrid, setPruned, setVineyards]);
+  }, [setComplex, setCurrentGridIndex, setGrid, setPruned, setVineyards]);
 };
