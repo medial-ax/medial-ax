@@ -259,9 +259,9 @@ impl Api {
     }
 
     /// Flattened coordinates for every face of the computed medial axes, GL style.
-    pub fn medial_axes_face_positions(&self, dim: usize) -> Result<Vec<f32>, String> {
+    pub fn medial_axes_face_positions(&mut self, dim: usize) -> Result<Vec<f32>, String> {
         let mut out: Vec<f64> = Vec::new();
-        let Some(ref g) = self.core.grid else {
+        let Some(ref mut g) = self.core.grid else {
             return Ok(Vec::new());
         };
         let Some(ref v) = self.vineyards else {
@@ -282,7 +282,7 @@ impl Api {
                     }
                 }
             }
-            Grid::Mesh(grid) => {
+            Grid::Mesh(ref mut grid) => {
                 for s in swaps {
                     if 0 < s.2.v.len() {
                         let [a, b, c, d] = grid.dual_quad_points(s.0, s.1);

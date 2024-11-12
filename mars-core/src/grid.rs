@@ -370,8 +370,6 @@ impl VineyardsGridMesh {
         let a = self.points[a.0[0] as usize];
         let b = self.points[b.0[0] as usize];
         let (dx, dy, dz) = self.dim_dist.unwrap_or_else(|| {
-            let a = self.points[a.0[0] as usize];
-            let b = self.points[b.0[0] as usize];
             let dist = a.dist(&b);
             (dist, dist, dist)
         });
@@ -638,6 +636,54 @@ impl VineyardsGridMesh {
             dim_dist,
         })
     }
+
+    // pub fn recompute_dim_dist(&mut self) {
+    //     if self.dim_dist.is_some() {
+    //         return;
+    //     }
+    //     let xs = self
+    //         .neighbors
+    //         .iter()
+    //         .enumerate()
+    //         .flat_map(|(i, n)| {
+    //             n.iter()
+    //                 .find(|j| self.points[i].x() != self.points[**j as usize].x())
+    //                 .map(|j| (i, *j as usize))
+    //         })
+    //         .next();
+    //     let ys = self
+    //         .neighbors
+    //         .iter()
+    //         .enumerate()
+    //         .flat_map(|(i, n)| {
+    //             n.iter()
+    //                 .find(|j| self.points[i].y() != self.points[**j as usize].y())
+    //                 .map(|j| (i, *j as usize))
+    //         })
+    //         .next();
+    //     let zs = self
+    //         .neighbors
+    //         .iter()
+    //         .enumerate()
+    //         .flat_map(|(i, n)| {
+    //             n.iter()
+    //                 .find(|j| self.points[i].z() != self.points[**j as usize].z())
+    //                 .map(|j| (i, *j as usize))
+    //         })
+    //         .next();
+    //
+    //     let dim_dist = if let (Some((xi, xj)), Some((yi, yj)), Some((zi, zj))) = (xs, ys, zs) {
+    //         Some((
+    //             (self.points[xi as usize].dist(&self.points[xj as usize])),
+    //             (self.points[yi as usize].dist(&self.points[yj as usize])),
+    //             (self.points[zi as usize].dist(&self.points[zj as usize])),
+    //         ))
+    //     } else {
+    //         None
+    //     };
+    //
+    //     self.dim_dist = dim_dist;
+    // }
 
     pub fn write_as_obj<W: std::io::Write>(&self, mut w: W) -> std::io::Result<()> {
         writeln!(w, "o grid")?;

@@ -346,7 +346,7 @@ impl PruneArgs {
             let num_pruned = pruned.iter().map(|s| s.2.v.len()).sum::<usize>();
             info!(
                 dim = dim,
-                "prnuned to {} swaps ({}%)",
+                "pruned to {} swaps ({}%)",
                 num_pruned,
                 ((num_pruned as f64 / num_swaps as f64) * 100.0).round()
             );
@@ -443,26 +443,27 @@ fn run(args: &RunArgs) -> Result<()> {
 
         let c = mars.complex.as_ref().unwrap();
 
-        let s0 = vin.prune_dim(0, &prune_params[0], &c, |i, n| {
-            if i % 511 == 0 {
-                let percent = (i as f64 / n as f64) * 100.0;
-                info!("prune dim 0: {percent:3.0}%");
-            }
-        });
-        let s1 = vin.prune_dim(1, &prune_params[1], &c, |i, n| {
-            if i % 511 == 0 {
-                let percent = (i as f64 / n as f64) * 100.0;
-                info!("prune dim 1: {percent:3.0}%");
-            }
-        });
-        let s2 = vin.prune_dim(2, &prune_params[2], &c, |i, n| {
-            if i % 511 == 0 {
-                let percent = (i as f64 / n as f64) * 100.0;
-                info!("prune dim 2: {percent:3.0}%");
-            }
-        });
+        let mut swaps = [Vec::new(), Vec::new(), Vec::new()];
+        for dim in 0..3 {
+            let num_swaps = vin.swaps[dim].iter().map(|s| s.2.v.len()).sum::<usize>();
+            let pruned = vin.prune_dim(dim, &prune_params[dim], &c, |i, n| {
+                if i % 511 == 0 {
+                    let percent = (i as f64 / n as f64) * 100.0;
+                    info!("prune dim {dim}: {percent:3.0}%");
+                }
+            });
+            let num_pruned = pruned.iter().map(|s| s.2.v.len()).sum::<usize>();
+            info!(
+                dim = dim,
+                "pruned {} swaps from {} ({}%)",
+                num_pruned,
+                num_swaps,
+                ((num_pruned as f64 / num_swaps as f64) * 100.0).round()
+            );
+            swaps[dim] = pruned;
+        }
 
-        vin.swaps = [s0, s1, s2];
+        vin.swaps = swaps;
     }
 
     info!("Write output");

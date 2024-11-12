@@ -4,13 +4,20 @@ import * as THREE from "three";
 import { maWireframeAtom, showMAAtom } from "../state";
 import { dim2color } from "../constants";
 import { Wireframe } from "@react-three/drei";
+import { useEffect, useRef } from "react";
 
 const Axis = ({ pos, color }: { pos: Float32Array; color: THREE.Color }) => {
+  const counter = useRef<number>(0);
+  useEffect(() => {
+    counter.current += 1;
+  }, [pos]);
+
   const maWireframe = useAtomValue(maWireframeAtom);
   return (
     <mesh key={pos.length}>
       <bufferGeometry attach="geometry">
         <bufferAttribute
+          key={counter.current}
           attach="attributes-position"
           count={pos.length / 3}
           array={pos}

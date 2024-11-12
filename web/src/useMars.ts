@@ -31,7 +31,6 @@ export const currentBarcode = atom<Barcode | undefined>((get) => {
   const gi = get(currentGridIndex);
   if (!gi) return;
   const ret = mars().barcode_for_index(gi);
-  console.log(ret);
   return ret;
 });
 
