@@ -346,6 +346,10 @@ pub struct VineyardsGridMesh {
     pub neighbors: Vec<Vec<isize>>,
     /// Should always be `"meshgrid"`. Used for serialization stuff.
     pub r#type: String,
+
+    /// Grid distances along the three axes, assuming the mesh is a subset of a regular grid.
+    #[serde(skip)]
+    pub dim_dist: Option<(f64, f64, f64)>,
 }
 
 impl VineyardsGridMesh {
@@ -354,6 +358,7 @@ impl VineyardsGridMesh {
             points: Vec::new(),
             neighbors: Vec::new(),
             r#type: "meshgrid".to_string(),
+            dim_dist: None,
         }
     }
 
@@ -364,14 +369,19 @@ impl VineyardsGridMesh {
     pub fn dual_quad_points(&self, a: Index, b: Index) -> [Pos; 4] {
         let a = self.points[a.0[0] as usize];
         let b = self.points[b.0[0] as usize];
-        let dist = a.dist(&b);
+        let (dx, dy, dz) = self.dim_dist.unwrap_or_else(|| {
+            let a = self.points[a.0[0] as usize];
+            let b = self.points[b.0[0] as usize];
+            let dist = a.dist(&b);
+            (dist, dist, dist)
+        });
 
         let [ax, ay, az] = a.0;
         let [bx, by, bz] = b.0;
         let middle = a + (b - a) / 2.0;
         let ret: [Pos; 4] = if (ax - bx).abs() > 1e-3 {
-            let p = Pos([0.0, dist / 2.0, 0.0]);
-            let q = Pos([0.0, 0.0, dist / 2.0]);
+            let p = Pos([0.0, dy / 2.0, 0.0]);
+            let q = Pos([0.0, 0.0, dz / 2.0]);
             [
                 middle - p - q,
                 middle - p + q,
@@ -379,8 +389,8 @@ impl VineyardsGridMesh {
                 middle + p - q,
             ]
         } else if (ay - by).abs() > 1e-3 {
-            let p = Pos([dist / 2.0, 0.0, 0.0]);
-            let q = Pos([0.0, 0.0, dist / 2.0]);
+            let p = Pos([dx / 2.0, 0.0, 0.0]);
+            let q = Pos([0.0, 0.0, dz / 2.0]);
             [
                 middle - p - q,
                 middle - p + q,
@@ -388,8 +398,8 @@ impl VineyardsGridMesh {
                 middle + p - q,
             ]
         } else if (az - bz).abs() > 1e-3 {
-            let p = Pos([dist / 2.0, 0.0, 0.0]);
-            let q = Pos([0.0, dist / 2.0, 0.0]);
+            let p = Pos([dx / 2.0, 0.0, 0.0]);
+            let q = Pos([0.0, dy / 2.0, 0.0]);
             [
                 middle - p - q,
                 middle - p + q,
@@ -469,11 +479,13 @@ impl VineyardsGridMesh {
                 points: self.points.clone(),
                 neighbors: lower_edges,
                 r#type: self.r#type.clone(),
+                dim_dist: None,
             },
             VineyardsGridMesh {
                 points: self.points.clone(),
                 neighbors: upper_edges,
                 r#type: self.r#type.clone(),
+                dim_dist: None,
             },
         )
     }
@@ -590,6 +602,29 @@ impl VineyardsGridMesh {
             }
         }
 
+        let xs = edges
+            .iter()
+            .cloned()
+            .find(|(i, j)| points[*i as usize].x() != points[*j as usize].x());
+        let ys = edges
+            .iter()
+            .cloned()
+            .find(|(i, j)| points[*i as usize].y() != points[*j as usize].y());
+        let zs = edges
+            .iter()
+            .cloned()
+            .find(|(i, j)| points[*i as usize].z() != points[*j as usize].z());
+
+        let dim_dist = if let (Some((xi, xj)), Some((yi, yj)), Some((zi, zj))) = (xs, ys, zs) {
+            Some((
+                (points[xi as usize].dist(&points[xj as usize])),
+                (points[yi as usize].dist(&points[yj as usize])),
+                (points[zi as usize].dist(&points[zj as usize])),
+            ))
+        } else {
+            None
+        };
+
         let mut neighbors: Vec<Vec<isize>> = vec![Vec::new(); points.len()];
         for (from, to) in edges {
             neighbors[from as usize].push(to);
@@ -600,6 +635,7 @@ impl VineyardsGridMesh {
             points,
             neighbors,
             r#type: "meshgrid".to_string(),
+            dim_dist,
         })
     }
 

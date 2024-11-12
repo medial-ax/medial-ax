@@ -228,7 +228,6 @@ impl Api {
 
     /// Flattened coordinates for every face of the complex, GL style.
     pub fn face_positions(&self) -> Result<Vec<f64>, String> {
-        info!("Api.face_positions");
         let mut ret = Vec::new();
         let Some(ref c) = self.core.complex else {
             return Ok(vec![]);
