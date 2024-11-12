@@ -1,8 +1,8 @@
 use anyhow::Result;
 use mars_core::complex::Complex;
-use mars_core::grid::VineyardsGridMesh;
-use mars_core::{Grid, Mars, PruningParam, SubMars, Vineyards};
-use serde::Serializer;
+use mars_core::grid::{Index, VineyardsGridMesh};
+use mars_core::{BirthDeathPair, Grid, Mars, PruningParam, SubMars, Vineyards};
+use serde::{Serialize, Serializer};
 use wasm_bindgen::prelude::*;
 
 use mars_core::{grid::VineyardsGrid, SwapList};
@@ -352,6 +352,7 @@ impl Api {
         Ok(())
     }
 
+    /// Deserialize [Vineyards] data and load it into the current vineyards instance.
     pub fn deserialize_vineyards_load(&mut self, value: JsValue) -> Result<(), JsValue> {
         let bytes: serde_bytes::ByteBuf = serde_wasm_bindgen::from_value(value)?;
         let vineyards: Vineyards = rmp_serde::from_slice(&bytes)
@@ -460,6 +461,44 @@ impl Api {
         self.set_one_pruned_swaps(dim, Some((params, pruned)));
         Ok(())
     }
+
+    pub fn has_vineyards(&self) -> bool {
+        self.vineyards.is_some()
+    }
+
+    pub fn barcode_for_index(&self, index: JsValue) -> Result<JsValue, JsValue> {
+        let index: Index = serde_wasm_bindgen::from_value(index)?;
+
+        let (Some(c), Some(v)) = (self.core.complex.as_ref(), self.vineyards.as_ref()) else {
+            return Ok(serde_wasm_bindgen::to_value(&serde_json::json!({
+                "-1": [],
+                "0": [],
+                "1": [],
+                "2": [],
+            }))?);
+        };
+
+        let reduction = v.reductions.get(&index).ok_or("Index not in map")?;
+
+        #[derive(Serialize)]
+        struct Barcode {
+            #[serde(rename = "-1")]
+            a: Vec<BirthDeathPair>,
+            #[serde(rename = "0")]
+            b: Vec<BirthDeathPair>,
+            #[serde(rename = "1")]
+            c: Vec<BirthDeathPair>,
+            #[serde(rename = "2")]
+            d: Vec<BirthDeathPair>,
+        }
+
+        return Ok(serde_wasm_bindgen::to_value(&Barcode {
+            a: reduction.barcode(c, -1),
+            b: reduction.barcode(c, 0),
+            c: reduction.barcode(c, 1),
+            d: reduction.barcode(c, 2),
+        })?);
+    }
 }
 
 #[wasm_bindgen(typescript_custom_section)]
@@ -517,6 +556,22 @@ export type VineyardsGridMesh = {
     type: "meshgrid",
 }
 
+
+export type BirthDeathPair = {
+  dim: number;
+  /** [Birth time, simplex index] */
+  birth: [number, number] | null;
+  /** [Death time, simplex index] */
+  death: [number, number] | null;
+};
+
+export type Barcode = {
+    "-1": BirthDeathPair[],
+    "0": BirthDeathPair[],
+    "1": BirthDeathPair[],
+    "2": BirthDeathPair[],
+};
+
 export class Api {
   free(): void;
   constructor();
@@ -562,5 +617,10 @@ export class Api {
 
   /** Load a file computed from the CLI. */
   deserialize_from_cli(buffer: Uint8Array): void;
+
+  /** Check if Vineyards have been computed. */
+  has_vineyards(): boolean;
+
+  barcode_for_index(index: Index): Barcode;
 }
 "#;

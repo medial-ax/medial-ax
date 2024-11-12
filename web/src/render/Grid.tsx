@@ -1,9 +1,10 @@
-import { useAtom, useAtomValue } from "jotai";
+import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { VineyardsGrid } from "mars_wasm";
 import { gridRadiusAtom, selectedGridIndex, swapsAtom } from "../state";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { gridCoordinate } from "../medialaxes";
 import * as THREE from "three";
+import { currentGridIndex } from "../useMars";
 
 const GRID_COLOR = new THREE.Color(0x888888);
 const GRID_SELECTED_COLOR = new THREE.Color(0x000000);
@@ -47,6 +48,8 @@ export const RenderVineyarsGrid = ({ grid }: { grid: VineyardsGrid }) => {
     if (m.instanceColor) m.instanceColor.needsUpdate = true;
   }, [points]);
 
+  const setCurrentGridIndex = useSetAtom(currentGridIndex);
+
   const [selGridIndex, setSelGridIndex] = useAtom(selectedGridIndex);
   useLayoutEffect(() => {
     const m = meshref.current;
@@ -89,6 +92,7 @@ export const RenderVineyarsGrid = ({ grid }: { grid: VineyardsGrid }) => {
         const y = Math.floor(instanceId / Z) % Y;
         const x = Math.floor(instanceId / Z / Y);
         setSelGridIndex([x, y, z]);
+        setCurrentGridIndex([x, y, z]);
       }}
     >
       <boxGeometry args={[radius, radius, radius]} />

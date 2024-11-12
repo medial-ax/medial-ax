@@ -1,10 +1,7 @@
 import styled, { CSSProperties } from "styled-components";
-import { BirthDeathPair, Index } from "./types";
+import { BirthDeathPair } from "./types";
 import {
-  BarcodeType,
   barcodeAtom,
-  gridForSwapsAtom,
-  gridOutOfSync,
   selectedBirthDeathPair,
   selectedGridIndex,
   swapsAtom,
@@ -27,6 +24,7 @@ import "./Barcode.css";
 import { HoverTooltip } from "./HoverTooltip";
 import { Diagram } from "./Diagram";
 import { FaceInfo } from "./FaceInfo";
+import { currentBarcode, currentGridIndex, marsHasVineyards } from "./useMars";
 
 const _width = 4;
 const barSpacing = 20;
@@ -574,33 +572,17 @@ const BarcodeInner = ({
   );
 };
 
-export const Barcode = ({
-  index,
-  barcodes,
-}: {
-  index: Index | undefined;
-  barcodes: BarcodeType | undefined;
-}) => {
-  const haveComputed = useAtomValue(gridForSwapsAtom) !== undefined;
-  const gridIsOutOfSync = useAtomValue(gridOutOfSync);
-
+export const Barcode = () => {
+  const index = useAtomValue(currentGridIndex);
+  const barcodes = useAtomValue(currentBarcode);
+  const haveVineyards = useAtomValue(marsHasVineyards);
   const [showTimeline, setShowTimeline] = useState(true);
 
-  if (!haveComputed)
+  if (!haveVineyards)
     return (
       <Center>
         <p>
           Compute the medial axes from the Controls panel to see the barcode.
-        </p>
-      </Center>
-    );
-
-  if (gridIsOutOfSync)
-    return (
-      <Center>
-        <p>
-          Grid was changed after computing the medial axes.{" "}
-          <strong>Recompute</strong> to see barcode.
         </p>
       </Center>
     );
@@ -873,7 +855,7 @@ export const BarcodeTabs = ({ live }: { live: boolean }) => {
 
   return (
     <Tabs tab={tab} setTab={setTab} titles={barcodeTabNames}>
-      <Barcode index={index} barcodes={barcodes} />
+      <Barcode />
       <Diagram index={index} barcodes={barcodes} />
       <FaceInfo />
       <div>

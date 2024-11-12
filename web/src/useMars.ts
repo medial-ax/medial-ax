@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { mars } from "./global";
 import { atom, useSetAtom } from "jotai";
-import { VineyardsGrid, VineyardsGridMesh } from "mars_wasm";
+import { Barcode, Index, VineyardsGrid, VineyardsGridMesh } from "mars_wasm";
 import { Complex } from "./types";
 
 const marsComplexTick = atom<number>(0);
@@ -19,6 +19,22 @@ export const marsGrid = atom<VineyardsGrid | VineyardsGridMesh | undefined>(
 );
 
 const marsVineyardsTick = atom<number>(0);
+
+export const marsHasVineyards = atom<boolean>((get) => {
+  get(marsVineyardsTick);
+  return mars().has_vineyards();
+});
+
+export const currentGridIndex = atom<Index | undefined>(undefined);
+export const currentBarcode = atom<Barcode | undefined>((get) => {
+  get(marsVineyardsTick);
+  const gi = get(currentGridIndex);
+  if (!gi) return;
+  const ret = mars().barcode_for_index(gi);
+  console.log(ret);
+  return ret;
+});
+
 const marsPrunedTick = atom<number>(0);
 
 export const complexFacePositionsAtom = atom<Float32Array>((get) => {
