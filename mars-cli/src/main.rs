@@ -175,7 +175,7 @@ impl ObjArgs {
     fn run(&self) -> Result<()> {
         info!("Reading input file {}", self.state.display());
         let bytes = std::fs::read(&self.state).context("read state file")?;
-        let (mars, vin): (mars_core::Mars, mars_core::Vineyards) =
+        let (mut mars, vin): (mars_core::Mars, mars_core::Vineyards) =
             rmp_serde::from_slice(&bytes).context("rmp read")?;
 
         if let Some(ref p) = self.complex {
@@ -220,7 +220,7 @@ impl ObjArgs {
 
                 match mars
                     .grid
-                    .as_ref()
+                    .as_mut()
                     .ok_or_else(|| anyhow!("missing grid in state"))?
                 {
                     Grid::Regular(grid) => {
@@ -236,6 +236,7 @@ impl ObjArgs {
                         }
                     }
                     Grid::Mesh(grid) => {
+                        grid.recompute_dim_dist();
                         for s in swaps {
                             if 0 < s.2.v.len() {
                                 let pts = grid.dual_quad_points(s.0, s.1);
@@ -343,12 +344,14 @@ impl PruneArgs {
                 }
             });
 
-            let num_pruned = pruned.iter().map(|s| s.2.v.len()).sum::<usize>();
+            let num_left = pruned.iter().map(|s| s.2.v.len()).sum::<usize>();
+            let num_pruned = num_swaps - num_left;
             info!(
                 dim = dim,
-                "pruned to {} swaps ({}%)",
+                "pruned {} swaps ({}%). New count is {}",
                 num_pruned,
-                ((num_pruned as f64 / num_swaps as f64) * 100.0).round()
+                ((num_pruned as f64 / num_swaps as f64) * 100.0).floor(),
+                num_left
             );
             vin.swaps[dim] = pruned;
         }
@@ -452,13 +455,14 @@ fn run(args: &RunArgs) -> Result<()> {
                     info!("prune dim {dim}: {percent:3.0}%");
                 }
             });
-            let num_pruned = pruned.iter().map(|s| s.2.v.len()).sum::<usize>();
+            let num_left = pruned.iter().map(|s| s.2.v.len()).sum::<usize>();
+            let num_pruned = num_swaps - num_left;
             info!(
                 dim = dim,
-                "pruned {} swaps from {} ({}%)",
+                "pruned {} swaps ({}%). New count is {}",
                 num_pruned,
-                num_swaps,
-                ((num_pruned as f64 / num_swaps as f64) * 100.0).round()
+                ((num_pruned as f64 / num_swaps as f64) * 100.0).floor(),
+                num_left
             );
             swaps[dim] = pruned;
         }
