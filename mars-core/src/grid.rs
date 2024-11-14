@@ -600,6 +600,21 @@ impl VineyardsGridMesh {
             }
         }
 
+        // Check that no two vertices are actually the same vertex
+        for i in 0..points.len() {
+            for j in (i + 1)..points.len() {
+                let p = points[i];
+                let q = points[j];
+                let dist = p.dist(&q);
+                if dist < 1e-5 {
+                    return Err(format!(
+                        "Two grid vertices are too close together: {} and {}",
+                        i, j
+                    ));
+                }
+            }
+        }
+
         let xs = edges
             .iter()
             .cloned()
