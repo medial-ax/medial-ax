@@ -212,11 +212,11 @@ impl ObjArgs {
             let mut f = std::fs::File::create(p).context("create passed file")?;
 
             info!("Write medial axes to {}", p.display());
+            let mut vi = 0;
             for dim in 0..3 {
                 let swaps = &vin.swaps[dim];
 
                 writeln!(&mut f, "o ma-dim-{}", dim)?;
-                let mut vi = 0;
 
                 match mars
                     .grid
