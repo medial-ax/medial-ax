@@ -97,3 +97,9 @@ We create a grid aligned to the x,y,z axes by taking the bounding box of the imp
 ## Making a good input complex
 ## Making a good grid
 A heuristic we use is having at least two grid cells per triangle of the input object.
+
+# max use heuristics
+- The input complex cannot exceed 32,000 simplices of any dimension due to being stored as 16-bit signed numbers
+- 70,000 total edges (counting both grid and input edges) takes about 45-60 minutes on a macbook pro and uses 20-40GB of storage for the temporary files (which can be deleted after a satisfactor obj is output)
+- 30,000 total edges (counting both grid and input) usually gives a nice result, as long as the object is not too complicated
+- Size the grid such that at least two grid cells fit in an average triangle
