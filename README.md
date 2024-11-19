@@ -103,4 +103,4 @@ A heuristic we use is having at least two grid cells per triangle of the input o
 - 70,000 total edges (counting both grid and input edges) takes about 45-60 minutes on a macbook pro and uses 20-40GB of storage for the temporary files (which can be deleted after a satisfactor obj is output)
 - 30,000 total edges (counting both grid and input) usually gives a nice result, as long as the object is not too complicated
 - Size the grid such that at least two grid cells fit in an average triangle
-- 136k total edges uses 71GB of memory
+- 136k total edges needed more than 90GB storage + 30GB ram for the comined process of computing and writing out
