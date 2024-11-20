@@ -105,33 +105,54 @@ impl StatsArgs {
         let mm: MarsMem = (&mars).into();
         info!("{:?}", mm);
 
-        for (i, r) in vin.reductions.iter().take(10) {
+        for (i, r) in vin.reductions.iter().take(3) {
+            let mem: ReductionMem = r.into();
             for dim in 0..3 {
-                let R = &r.R(dim);
-                let empty = R.count_empty_columns();
+                let idim = dim as isize;
+                info!(dim);
+
+                let D = &r.D(idim);
                 info!(
-                    "R{} = {:4} by {:4}   {empty} empty ({:.2}%)   {:.2}% filled",
-                    dim,
-                    R.rows(),
-                    R.cols(),
-                    (empty as f64 / R.cols() as f64 * 100.0).round(),
-                    (100.0 * R.fill_ratio()).round()
+                    bytes = mem.stacks[dim].D.core,
+                    fill = r.D(idim).fill_ratio(),
+                    size =? (D.rows(), D.cols()),
+                    empty_cols = D.count_empty_columns(),
+                    "D",
                 );
+
+                let R = &r.R(idim);
+                info!(
+                    bytes = mem.stacks[dim].R.core,
+                    fill = r.R(idim).fill_ratio(),
+                    size =? (R.rows(), R.cols()),
+                    empty_cols = R.count_empty_columns(),
+                    "R"
+                );
+
+                let U_t = &r.U_t(idim);
+                info!(
+                    bytes = mem.stacks[dim].U_t.core,
+                    fill = r.U_t(idim).fill_ratio(),
+                    size =? (U_t.rows(), U_t.cols()),
+                    empty_cols = U_t.count_empty_columns(),
+                    "U"
+                );
+                info!(ordering = mem.stacks[dim].ordering);
             }
         }
 
-        let vm: mars_core::stats::VineyardsMem = (&vin).into();
-        let rm = vm
-            .reductions
-            .into_iter()
-            .map(|(i, r)| (size_of_val(&i), r))
-            .fold((0, ReductionMem::default()), |(i, r), (ii, rr)| {
-                (i + ii, r + rr)
-            });
-        info!(rm=?rm);
-        for dim in 0..3 {
-            info!(dim = dim, "swaps: {:>10}", vm.swaps[dim]);
-        }
+        // let vm: mars_core::stats::VineyardsMem = (&vin).into();
+        // let rm = vm
+        //     .reductions
+        //     .into_iter()
+        //     .map(|(i, r)| (size_of_val(&i), r))
+        //     .fold((0, ReductionMem::default()), |(i, r), (ii, rr)| {
+        //         (i + ii, r + rr)
+        //     });
+        // println!("{:#?}", rm);
+        // for dim in 0..3 {
+        //     info!(dim = dim, "swaps: {:>10}", vm.swaps[dim]);
+        // }
         // dbg!(vm);
 
         Ok(())

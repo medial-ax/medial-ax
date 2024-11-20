@@ -222,13 +222,15 @@ impl Columns {
         self.columns[c as usize].0.clone()
     }
 
+    /// Compute the number of bytes used.
     pub(crate) fn mem_usage(&self) -> usize {
         self.columns.iter().map(|c| c.mem_usage()).sum::<usize>()
+            + self.columns.capacity() * std::mem::size_of_val(&self.columns[0])
             + 2 * std::mem::size_of_val(&self.rows)
     }
 
     fn fill_ratio(&self) -> f64 {
-        let max = (self.nrows() * self.ncols()) as f64;
+        let max = self.nrows() as f64 * self.ncols() as f64;
         let used = self.columns.iter().map(|c| c.0.len() as f64).sum::<f64>();
         return used / max;
     }
@@ -478,7 +480,7 @@ impl BitBuffer {
     }
 
     pub fn mem_usage(&self) -> usize {
-        self.bits.capacity() * 64 + size_of_val(self)
+        self.bits.capacity() * 8 + size_of_val(self)
     }
 
     fn fill_ratio(&self) -> f64 {

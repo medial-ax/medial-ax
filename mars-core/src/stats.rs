@@ -5,9 +5,6 @@ use crate::{complex, sneaky_matrix::CI, Grid, Mars};
 #[derive(Debug, Default, Clone)]
 pub struct SneakyMatrixMem {
     pub core: usize,
-    /// Size of the field rows
-    pub rows: usize,
-    pub cols: usize,
     /// Size of the permutation
     pub col_perm: usize,
     pub row_perm: usize,
@@ -19,8 +16,6 @@ impl Add for SneakyMatrixMem {
     fn add(self, rhs: Self) -> Self::Output {
         Self {
             core: self.core + rhs.core,
-            rows: self.rows + rhs.rows,
-            cols: self.cols + rhs.cols,
             col_perm: self.col_perm + rhs.col_perm,
             row_perm: self.row_perm + rhs.row_perm,
         }
@@ -31,8 +26,6 @@ impl Into<SneakyMatrixMem> for &crate::sneaky_matrix::SneakyMatrix {
     fn into(self) -> SneakyMatrixMem {
         SneakyMatrixMem {
             core: self.core.mem_usage(),
-            rows: std::mem::size_of_val(&self.rows()),
-            cols: std::mem::size_of_val(&self.cols()),
             col_perm: self.col_perm.as_ref().map(|p| p.mem_usage()).unwrap_or(0),
             row_perm: self.col_perm.as_ref().map(|p| p.mem_usage()).unwrap_or(0),
         }
@@ -179,6 +172,7 @@ pub struct MarsMem {
     pub complex: Option<ComplexMem>,
     pub grid: Option<GridMem>,
 }
+
 impl Into<MarsMem> for &Mars {
     fn into(self) -> MarsMem {
         MarsMem {
