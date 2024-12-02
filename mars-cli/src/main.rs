@@ -77,11 +77,14 @@ struct RunArgs {
     #[arg(
         short,
         long,
-        help = "Whether to pre-prune, with an optional prune file",
+        help = "Whether to pre-prune, with an optional prune file.",
         value_name = "PRUNE.json",
         num_args=0..=1
     )]
     prune: Option<Option<PathBuf>>,
+
+    #[arg(short, long, help = "Don't include matrices in the output.")]
+    slim: bool,
 }
 
 #[derive(Debug, Args)]
@@ -394,7 +397,83 @@ fn print_prune_config() -> Result<()> {
     Ok(())
 }
 
+impl RunArgs {
+    fn run_slim(&self) -> Result<()> {
+        let complex = Complex::read_from_obj_path(&self.obj_path)
+            .map_err(|e| anyhow!(e))
+            .context("failed to read complex")
+            .unwrap();
+
+        let mesh_grid = {
+            let obj_string = std::fs::read_to_string(&self.mesh_path)
+                .with_context(|| format!("failed to read mesh path: {:?}", self.mesh_path))
+                .unwrap();
+            VineyardsGridMesh::read_from_obj_string(&obj_string)
+        }
+        .map_err(|e| anyhow!(e))
+        .context("failed to read complex")
+        .unwrap();
+
+        let mars = mars_core::Mars {
+            complex: Some(complex),
+            grid: Some(mars_core::Grid::Mesh(mesh_grid)),
+        };
+
+        use rayon::prelude::*;
+        let mut parts: Vec<_> = {
+            let parts = mars.split_into_4().map_err(|e| anyhow!(e))?;
+            parts
+                .par_iter()
+                .enumerate()
+                .map(|(k, sub)| {
+                    sub.run_slim(|i, n| {
+                        if i == 0 {
+                            return;
+                        }
+                        let p = (i as f64 / n as f64 * 100.0).round();
+                        let pprev = ((1.0 + i as f64) / n as f64 * 100.0).round();
+                        let on_step = p != pprev;
+                        if on_step || i == n {
+                            info!(?k, "{:3}%", p);
+                        }
+                    })
+                })
+                .collect()
+        };
+
+        let mut joined = [Vec::new(), Vec::new(), Vec::new()];
+        for part in &mut parts {
+            let Ok(part) = part else {
+                error!("Part failed: {:?}", part);
+                continue;
+            };
+            for dim in 0..3 {
+                joined[dim].extend(std::mem::take(&mut part[dim]));
+            }
+        }
+
+        let output_bytes = rmp_serde::to_vec(&joined)?;
+
+        if let Some(ref path) = self.output_path {
+            let mut f = std::fs::File::create(path).context("create output file")?;
+            f.write_all(&output_bytes).context("write to output file")?;
+            info!("Wrote output to {}", path.display());
+        } else {
+            std::io::stdout()
+                .write_all(&output_bytes)
+                .context("write to stdout")?;
+            info!("Wrote output to stdout");
+        }
+
+        Ok(())
+    }
+}
+
 fn run(args: &RunArgs) -> Result<()> {
+    if args.slim {
+        return args.run_slim();
+    }
+
     let complex = Complex::read_from_obj_path(&args.obj_path)
         .map_err(|e| anyhow!(e))
         .context("failed to read complex")

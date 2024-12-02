@@ -1,4 +1,7 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    iter::from_fn,
+};
 
 use tracing::{info, instrument, trace};
 
@@ -41,6 +44,14 @@ impl std::ops::Add<Index> for Index {
             arr[i] = self.0[i] + rhs.0[i];
         }
         Index(arr)
+    }
+}
+
+impl std::ops::AddAssign<Index> for Index {
+    fn add_assign(&mut self, rhs: Index) {
+        for i in 0..3 {
+            self.0[i] += rhs.0[i];
+        }
     }
 }
 
@@ -224,7 +235,7 @@ impl VineyardsGrid {
             + (self.shape.0[0] - 1) * self.shape.0[1] * self.shape.0[2]
     }
 
-    /// Run vineyards across all edges of the grid.  
+    /// Run vineyards across all edges of the grid.
     pub fn run_vineyards_in_grid<F: Fn(usize, usize)>(
         &self,
         complex: &Complex,
@@ -556,6 +567,98 @@ impl VineyardsGridMesh {
         }
 
         (reductions, all_swaps)
+    }
+
+    pub fn run_vineyards_slim<
+        F: Fn(usize, usize),
+        G: FnMut(Index, Index, &Reduction, &Reduction, Swaps),
+    >(
+        &self,
+        complex: &Complex,
+        require_hom_birth_to_be_first: bool,
+        record_progress: F,
+        mut on_edge: G,
+    ) {
+        let mut reductions: HashMap<Index, Reduction> = HashMap::new();
+
+        if self.points.len() == 0 {
+            return;
+        }
+        let mut seen_vx = HashSet::<isize>::new();
+        let mut visits_left = HashMap::<isize, usize>::new();
+        for (k, ns) in self.neighbors.iter().enumerate() {
+            visits_left.insert(k as isize, ns.len());
+        }
+
+        // Find a component in the meshgrid that we haven't reached yet.
+        // `i0` is any node in this component.
+        while let Some(i0) = self
+            .neighbors
+            .iter()
+            .enumerate()
+            .filter(|(v, _)| !seen_vx.contains(&(*v as isize)))
+            .find(|(_, n)| n.len() > 0)
+            .map(|(v, _)| v as isize)
+        {
+            seen_vx.insert(i0);
+            let i0 = Index::fake(i0 as isize);
+            let reduction_at_0 = reduce_from_scratch(&complex, self.points[i0.x() as usize], false);
+            reductions.insert(i0, reduction_at_0);
+
+            let mut stack = self
+                .neighbors
+                .get(i0.x() as usize)
+                .unwrap()
+                .iter()
+                .map(|n| (Index::fake(*n), i0))
+                .collect::<Vec<_>>();
+
+            let mut loop_i = 0;
+            let num_edges = self
+                .neighbors
+                .iter()
+                .map(|v| v.len() as usize)
+                .sum::<usize>()
+                / 2;
+
+            while let Some((next, from)) = stack.pop() {
+                seen_vx.insert(next.x());
+                loop_i += 1;
+                record_progress(loop_i, num_edges);
+
+                let old_state = reductions.get(&from).expect("from should be in the map");
+                let p = self.coordinate(next);
+                let (new_state, swaps) =
+                    vineyards_step(complex, old_state, p, require_hom_birth_to_be_first);
+
+                on_edge(from, next, old_state, &new_state, swaps);
+
+                if !reductions.contains_key(&next) {
+                    reductions.insert(next, new_state);
+                    for neighbor in self.neighbors.get(next.x() as usize).unwrap() {
+                        if !seen_vx.contains(neighbor) {
+                            stack.push((Index::fake(*neighbor), next));
+                        }
+                    }
+                }
+
+                let from_counter = visits_left
+                    .get_mut(&from.x())
+                    .expect("All vertices should be in the map");
+                *from_counter -= 1;
+                if *from_counter == 0 {
+                    reductions.remove(&from).expect("missing reduction in from");
+                }
+
+                let next_counter = visits_left
+                    .get_mut(&next.x())
+                    .expect("All vertices should be in the map");
+                *next_counter -= 1;
+                if *next_counter == 0 {
+                    reductions.remove(&next).expect("missing reduction in next");
+                }
+            }
+        }
     }
 
     pub fn read_from_obj_string(s: &str) -> Result<Self, String> {

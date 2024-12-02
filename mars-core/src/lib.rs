@@ -2,7 +2,6 @@
 use std::{
     collections::{HashMap, HashSet},
     iter::zip,
-    sync::atomic::{AtomicUsize, Ordering},
 };
 
 use complex::{Complex, Pos};
@@ -181,6 +180,50 @@ impl Mars {
 
         Ok(Vineyards { reductions, swaps })
     }
+
+    /// Run slim Vineyards across the instance.
+    pub fn run_slim<F: Fn(usize, usize)>(
+        &self,
+        progress: F,
+    ) -> Result<[Vec<(Index, Index, Vec<(Swap, f64, f64)>)>; 3], String> {
+        let Some(ref c) = self.complex else {
+            return Err("Vineyards::run: no complex")?;
+        };
+
+        let Some(ref g) = self.grid else {
+            return Err("Vineyards::run: no grid")?;
+        };
+
+        let mut ret = [Vec::new(), Vec::new(), Vec::new()];
+
+        match g {
+            Grid::Regular(r) => {
+                todo!();
+            }
+            Grid::Mesh(m) => {
+                m.run_vineyards_slim(&c, false, progress, |from, to, from_red, to_red, swaps| {
+                    let mut inner_swaps = [Vec::new(), Vec::new(), Vec::new()];
+                    for s in swaps.v {
+                        let from_p = from_red
+                            .persistence(c, s.dim, s.i)
+                            .map(|b| b.lifetime())
+                            .unwrap_or(0.0);
+                        let to_p = to_red
+                            .persistence(c, s.dim, s.j)
+                            .map(|b| b.lifetime())
+                            .unwrap_or(0.0);
+
+                        inner_swaps[s.dim as usize].push((s, from_p, to_p));
+                    }
+                    for dim in 0..3 {
+                        ret[dim].push((from, to, std::mem::take(&mut inner_swaps[dim])));
+                    }
+                })
+            }
+        };
+
+        Ok(ret)
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -338,6 +381,24 @@ impl SubMars {
             reductions,
             swaps: [swaps0, swaps1, swaps2],
         })
+    }
+
+    /// Run Vineyards, and map the result swaps back to the original coorinate system of the [Mars]
+    /// instance this [SubMars] instance came from.
+    pub fn run_slim<F: Fn(usize, usize)>(
+        &self,
+        progress: F,
+    ) -> Result<[Vec<(Index, Index, Vec<(Swap, f64, f64)>)>; 3], String> {
+        let mut swaps_all_dims = self.mars.run_slim(progress)?;
+
+        for swaps in &mut swaps_all_dims {
+            for s in swaps {
+                s.0 += self.offset;
+                s.1 += self.offset;
+            }
+        }
+
+        Ok(swaps_all_dims)
     }
 }
 
@@ -626,6 +687,7 @@ impl Reduction {
                     death: None,
                 })
             } else {
+                panic!("we are in here after all!");
                 None
             }
         }
