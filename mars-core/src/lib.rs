@@ -304,7 +304,7 @@ pub type SwapList = Vec<(Index, Index, Swaps)>;
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SubMars {
     pub mars: Mars,
-    /// Where this sub-problem is relative to the main problem it was derived from.   
+    /// Where this sub-problem is relative to the main problem it was derived from.
     pub offset: Index,
 }
 
@@ -460,51 +460,12 @@ impl Swaps {
         reduction_to: &Reduction,
         lifetime: f64,
     ) {
-        let (vd, ed, td) = complex.distances_to(reduction_from.key_point);
-        let distances_from = [vd, ed, td];
-        let (vd, ed, td) = complex.distances_to(reduction_to.key_point);
-        let distances_to = [vd, ed, td];
-
-        fn find_killer(dim: usize, can_id: CI, reduction: &Reduction) -> Option<CI> {
-            if reduction.stacks.len() <= dim + 1 {
-                return None;
-            }
-            let ordering = &reduction.stacks[dim].ordering;
-            let sorted_i = ordering.map(can_id);
-            let killer = reduction.stacks[dim + 1]
-                .R
-                .col_with_low((sorted_i).try_into().unwrap());
-            if let Some(k) = killer {
-                let can_k = reduction.stacks[dim + 1].ordering.inv(k);
-                Some(can_k)
-            } else {
-                None
-            }
-        }
-
-        fn persistence(
-            dim: usize,
-            can_id: CI,
-            reduction: &Reduction,
-            distances: &[Vec<f64>],
-        ) -> Option<f64> {
-            let killer = find_killer(dim, can_id, reduction);
-            if let Some(killer) = killer {
-                let dist = distances[dim][can_id as usize];
-                let killer_dist = distances[dim + 1][killer as usize];
-                let persistence = killer_dist - dist;
-                Some(persistence)
-            } else {
-                None
-            }
-        }
-
         self.v.retain(|swap| {
-            let persistence_i = persistence(swap.dim, swap.i, reduction_from, &distances_from);
-            let persistence_j = persistence(swap.dim, swap.j, reduction_to, &distances_to);
+            let persistence_i = reduction_from.persistence(complex, swap.dim, swap.i);
+            let persistence_j = reduction_to.persistence(complex, swap.dim, swap.j);
             match (persistence_i, persistence_j) {
                 (Some(p), Some(q)) => {
-                    if p < lifetime && q < lifetime {
+                    if p.lifetime() < lifetime && q.lifetime() < lifetime {
                         false
                     } else {
                         true
