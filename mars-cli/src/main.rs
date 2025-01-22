@@ -453,10 +453,72 @@ struct PruneArgs {
         value_name = "PRUNE.json"
     )]
     params: Option<PathBuf>,
+
+    #[arg(short, long, help = "Treat input file as a --slim output")]
+    slim: bool,
 }
 
 impl PruneArgs {
+    fn run_slim(&self) -> Result<()> {
+        info!("Read parameters");
+        let params = if let Some(ref p) = self.params {
+            let f = std::fs::File::open(p).context("open file")?;
+            let mut reader = BufReader::new(f);
+            serde_json::from_reader(&mut reader).context("rmp read")?
+        } else {
+            default_pruning_params()
+        };
+
+        info!("Read state");
+        let bytes = std::fs::read(&self.state_path).context("read state file")?;
+        let (all_swaps, mars): SlimFile = rmp_serde::from_slice(&bytes).context("rmp read")?;
+
+        info!("Prune");
+        let mut all_pruned = [Vec::new(), Vec::new(), Vec::new()];
+        for dim in 0..3 {
+            let num_swaps = all_swaps[dim].iter().map(|s| s.2.len()).sum::<usize>();
+            info!(dim = dim, "read {} swaps", num_swaps);
+            let pruned = mars_core::prune::prune_dim(
+                &all_swaps[dim],
+                dim,
+                &params[dim],
+                mars.complex.as_ref().expect("Missing complex"),
+                |i, n| {
+                    if i % 127 == 0 {
+                        info!(
+                            dim = dim,
+                            "pruning {}%",
+                            ((i as f64 / n as f64) * 100.0).round()
+                        );
+                    }
+                },
+            );
+
+            let num_left = pruned.iter().map(|s| s.2.len()).sum::<usize>();
+            let num_pruned = num_swaps - num_left;
+            info!(
+                dim = dim,
+                "pruned {} swaps ({}%). New count is {}",
+                num_pruned,
+                ((num_pruned as f64 / num_swaps as f64) * 100.0).floor(),
+                num_left
+            );
+            all_pruned[dim] = pruned;
+        }
+
+        info!("Write output");
+        let output = (all_pruned, mars);
+        let output_bytes = rmp_serde::to_vec(&output)?;
+        let mut f = std::fs::File::create(&self.output).context("create output file")?;
+        f.write_all(&output_bytes).context("write to output file")?;
+
+        Ok(())
+    }
+
     fn run(&self) -> Result<()> {
+        if self.slim {
+            return self.run_slim();
+        }
         info!("Read parameters");
         let params = if let Some(ref p) = self.params {
             let f = std::fs::File::open(p).context("open file")?;

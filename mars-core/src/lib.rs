@@ -542,6 +542,174 @@ impl Swaps {
     }
 }
 
+pub mod prune {
+    use std::collections::{HashMap, HashSet};
+
+    use tracing::warn;
+
+    use crate::{complex::Complex, grid::Index, sneaky_matrix::CI, PruningParam, Swap};
+
+    type SlimSwap = Vec<(Swap, f64, f64)>;
+
+    pub fn prune_dim<F: Fn(usize, usize)>(
+        all_swaps: &Vec<(Index, Index, SlimSwap)>,
+        dim: usize,
+        params: &PruningParam,
+        complex: &Complex,
+        progress: F,
+    ) -> Vec<(Index, Index, SlimSwap)> {
+        let mut pruned = Vec::new();
+        let n = all_swaps.len();
+        for (i, s) in all_swaps.iter().enumerate() {
+            progress(i, n);
+            if s.2.len() == 0 {
+                continue;
+            }
+
+            let mut dim_swaps = s.2.clone();
+
+            if params.euclidean {
+                if let Some(dist) = params.euclidean_distance {
+                    prune_euclidian(&mut dim_swaps, &complex, dist)
+                } else {
+                    warn!(
+                        "params dim {}: euclidean was true but distance was None",
+                        dim
+                    );
+                }
+            }
+
+            if params.face {
+                prune_common_face(&mut dim_swaps, &complex);
+            }
+
+            if params.coface {
+                prune_coboundary(&mut dim_swaps, &complex);
+            }
+
+            if params.persistence {
+                if let Some(dist) = params.persistence_threshold {
+                    prune_persistence(&mut dim_swaps, dist)
+                } else {
+                    warn!(
+                        "params dim {}: persistence was true but threshold was None",
+                        dim
+                    );
+                }
+            }
+
+            if dim_swaps.is_empty() {
+                continue;
+            }
+
+            pruned.push((s.0, s.1, dim_swaps));
+        }
+
+        pruned
+    }
+
+    /// Remove all swaps that were done between simplices that are closer than
+    /// `min_dist^2`.
+    ///
+    /// Useful for 0th MA.
+    pub fn prune_euclidian(swaps: &mut SlimSwap, complex: &Complex, min_dist2: f64) {
+        swaps.retain(|(swap, _, _)| {
+            let c1 = complex.simplices_per_dim[swap.dim][swap.i as usize].center_point(complex);
+            let c2 = complex.simplices_per_dim[swap.dim][swap.j as usize].center_point(complex);
+            let dist = c1.dist2(&c2);
+            min_dist2 < dist
+        })
+    }
+
+    pub fn prune_common_face(swaps: &mut SlimSwap, complex: &Complex) {
+        let mut simp_to_vertices: HashMap<(usize, CI), HashSet<CI>> = HashMap::new();
+
+        for dim in 1..3 {
+            for (s, i) in complex.simplices_per_dim[dim].iter().zip(0..) {
+                if dim == 1 {
+                    let set = simp_to_vertices
+                        .entry((dim, i))
+                        .or_insert_with(|| HashSet::new());
+                    for b in &s.boundary {
+                        set.insert(*b);
+                    }
+                } else {
+                    for b in &s.boundary {
+                        let face_set = simp_to_vertices
+                            .get(&(dim - 1, *b))
+                            .expect("Should have inserted this simplex before")
+                            .clone();
+                        let set = simp_to_vertices
+                            .entry((dim, i))
+                            .or_insert_with(|| HashSet::new());
+                        set.extend(face_set);
+                    }
+                }
+            }
+        }
+
+        swaps.retain(|(swap, _, _)| {
+            if swap.dim == 0 {
+                return true;
+            }
+            let set_i = simp_to_vertices.get(&(swap.dim, swap.i)).unwrap();
+            let set_j = simp_to_vertices.get(&(swap.dim, swap.j)).unwrap();
+            let mut intersection = set_i.intersection(set_j);
+            intersection.next() == None
+        });
+    }
+
+    /// Remove all swaps that happen between simplices if there is a simplex
+    /// with the two simplices in its boundary.
+    pub fn prune_coboundary(swaps: &mut SlimSwap, complex: &Complex) {
+        // (dim, id) to [id].
+        let mut coboundary: HashMap<(usize, CI), HashSet<CI>> = HashMap::new();
+
+        for dim in 1..3 {
+            for (s, parent_i) in complex.simplices_per_dim[dim].iter().zip(0..) {
+                for face_i in &s.boundary {
+                    let v = coboundary
+                        .entry((dim - 1, *face_i))
+                        .or_insert_with(HashSet::new);
+                    v.insert(parent_i);
+                }
+            }
+        }
+
+        swaps.retain(|(swap, _, _)| {
+            if swap.dim == 2 {
+                return true;
+            }
+
+            let cob_i = coboundary.get(&(swap.dim, swap.i));
+            let cob_j = coboundary.get(&(swap.dim, swap.j));
+
+            if let (Some(cob_i), Some(cob_j)) = (cob_i, cob_j) {
+                let mut intersection = cob_i.intersection(cob_j);
+                intersection.next() == None
+            } else {
+                true
+            }
+        });
+    }
+
+    /// Remove all swaps that happened where the persistence of any of the
+    /// simplices were less than `lifetime`.
+    ///
+    /// `lifetime` can for instance be `0.01`.
+    ///
+    /// Probably only useful for 1st MA.
+    pub fn prune_persistence(swaps: &mut SlimSwap, min_lifetime: f64) {
+        swaps.retain(|&(_, lifetime_i, lifetime_j)| {
+            if lifetime_i < min_lifetime && lifetime_j < min_lifetime {
+                false
+            } else {
+                true
+            }
+        });
+    }
+}
+
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 #[allow(non_snake_case)]
 pub struct Stack {
