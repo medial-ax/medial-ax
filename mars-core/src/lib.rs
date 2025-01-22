@@ -207,11 +207,11 @@ impl Mars {
                         let from_p = from_red
                             .persistence(c, s.dim, s.i)
                             .map(|b| b.lifetime())
-                            .unwrap_or(0.0);
+                            .expect(".persistence should always return Some");
                         let to_p = to_red
                             .persistence(c, s.dim, s.j)
                             .map(|b| b.lifetime())
-                            .unwrap_or(0.0);
+                            .expect(".persistence should always return Some");
 
                         inner_swaps[s.dim as usize].push((s, from_p, to_p));
                     }

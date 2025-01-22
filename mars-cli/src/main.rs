@@ -1,9 +1,9 @@
 use anyhow::{anyhow, bail, Context, Result};
 use mars_core::{
     complex::Complex,
-    grid::VineyardsGridMesh,
+    grid::{Index, VineyardsGridMesh},
     stats::{MarsMem, ReductionMem},
-    Grid, PruningParam,
+    Grid, Mars, PruningParam, Swap,
 };
 use std::{
     io::{BufReader, Write},
@@ -170,6 +170,9 @@ struct ObjArgs {
     )]
     state: PathBuf,
 
+    #[arg(short, long, help = "Treat input file as a --slim output")]
+    slim: bool,
+
     #[arg(
         short = 'c',
         long,
@@ -195,9 +198,130 @@ struct ObjArgs {
     medial_axes: Option<PathBuf>,
 }
 
+/// Lists of swaps for each dimension, per grid edge.
+/// `(Index, Index, Vec<...>)` is two grid indices and the list of swaps between them.
+/// `(Swap, f64, f64)` is the swap, plus the persistence lifetime of the swapped simplices
+/// (0.0 if ).
+type SlimFile = ([Vec<(Index, Index, Vec<(Swap, f64, f64)>)>; 3], Mars);
+
 impl ObjArgs {
+    fn run_slim(&self) -> Result<()> {
+        let bytes = std::fs::read(&self.state).context("read state file")?;
+        let slim_file: SlimFile = rmp_serde::from_slice(&bytes).context("rmp read")?;
+
+        let swaps = slim_file.0;
+        let Some(Grid::Mesh(mut grid)) = slim_file.1.grid else {
+            unimplemented!();
+        };
+
+        if let Some(ref p) = self.medial_axes {
+            grid.recompute_dim_dist();
+            let mut f = std::fs::File::create(p).context("create passed file")?;
+            info!("Write medial axes to {}", p.display());
+
+            let mut vi = 0;
+            for dim in 0..3 {
+                let swaps = &swaps[dim];
+
+                writeln!(&mut f, "o ma-dim-{}", dim)?;
+
+                for (gi, gj, swaps) in swaps {
+                    if 0 < swaps.len() {
+                        let pts = grid.dual_quad_points(*gi, *gj);
+                        for p in &pts {
+                            writeln!(&mut f, "v {} {} {}", p.x(), p.y(), p.z())?;
+                        }
+                        writeln!(&mut f, "f {} {} {} {}", vi + 1, vi + 2, vi + 3, vi + 4)?;
+                        vi += 4;
+                    }
+                }
+            }
+        }
+
+        // if let Some(ref p) = self.complex {
+        //     let c = mars
+        //         .complex
+        //         .as_ref()
+        //         .ok_or_else(|| anyhow!("missing complex in state"))?;
+
+        //     let mut f = std::fs::File::create(p).context("create passed file")?;
+        //     info!("Write complex to {}", p.display());
+        //     c.write_as_obj(&mut f).context("write obj")?;
+        // }
+
+        // if let Some(ref p) = self.grid {
+        //     let c = mars
+        //         .grid
+        //         .as_ref()
+        //         .ok_or_else(|| anyhow!("missing grid in state"))?;
+
+        //     let g = match c {
+        //         mars_core::Grid::Regular(_) => {
+        //             error!("Trying to output a grid, but it is a regular grid.");
+        //             bail!("Trying to output a grid, but it is a regular grid.");
+        //         }
+        //         mars_core::Grid::Mesh(mesh) => mesh,
+        //     };
+
+        //     let mut f = std::fs::File::create(p).context("create passed file")?;
+        //     info!("Write grid to {}", p.display());
+        //     g.write_as_obj(&mut f).context("write obj")?;
+        // }
+
+        // if let Some(ref p) = self.medial_axes {
+        //     let mut f = std::fs::File::create(p).context("create passed file")?;
+
+        //     info!("Write medial axes to {}", p.display());
+        //     let mut vi = 0;
+        //     for dim in 0..3 {
+        //         let swaps = &vin.swaps[dim];
+
+        //         writeln!(&mut f, "o ma-dim-{}", dim)?;
+
+        //         match mars
+        //             .grid
+        //             .as_mut()
+        //             .ok_or_else(|| anyhow!("missing grid in state"))?
+        //         {
+        //             Grid::Regular(grid) => {
+        //                 for s in swaps {
+        //                     if 0 < s.2.v.len() {
+        //                         let pts = grid.dual_quad_points(s.0, s.1);
+        //                         for p in &pts {
+        //                             writeln!(&mut f, "v {} {} {}", p.x(), p.y(), p.z())?;
+        //                         }
+        //                         writeln!(&mut f, "f {} {} {} {}", vi + 1, vi + 2, vi + 3, vi + 4)?;
+        //                         vi += 4;
+        //                     }
+        //                 }
+        //             }
+        //             Grid::Mesh(grid) => {
+        //                 grid.recompute_dim_dist();
+        //                 for s in swaps {
+        //                     if 0 < s.2.v.len() {
+        //                         let pts = grid.dual_quad_points(s.0, s.1);
+        //                         for p in &pts {
+        //                             writeln!(&mut f, "v {} {} {}", p.x(), p.y(), p.z())?;
+        //                         }
+        //                         writeln!(&mut f, "f {} {} {} {}", vi + 1, vi + 2, vi + 3, vi + 4)?;
+        //                         vi += 4;
+        //                     }
+        //                 }
+        //             }
+        //         }
+        //     }
+        // }
+
+        Ok(())
+    }
+
     fn run(&self) -> Result<()> {
         info!("Reading input file {}", self.state.display());
+
+        if self.slim {
+            return self.run_slim();
+        }
+
         let bytes = std::fs::read(&self.state).context("read state file")?;
         let (mut mars, vin): (mars_core::Mars, mars_core::Vineyards) =
             rmp_serde::from_slice(&bytes).context("rmp read")?;
@@ -399,6 +523,9 @@ fn print_prune_config() -> Result<()> {
 
 impl RunArgs {
     fn run_slim(&self) -> Result<()> {
+        if self.prune.is_some() {
+            bail!("Cannot prune and --slim at the same time");
+        }
         let complex = Complex::read_from_obj_path(&self.obj_path)
             .map_err(|e| anyhow!(e))
             .context("failed to read complex")
@@ -452,7 +579,9 @@ impl RunArgs {
             }
         }
 
-        let output_bytes = rmp_serde::to_vec(&joined)?;
+        let output: SlimFile = (joined, mars);
+
+        let output_bytes = rmp_serde::to_vec(&output)?;
 
         if let Some(ref path) = self.output_path {
             let mut f = std::fs::File::create(path).context("create output file")?;
