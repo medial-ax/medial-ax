@@ -31,11 +31,8 @@ for o in bpy.data.objects:
     if o.name in ("grid"):
         grid = o
         grid.select_set(True)
-        # print(grid)
     if o.name in ("object"):
         object = o
-        # object.select_set(True)
-        # print(object)
             
 print("delete time")
 
