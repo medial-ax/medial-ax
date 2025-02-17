@@ -104,22 +104,10 @@ impl Simplex {
         self.boundary.len() as isize - 1
     }
 
-    pub fn __repr__(&self) -> String {
-        match self.dim() {
-            -1 => "Ø".to_string(),
-            0 => format!(
-                "v({}; pos={}",
-                self.id,
-                self.coords
-                    .map(|c| format!("{:?}", c))
-                    .unwrap_or_else(|| format!("[no pos]"))
-            ),
-            1 => format!("e({}; bnd={:?})", self.id, self.boundary),
-            2 => format!("f({}; bnd={:?})", self.id, self.boundary),
-            _ => panic!(),
-        }
-    }
-
+    /// The center point is:
+    /// - point: itself
+    /// - edge: midpoint of the edge
+    /// - face: centroid of the face
     pub fn center_point(&self, complex: &Complex) -> Pos {
         match self.dim() {
             0 => self.coords.unwrap(),

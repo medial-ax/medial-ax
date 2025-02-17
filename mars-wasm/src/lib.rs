@@ -1,3 +1,4 @@
+#![allow(non_snake_case)]
 use anyhow::Result;
 use mars_core::complex::Complex;
 use mars_core::grid::{Index, VineyardsGridMesh};
@@ -6,9 +7,9 @@ use serde::{Serialize, Serializer};
 use wasm_bindgen::prelude::*;
 
 use mars_core::{grid::VineyardsGrid, SwapList};
-use tracing::{debug, error, info, trace, warn};
+use tracing::{debug, error, info, trace};
 
-use std::{collections::HashMap, panic};
+use std::panic;
 
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::sync::atomic::{AtomicIsize, Ordering};

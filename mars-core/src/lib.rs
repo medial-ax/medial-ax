@@ -1,4 +1,4 @@
-#![allow(dead_code, unreachable_code)]
+#![allow(dead_code, unreachable_code, non_snake_case)]
 use std::{
     collections::{HashMap, HashSet},
     iter::zip,
@@ -197,7 +197,7 @@ impl Mars {
         let mut ret = [Vec::new(), Vec::new(), Vec::new()];
 
         match g {
-            Grid::Regular(r) => {
+            Grid::Regular(_) => {
                 todo!();
             }
             Grid::Mesh(m) => {
@@ -1078,52 +1078,23 @@ pub fn vineyards_step(
                 });
             }
         }
+
         stack2.ordering = t_perm;
     }
 
     if 0 < e_perm.len() {
-        static EDGE_DEBUG: bool = false;
-
-        let mut seen_swaps = HashSet::new();
-
         e_perm.reverse();
         let vine_ordering1 = Permutation::from_to(&stack1.ordering, &e_perm);
         let (swap_is1, simplices_that_got_swapped1) =
             compute_transpositions(vine_ordering1.clone().into_forwards());
 
-        // info!(
-        //     "swaps: {} ({:3} %)  max={}",
-        //     swap_is1.len(),
-        //     (swap_is1.len() as f64
-        //         / (vine_ordering1.len() as f64 * (vine_ordering1.len() as f64 - 1.0) / 2.0)
-        //         * 100.0)
-        //         .round(),
-        //     (vine_ordering1.len() as f64 * (vine_ordering1.len() as f64 - 1.0) / 2.0)
-        // );
-
         let up_U_t = &mut stack2.U_t;
         let mut up_cwi = ColWithInv::new(&mut stack2.R);
 
         for (swap_i, &i) in swap_is1.iter().enumerate() {
-            let res = perform_one_swap(
-                i,
-                &mut stack1,
-                &mut up_cwi,
-                up_U_t,
-                &reduction.stacks[1],
-                &reduction.stacks[2],
-                complex,
-                1,
-                key_point,
-            );
+            let res = perform_one_swap(i, &mut stack1, &mut up_cwi, up_U_t);
             stack1.D.swap_cols(i, i + 1);
             stack2.D.swap_rows(i, i + 1);
-            if EDGE_DEBUG {
-                let (i, j) = simplices_that_got_swapped1[swap_i];
-                let cann_i = stack1.ordering.inv(i);
-                let cann_j = stack1.ordering.inv(j);
-                seen_swaps.insert((cann_i.min(cann_j), cann_i.max(cann_j)));
-            }
             if let Some(true) = res {
                 let (i, j) = simplices_that_got_swapped1[swap_i];
                 let cann_i = e_perm.inv(i);
@@ -1137,49 +1108,6 @@ pub fn vineyards_step(
             }
         }
 
-        if EDGE_DEBUG {
-            // Check that all pairs we've seen swapped actually has their ordering changed
-            // wrt. the two key points.  In addition, check that the ones we have NOT seen
-            // has their ordering the same.
-            let a = reduction.key_point;
-            let b = key_point;
-            let (vd, ed, td) = complex.distances_to(a);
-            let distances_a = [vd, ed, td];
-            let (vd, ed, td) = complex.distances_to(b);
-            let distances_b = [vd, ed, td];
-
-            for i in 0..complex.simplices_per_dim[1].len() as CI {
-                for j in 0..i {
-                    let dist_a_i = distances_a[1][i as usize];
-                    let dist_a_j = distances_a[1][j as usize];
-                    let cmp_at_a = dist_a_i.total_cmp(&dist_a_j);
-
-                    let dist_b_i = distances_b[1][i as usize];
-                    let dist_b_j = distances_b[1][j as usize];
-                    let cmp_at_b = dist_b_i.total_cmp(&dist_b_j);
-
-                    if cmp_at_a.is_eq() || cmp_at_b.is_eq() {
-                        continue;
-                    }
-
-                    if seen_swaps.contains(&(j, i)) {
-                        assert!(
-                            cmp_at_a != cmp_at_b,
-                            "Swapped, so ordering should have too: {:?} {:?}",
-                            cmp_at_a,
-                            cmp_at_b
-                        );
-                    } else {
-                        assert!(
-                            cmp_at_a == cmp_at_b,
-                            "Ordering should be the same since they didn't swap: {:?} {:?}",
-                            cmp_at_a,
-                            cmp_at_b
-                        );
-                    }
-                }
-            }
-        }
         stack1.ordering = e_perm;
     }
 
@@ -1213,17 +1141,7 @@ pub fn vineyards_step(
     let mut up_cwi = ColWithInv::new(&mut stack1.R);
 
     for (swap_i, &i) in swap_is0.iter().enumerate() {
-        let res = perform_one_swap(
-            i,
-            &mut stack0,
-            &mut up_cwi,
-            up_U_t,
-            &reduction.stacks[0],
-            &reduction.stacks[1],
-            complex,
-            0,
-            key_point,
-        );
+        let res = perform_one_swap(i, &mut stack0, &mut up_cwi, up_U_t);
         stack0.D.swap_cols(i, i + 1);
         stack1.D.swap_rows(i, i + 1);
 
@@ -1424,8 +1342,10 @@ pub fn reduce_from_scratch(complex: &Complex, key_point: Pos, noisy: bool) -> Re
 /// The exact cache logic is a little gnarly and is tightly coupled with the logic in
 /// [perform_one_swap].
 struct ColWithInv<'a> {
+    /// The [SneakyMatrix] that we are caching.
     inner: &'a mut SneakyMatrix,
-    col_with_low: Vec<CI>,
+    /// The cache.  Missing entries are marked with [CI::MAX].
+    cache: Vec<CI>,
 }
 
 impl<'a> ColWithInv<'a> {
@@ -1439,103 +1359,63 @@ impl<'a> ColWithInv<'a> {
 
         Self {
             inner,
-            col_with_low,
+            cache: col_with_low,
         }
     }
 
-    /// Check that every entry in the cache is the same as the recomputed value from
+    /// Verify that every entry in the cache is the same as the recomputed value from
     /// [SneakyMatrix::col_with_low].
-    fn check(&self) {
+    fn verify(&self) {
         for r in 0..self.inner.rows() {
             let res = self.inner.col_with_low(r);
-            let ours = self.col_with_low[r as usize];
+            let ours = self.cache[r as usize];
             let ours_opt = if ours == CI::MAX { None } else { Some(ours) };
             assert_eq!(res, ours_opt, "Mismatch {r}");
         }
     }
 
-    fn cwl(&self, r: CI) -> Option<CI> {
-        let entry = self.col_with_low[r as usize];
-        if entry == CI::MAX {
-            None
-        } else {
-            Some(entry)
-        }
-    }
-
-    // fn debug_print(&self, label: &str, r1: CI, r2: CI) {
-    //     return;
-    //     println!(
-    //         "  {} r{}(c{:?}, c{:?})  r{}(c{:?}, c{:?})",
-    //         label,
-    //         r1,
-    //         self.inner.col_with_low(r1).unwrap_or(-1),
-    //         self.cwl(r1).unwrap_or(-1),
-    //         r2,
-    //         self.inner.col_with_low(r2).unwrap_or(-1),
-    //         self.cwl(r2).unwrap_or(-1)
-    //     );
-    // }
-
+    /// [SneakyMatrix::get]
     fn get(&self, r: CI, c: CI) -> bool {
         self.inner.get(r, c)
     }
 
+    /// Swap rows in the matrix and in the cache.
     fn swap_rows(&mut self, r1: CI, r2: CI) {
-        // println!("swap_rows(r{r1}, r{r2})");
-        // self.debug_print("before", r1, r2);
         self.inner.swap_rows(r1, r2);
-        self.col_with_low.swap(r1 as usize, r2 as usize);
-        // self.debug_print(" after", r1, r2);
+        self.cache.swap(r1 as usize, r2 as usize);
     }
 
-    fn swap_rows_noswap(&mut self, r1: CI, r2: CI) {
-        // println!("swap_rows_noswap(r{r1}, r{r2})");
-        // self.debug_print("before", r1, r2);
+    /// Swap rows without updating the cache.
+    fn swap_rows_skip_cache(&mut self, r1: CI, r2: CI) {
         self.inner.swap_rows(r1, r2);
-        // self.debug_print(" after", r1, r2);
     }
 
-    /// DB case from perform_one_swap where we have to check whether to perform the cache swap or
-    /// not.
+    /// Swap rows with special logic in the death-birth case.
     fn swap_rows_db(&mut self, r1: CI, r2: CI) {
-        // println!("swap_rows_db(r{r1}, r{r2})");
-        // self.debug_print("before", r1, r2);
-        let c = self.col_with_low[r2 as usize];
+        let c = self.cache[r2 as usize];
         if c == CI::MAX || !self.inner.get(r1, c) {
-            self.col_with_low.swap(r1 as usize, r2 as usize);
+            self.cache.swap(r1 as usize, r2 as usize);
         }
         self.inner.swap_rows(r1, r2);
-        // self.debug_print(" after", r1, r2);
     }
 
+    /// Swap rows with special logic in the birth-birth case.
     fn swap_rows_bb(&mut self, r1: CI, r2: CI) {
-        // println!("swap_rows_bb(r{r1}, r{r2})");
-        // self.debug_print("before", r1, r2);
-
-        let c = self.col_with_low[r2 as usize];
+        let c = self.cache[r2 as usize];
         if c == CI::MAX || !self.inner.get(r1, c) {
-            self.col_with_low.swap(r1 as usize, r2 as usize);
+            self.cache.swap(r1 as usize, r2 as usize);
         }
         self.inner.swap_rows(r1, r2);
-
-        // self.debug_print(" after", r1, r2);
     }
 
+    /// [SneakyMatrix::add_cols].
     fn add_cols(&mut self, c1: CI, c2: CI) {
-        // println!("add_cols(c{c1}, c{c2})");
         self.inner.add_cols(c1, c2);
     }
 
     fn col_with_low(&self, r: CI) -> Option<CI> {
-        let c = self.col_with_low[r as usize];
+        let c = self.cache[r as usize];
         let c_opt = if c == CI::MAX { None } else { Some(c) };
-
-        if false {
-            let ans = self.inner.col_with_low(r);
-            assert_eq!(ans, c_opt, "cache mismatch");
-        }
-
         c_opt
     }
 }
@@ -1546,12 +1426,6 @@ fn perform_one_swap(
     stack: &mut Stack,
     up_cwi: &mut ColWithInv,
     up_U_t: &mut SneakyMatrix,
-
-    old_stack: &Stack,
-    old_stack_above: &Stack,
-    complex: &Complex,
-    dim: usize,
-    key_point: Pos,
 ) -> Option<bool> {
     #[allow(non_snake_case)]
     fn gives_death(R: &SneakyMatrix, c: CI) -> bool {
@@ -1606,7 +1480,7 @@ fn perform_one_swap(
                 if l < k {
                     // R.swap_cols_and_rows(i, i + 1)  # PRP
                     stack.R.swap_cols(i, i + 1);
-                    up_cwi.swap_rows_noswap(i, i + 1);
+                    up_cwi.swap_rows_skip_cache(i, i + 1);
                     // R.add_cols(k, l)  # PRPV
                     up_cwi.add_cols(k, l);
                     // U_t.swap_cols_and_rows(i, i + 1)  # PUP
@@ -1724,6 +1598,8 @@ fn perform_one_swap(
     panic!("This should never happen: no cases matched.");
 }
 
+/// [perform_one_swap], but where we don't have a dimension above us.
+/// This simplifies the logic some.
 #[allow(non_snake_case)]
 fn perform_one_swap_top_dim(i: CI, stack: &mut Stack) -> Option<bool> {
     #[allow(non_snake_case)]

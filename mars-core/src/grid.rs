@@ -1,9 +1,6 @@
-use std::{
-    collections::{HashMap, HashSet},
-    iter::from_fn,
-};
+use std::collections::{HashMap, HashSet};
 
-use tracing::{info, instrument, trace};
+use tracing::{instrument, trace};
 
 use crate::{
     complex::{Complex, Pos},

@@ -1,3 +1,4 @@
+#![allow(non_snake_case)]
 use anyhow::{anyhow, bail, Context, Result};
 use mars_core::{
     complex::Complex,
@@ -108,7 +109,7 @@ impl StatsArgs {
         let mm: MarsMem = (&mars).into();
         info!("{:?}", mm);
 
-        for (i, r) in vin.reductions.iter().take(3) {
+        for (_, r) in vin.reductions.iter().take(3) {
             let mem: ReductionMem = r.into();
             for dim in 0..3 {
                 let idim = dim as isize;
