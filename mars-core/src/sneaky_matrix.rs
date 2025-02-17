@@ -1,8 +1,13 @@
 use crate::permutation::Permutation;
 use serde::{Deserialize, Serialize};
 
+/// Index type for the matrix.
 pub type CI = i16;
 
+/// A sparse column representation for a Boolean matrix.
+///
+/// The entries are stored in ascending order to make it easier to add two
+/// columns in Z/Z2 arithmetic.
 #[derive(PartialEq, Eq, Debug, Clone, Serialize, Deserialize)]
 pub struct Col(Vec<CI>);
 
@@ -102,6 +107,8 @@ impl From<Vec<CI>> for Col {
 }
 
 /// Sparse column storage for a bit matrix.
+///
+/// The matrix is stored as a [Vec] of sparse columns, [Col].
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub(crate) struct Columns {
     columns: Vec<Col>,
@@ -236,37 +243,8 @@ impl Columns {
     }
 }
 
-// impl Serialize for Columns {
-//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-//     where
-//         S: serde::Serializer,
-//     {
-//         let v = self
-//             .columns
-//             .iter()
-//             .zip(0..self.ncols())
-//             .filter(|(c, _)| !c.empty())
-//             .map(|(c, i)| (i, c.clone()))
-//             .collect::<Vec<(CI, Col)>>();
-//         (self.rows, self.cols, v).serialize(serializer)
-//     }
-// }
-//
-// impl<'de> Deserialize<'de> for Columns {
-//     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-//     where
-//         D: serde::Deserializer<'de>,
-//     {
-//         let (rows, cols, v) = <(CI, CI, Vec<(CI, Col)>)>::deserialize(deserializer)?;
-//         let mut cols = Columns::new(rows, cols);
-//         for (c, col) in v {
-//             cols.columns[c as usize] = col;
-//         }
-//         Ok(cols)
-//     }
-// }
-
-/// A bit-buffer for matrix storage.  Each column is stored as a contiguous list of [u64]s.
+/// A bit-buffer for matrix storage. Each column is stored as a contiguous list
+/// of [u64]s, where each bit represents a row.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct BitBuffer {
     bits: Vec<u64>,
@@ -492,7 +470,10 @@ impl BitBuffer {
 }
 
 // type Backing = BitBuffer;
+/// Use this type as the backing container for the Matrix. This is to make it
+/// easier to switch in between [BitBuffer] and [Columns].
 type Backing = Columns;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SneakyMatrix {
     // pub columns: Vec<Col>,
@@ -665,6 +646,7 @@ impl SneakyMatrix {
         }
     }
 
+    /// Identity matrix of size `n`.
     pub fn eye(n: CI) -> Self {
         assert!(0 <= n, "dimension must be non-negative");
         SneakyMatrix {
@@ -753,9 +735,12 @@ impl SneakyMatrix {
         self.core.get(self.map_r(r), self.map_c(c))
     }
 
+    /// Reduce the matrix.
+    ///
+    /// Returns a [Vec] of pairs `(col, op)` where the column `op` was added to the column `col`.
     pub fn reduce(&mut self) -> Vec<(CI, CI)> {
         let mut adds = Vec::new();
-        // Cache for already computd columns. `col_with_low[r] == c` means that `colmax(c) == r`.
+        // Cache for already computed columns. `col_with_low[r] == c` means that `colmax(c) == r`.
         let mut col_with_low = vec![CI::MAX; self.core.nrows() as usize];
 
         for c in 0..self.core.ncols() {

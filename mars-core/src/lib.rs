@@ -226,6 +226,7 @@ impl Mars {
     }
 }
 
+/// Output data from running the Vineyard algorithm for an entire domain.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Vineyards {
     /// A [Reduction] for every [Index] of the grid we ran on.
@@ -747,14 +748,19 @@ impl BirthDeathPair {
     }
 }
 
+/// Output data for a single point.  This is either computed from [`reduce_from_scratch`],
+/// or by running the Vineyard algorithm from a point at which we already had a [`Reduction`].
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub struct Reduction {
     /// Key point around which the reduction is done.
     pub key_point: Pos,
+    /// Matrices for three dimensions.
     pub stacks: [Stack; 3],
 }
 
 impl Reduction {
+    /// "Bake" all matrices for all dimensions. This means running
+    /// [`SneakyMatrix::bake_in_permutations`] for all matrices.
     pub fn bake_all_matrices(&mut self) {
         for dim in 0..3 {
             self.stacks[dim].U_t.bake_in_permutations();
@@ -999,7 +1005,7 @@ impl Reduction {
 /// to the key point.
 ///
 /// I.e, `v_perm[0]` is the canonical index of the closest vertex, and
-/// `v_perm[0]` is the canonical index of the second closest index.
+/// `v_perm[1]` is the canonical index of the second closest index.
 ///
 /// In other words, `v_perm.map` takes a "sorted" index and returns a "canonical" index.
 fn compute_permutations(
@@ -1037,6 +1043,7 @@ fn compute_permutations(
     (v_perm, e_perm, t_perm)
 }
 
+/// Run Vineyards from a previous [`Reduction`] to a new key point.
 pub fn vineyards_step(
     complex: &Complex,
     reduction: &Reduction,
@@ -1220,13 +1227,6 @@ pub fn vineyards_step(
         stack0.D.swap_cols(i, i + 1);
         stack1.D.swap_rows(i, i + 1);
 
-        // {
-        //     let (i, j) = simplices_that_got_swapped0[swap_i];
-        //     let cann_i = stack0.ordering.inv(i);
-        //     let cann_j = stack0.ordering.inv(j);
-        //     seen_swaps.insert((cann_i.min(cann_j), cann_i.max(cann_j)));
-        // }
-
         if let Some(true) = res {
             // These are indices of simplices that we said were the 0,1,2... order
             // in the bubble sort (compute_transpositions).  This is the order
@@ -1284,7 +1284,9 @@ pub fn vineyards_step(
             None
         }
 
+        // NOTE: we only tested this for dim=0, so let's crash here if we try to use it.
         unimplemented!();
+
         // TODO: range 0..3
         for dim in 1..2 {
             let old_interesting_edge = find_interesting(reduction, complex, dim);
@@ -1308,12 +1310,16 @@ pub fn vineyards_step(
     )
 }
 
+/// Compute the reduction at a key point from scratch.
 #[allow(non_snake_case)]
 pub fn reduce_from_scratch(complex: &Complex, key_point: Pos, noisy: bool) -> Reduction {
     info!("reduce from scratch");
     let (mut v_perm, mut e_perm, mut t_perm) = compute_permutations(complex, key_point);
 
     let mut boundary_0 = complex.boundary_matrix(0);
+    // Order the cols and rows of the three boundary matrices by their distance
+    // to the key point. This permutation is computed above, so we just need to
+    // set the fields.
     boundary_0.col_perm = Some(v_perm.clone());
     let D0 = boundary_0.clone();
 
@@ -1408,11 +1414,6 @@ pub fn reduce_from_scratch(complex: &Complex, key_point: Pos, noisy: bool) -> Re
 
     ret.assert_ordering(&complex);
     info!("reduce from scratch done");
-
-    // println!(
-    //     "reduce_from_scratch: stack0.ordering: {:?}",
-    //     ret.stacks[0].ordering.clone().into_forwards()
-    // );
 
     ret
 }

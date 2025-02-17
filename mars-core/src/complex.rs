@@ -392,6 +392,11 @@ impl Complex {
         Ok(())
     }
 
+    /// Compute the distances from a given point to all vertices, edges, and faces.
+    ///
+    /// The distance to a point is the squared euclidean distance.
+    ///
+    /// The distance to a higher simplex is the largest of the distances to its faces.
     pub fn distances_to(&self, key_point: Pos) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
         let vertex_distances = self.simplices_per_dim[0]
             .iter()
@@ -416,20 +421,6 @@ impl Complex {
             .collect::<Vec<_>>();
 
         (vertex_distances, edge_distances, triangle_distances)
-    }
-
-    /// Computes the entering value of the given simplex from the given key point.
-    pub fn simplex_entering_value(&self, dim: usize, id: CI, key_point: Pos) -> f64 {
-        let simplex = &self.simplices_per_dim[dim][id as usize];
-        if dim == 0 {
-            return simplex.coords.unwrap().dist2(&key_point);
-        }
-        simplex
-            .boundary
-            .iter()
-            .map(|&b| self.simplex_entering_value(dim - 1, b, key_point))
-            .max_by(|a, b| a.partial_cmp(b).unwrap())
-            .unwrap()
     }
 }
 
