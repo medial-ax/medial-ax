@@ -34,9 +34,7 @@ impl Permutation {
     pub fn inv(&self, a: CI) -> CI {
         self.backwards[a as usize]
     }
-}
 
-impl Permutation {
     pub fn new(n: CI) -> Self {
         Permutation {
             forwards: (0..n).collect(),

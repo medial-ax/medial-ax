@@ -2,7 +2,7 @@ use crate::permutation::Permutation;
 use serde::{Deserialize, Serialize};
 
 /// Index type for the matrix.
-pub type CI = i16;
+pub type CI = i32;
 
 /// A sparse column representation for a Boolean matrix.
 ///
