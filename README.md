@@ -3,29 +3,29 @@
 ## Setup
 
 To install the things needed to run the web app you first need to install
-`node`. With `brew`, this is 
+`node`. With `brew`, this is
 
 ```sh
 brew install node
 ```
 
-### Install Wasm-pack 
+### Install Wasm-pack
 
 Wasm-pack is the tool we use to generate webassembly from Rust code.
 To install wasm-pack, run
+
 ```sh
 curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 ```
 
-
 ### Run the frontend
 
 Then go to the `web/` directory and run
+
 ```sh
 npm i # install the things. Only need the first time.
 npm run dev # start the server
 ```
-
 
 It'll tell you to which URL to go to to open the page; probably it's
 [http://localhost:5173](http://localhost:5173). While the server is running you
@@ -35,16 +35,18 @@ get live edit of all the files.
 
 This is required every time you change the Rust code, and want that change to
 be in the frontend. Go to the `mars-wasm/` directory and run
+
 ```shell
 wasm-pack build --target web
 ```
 
 This will output a bunch of stuff to `mars-wasm/pkg`, but you don't have to worry about that.
 
-
 ### Build the CLI
+
 For convenience or large jobs, we also have a cli in `mars-cli/`.
 To install it as a binary you can use, go to the directory and run
+
 ```sh
 cargo install --path .
 ```
@@ -76,29 +78,71 @@ mars-cli run  complex.obj  -m grid.obj  -o output
 The output file `output` can then be uploaded in the web interface. See
 `mars-cli run --help` for more options.
 
-
-
 # Usage license
+
+Probably mit or gpl or something
+
 # What the program does
 
 # Input
+
 The user inputs an .obj file containing a three-dimensional manifold represented as a simplicial complex.
+
 # Grids
+
 ## Creating dual grids
+
 We create a grid aligned to the x,y,z axes by taking the bounding box of the imported .obj and subdividing it according to the selected grid density. The grid can afterwards be moved around and adjusted manually by the user using the Grid Controls context. We refer to the created grid as the Vineyards Grid and its dual grid as the Medial Axis Grid. The grid we visualize in the display window is the Vineyards Grid.
+
 ## Importing grids
+
 ## Splitting grids for parallelization
+
+Computing the medial axes is very parallelizable, since processing each grid segment is independent of the other segments.
+However, since processing a segment requires that one endpoint has the reduced matrix data computed, it is not trivially parallelizable.
+We take the input grid and split the vertices into four sub-grids by dividing along the two coordinate axes with the largest span.
+There's also an overlap of size one when splitting so that both subgrids include the vertices on the boundary.
+This is required in order not to lose the segments that would otherwise fall in between two sub-grids.
+Then, the medial axes for each sub grid is computed separately, and then the results are joined up after.
+
 # Sneaky Matrices and other optimizations
+
+We have a tailored matrix struct for our own need.
+
+- We only do Z/Z2 math, so we only have Boolean coefficients
+- Only the operations that we needed were implemented
+- The maximum size is limited to 2^15
+
+We use a sparse column format, in which each column contains the indices of the rows that are set in the column.
+That is, a 4x4 identity matrix basically looks like
+
+```rs
+[[0], [1], [2], [3]]
+```
+
+The Vineyards algorithm swaps a lot of rows and columns of matrices.
+To make this efficient, we've wrapped two permutations, one for row and one for coulmn, around each matrix.
+The permutations map from "logical" indices (what we think the matrix contains) into "physical" indices (what's actually stored).
+This allows us to swap columns and rows by only swapping two numbers in the permutation instead of in the actual matrix storage.
+
+See `sneaky_matrix.rs` for more details.
+
 # Medial Axes
 
 # Webworkers and parallelization
+
 # A Toast to error handling
+
 # Usage
+
 ## Making a good input complex
+
 ## Making a good grid
+
 A heuristic we use is having at least two grid cells per triangle of the input object.
 
 # max use heuristics
+
 - The input complex cannot exceed 32,000 simplices of any dimension due to being stored as 16-bit signed numbers
 - 70,000 total edges (counting both grid and input edges) takes about 45-60 minutes on a macbook pro and uses 20-40GB of storage for the temporary files (which can be deleted after a satisfactor obj is output)
 - 30,000 total edges (counting both grid and input) usually gives a nice result, as long as the object is not too complicated
