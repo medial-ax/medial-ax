@@ -73,7 +73,7 @@ export const BasicGridControls = ({ grid }: { grid: VineyardsGrid }) => {
           disabled={!showGrid}
           style={{ width: "fit-content" }}
           onClick={() => {
-            if (!cplx) return;
+            if (!cplx) return; // we're only mounted if we have a complex.
             setGrid(defaultVineyardsGrid(cplx, numDots));
           }}
         >
@@ -96,7 +96,7 @@ export const BasicGridControls = ({ grid }: { grid: VineyardsGrid }) => {
         <input
           disabled={!showGrid}
           type="range"
-          min={1}
+          min={2}
           max={20}
           value={numDots}
           onChange={(e) => {
@@ -208,7 +208,7 @@ export const BasicGridControls = ({ grid }: { grid: VineyardsGrid }) => {
           }}
           disabled={!showGrid}
         >
-          Split grid
+          Subdivide grid
         </button>
         <button
           onClick={() => {
@@ -224,7 +224,7 @@ export const BasicGridControls = ({ grid }: { grid: VineyardsGrid }) => {
           }}
           disabled={!showGrid}
         >
-          Merge grid
+          Unsubdivide grid
         </button>
       </div>
 

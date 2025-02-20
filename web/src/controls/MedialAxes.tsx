@@ -4,15 +4,19 @@ import { mars } from "../global";
 import { CollapseH4 } from "../ui/CollapseH4";
 import { PruningParameters } from "./PruningParameters";
 import { Loader } from "../ui/Loader";
-
 import SubMarsWorker from "../worrrker/vineyards2?worker";
-import { Progress as TriggerButton } from "../types";
+import { Progress } from "../types";
 import { sum } from "../utils";
+import { toast } from "../Toast";
 
 /** All currently running workers */
 const activeWorkers = atom<Worker[]>([]);
-const progressAtom = atom<(TriggerButton | undefined)[]>();
-const totalProgress = atom<TriggerButton | undefined>((get) => {
+
+/** Progress for each worker. */
+const progressAtom = atom<(Progress | undefined)[]>();
+
+/** Total progress across all workers. */
+const totalProgress = atom<Progress | undefined>((get) => {
   const ps = get(progressAtom);
   if (!ps) return undefined;
   const i = sum(ps, (p) => p?.i ?? 0);
@@ -21,20 +25,20 @@ const totalProgress = atom<TriggerButton | undefined>((get) => {
   return { label: "Vineyards", i, n };
 });
 
-const triggerVineyardsAtom = atom(null, (_, set) => {
+const triggerVineyardsAction = atom(null, (_, set) => {
   const m = mars();
 
   const subproblems = m.subproblems();
   set(
     progressAtom,
-    subproblems.map((_: any) => ({
+    subproblems.map(() => ({
       label: "Vineyards",
       i: 0,
       n: 1,
     })),
   );
 
-  subproblems.map((sub: any, i: any) => {
+  subproblems.map((sub, i) => {
     const w = new SubMarsWorker();
     set(activeWorkers, (c) => c.concat([w]));
 
@@ -55,7 +59,17 @@ const triggerVineyardsAtom = atom(null, (_, set) => {
           ret[i] = undefined;
           return ret;
         });
-        set(activeWorkers, (curr) => curr.filter((c) => c !== w));
+        set(activeWorkers, (curr) => {
+          const next = curr.filter((c) => c !== w);
+
+          if (next.length === 0) {
+            toast(
+              "info",
+              "Medial axes finished!\nYou probably want to prune next.",
+            );
+          }
+          return next;
+        });
       }
     };
 
@@ -67,7 +81,7 @@ const triggerVineyardsAtom = atom(null, (_, set) => {
   });
 });
 
-const terminateWorkersAtom = atom(null, (get, set) => {
+const terminateWorkersAction = atom(null, (get, set) => {
   const ws = get(activeWorkers);
   for (const w of ws) w.terminate();
   set(activeWorkers, []);
@@ -75,17 +89,13 @@ const terminateWorkersAtom = atom(null, (get, set) => {
 });
 
 const TriggerButton = () => {
-  const trigger = useSetAtom(triggerVineyardsAtom);
-  const terminate = useSetAtom(terminateWorkersAtom);
+  const trigger = useSetAtom(triggerVineyardsAction);
+  const terminate = useSetAtom(terminateWorkersAction);
   const progress = useAtomValue(totalProgress);
   return (
     <>
       <div className="row">
-        <button
-          style={{ flex: 1 }}
-          disabled={false /* TODO */}
-          onClick={() => trigger()}
-        >
+        <button style={{ flex: 1 }} onClick={() => trigger()}>
           {progress ? <Loader $w0={20} $w1={60} /> : "Compute medial axes"}
         </button>
         {progress && <button onClick={() => terminate()}>Abort</button>}
@@ -107,17 +117,6 @@ export const MedialAxes = () => {
   return (
     <>
       <h3>Medial axes</h3>
-
-      <label>
-        <input
-          type="checkbox"
-          checked={false}
-          onChange={() => {
-            window.alert("TODO");
-          }}
-        />
-        <p>Only first swap </p>
-      </label>
       <TriggerButton />
 
       <div className="pruning-param-list">

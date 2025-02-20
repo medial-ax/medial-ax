@@ -26,6 +26,7 @@ const Div = styled.div<{ time: number }>`
     padding: 0 2rem 1rem 2rem;
     color: white;
     font-size: 18px;
+    white-space: pre;
   }
 
   &.info {
@@ -67,7 +68,7 @@ const Toast = ({
 }) => {
   return (
     <Div className={severity} time={timeout}>
-      <h2 style={{ textDecoration: "" }}>{severity}</h2>
+      <h2>{severity}</h2>
       <p>{msg}</p>
       <div className="timer" />
     </Div>
