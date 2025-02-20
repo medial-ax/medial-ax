@@ -9,7 +9,7 @@ import {
 } from "./types";
 import { atomFamily, atomWithReset } from "jotai/utils";
 import { swapHasGridIndices } from "./utils";
-import { VineyardsGrid, VineyardsGridMesh } from "mars_wasm";
+import { Barcode, VineyardsGrid, VineyardsGridMesh } from "mars_wasm";
 
 export const timelinePositionAtom = atom<number>(0);
 export const selectedBirthDeathPair = atom<BirthDeathPair | undefined>(
@@ -113,12 +113,7 @@ export const hasAnySwaps = atom((get) => {
 
 export const workerRunningAtom = atom<boolean>(false);
 
-export type BarcodeType = {
-  "-1": BirthDeathPair[];
-  0: BirthDeathPair[];
-  1: BirthDeathPair[];
-  2: BirthDeathPair[];
-};
+export type BarcodeType = Barcode;
 export const barcodeAtom = atom<BarcodeType | undefined>(undefined);
 
 export type Dim = 0 | 1 | 2;

@@ -6,6 +6,7 @@ import React from "react";
 import styled from "styled-components";
 import { colors, dim2color } from "./constants";
 import { atom, useAtom, useAtomValue } from "jotai";
+import { currentGridIndex, barcodeForCurrentIndexAtom } from "./useMars";
 
 const CheckboxRow = styled.div`
   display: flex;
@@ -109,7 +110,7 @@ const Inner = ({ barcodes }: { index: Index; barcodes: BarcodeType }) => {
         <span>Show dimensions:</span>
 
         {range(-1, 3).map((dim) => (
-          <label>
+          <label key={dim}>
             <input
               type="checkbox"
               checked={showDim[dim]}
@@ -327,8 +328,8 @@ const Inner = ({ barcodes }: { index: Index; barcodes: BarcodeType }) => {
               x={60}
               y={20}
               fontSize={18}
-              dominant-baseline="middle"
-              text-anchor="middle"
+              dominantBaseline="middle"
+              textAnchor="middle"
             >
               Legend
             </text>
@@ -339,13 +340,13 @@ const Inner = ({ barcodes }: { index: Index; barcodes: BarcodeType }) => {
                 const x = i % 2 === 0 ? 0 : 50;
                 const y = i < 2 ? 0 : 40;
                 return (
-                  <g transform={`translate(${x}, ${y})`}>
+                  <g key={i} transform={`translate(${x}, ${y})`}>
                     <circle r={10} fill={dim2color[dim]} />
                     <text
                       x={26}
                       fontSize={16}
-                      dominant-baseline="middle"
-                      text-anchor="end"
+                      dominantBaseline="middle"
+                      textAnchor="end"
                     >
                       {dim}
                     </text>
@@ -371,35 +372,9 @@ const Center = styled.div`
   }
 `;
 
-export const Diagram = ({
-  index,
-  barcodes,
-}: {
-  index: Index | undefined;
-  barcodes: BarcodeType | undefined;
-}) => {
-  const haveComputed = useAtomValue(gridForSwapsAtom) !== undefined;
-  const gridIsOutOfSync = useAtomValue(gridOutOfSync);
-
-  if (!haveComputed)
-    return (
-      <Center>
-        <p>
-          Compute the medial axes from the Controls panel to see the persistence
-          diagram.
-        </p>
-      </Center>
-    );
-
-  if (gridIsOutOfSync)
-    return (
-      <Center>
-        <p>
-          Grid was changed after computing the medial axes.{" "}
-          <strong>Recompute</strong> to see the persistence diagram.
-        </p>
-      </Center>
-    );
+export const Diagram = () => {
+  const index = useAtomValue(currentGridIndex);
+  const barcode = useAtomValue(barcodeForCurrentIndexAtom);
 
   if (!index)
     return (
@@ -408,11 +383,11 @@ export const Diagram = ({
       </Center>
     );
 
-  if (!barcodes)
+  if (!barcode)
     return (
       <Center>
         <p>No persistence diagram</p>
       </Center>
     );
-  return <Inner index={index} barcodes={barcodes} />;
+  return <Inner index={index} barcodes={barcode} />;
 };

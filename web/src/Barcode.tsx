@@ -810,57 +810,13 @@ const barcodeTabNames = [
   "Table",
 ];
 
-export const BarcodeTabs = ({ live }: { live: boolean }) => {
+export const BarcodeTabs = () => {
   const [tab, setTab] = useState(0);
-
-  const index = useAtomValue(selectedGridIndex);
-  const [barcodes, setBarcodes] = useAtom(barcodeAtom);
-  const [loading, setLoading] = useState(false);
-  const swaps = useAtomValue(swapsAtom);
-  const haveSwaps =
-    swaps[0].length > 0 || swaps[1].length > 0 || swaps[2].length > 0;
-
-  useEffect(() => {
-    if (!index || !live) return;
-    if (!haveSwaps) return;
-
-    let stop = false;
-    setLoading(true);
-    window.alert("TODO 13a11cb4-af70-4fe0-bc6d-67bb06782cb9");
-    // run("get-barcode-for-point", {
-    //   grid_point: index,
-    // })
-    //   .then((arr) => {
-    //     if (!stop)
-    //       setBarcodes({
-    //         "-1": arr[0],
-    //         0: arr[1],
-    //         1: arr[2],
-    //         2: arr[3],
-    //       });
-    //   })
-    //   .catch((e) => {
-    //     window.alert(`bad: ${e.message}`);
-    //   })
-    //   .finally(() => {
-    //     setLoading(false);
-    //   });
-
-    return () => {
-      stop = true;
-    };
-  }, [haveSwaps, index, live, setBarcodes, setLoading]);
-
-  if (loading) return null;
-
   return (
     <Tabs tab={tab} setTab={setTab} titles={barcodeTabNames}>
       <Barcode />
-      <Diagram index={index} barcodes={barcodes} />
+      <Diagram />
       <FaceInfo />
-      <div>
-        <p>Sånn er det {`\u{1F377}`}</p>
-      </div>
       <div>
         <h2>Table</h2>
         <Table />

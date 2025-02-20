@@ -54,6 +54,15 @@ export const medialAxesPositions = atom<
   ];
 });
 
+export const barcodeForCurrentIndexAtom = atom<Barcode | undefined>((get) => {
+  const index = get(currentGridIndex);
+  if (!index) return;
+  get(marsVineyardsTick);
+  get(marsPrunedTick);
+  const barcode = mars().barcode_for_index(index);
+  return barcode;
+});
+
 export const useMars = () => {
   const setComplex = useSetAtom(marsComplexTick);
   const setGrid = useSetAtom(marsGridTick);
