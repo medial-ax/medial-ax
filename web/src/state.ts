@@ -49,6 +49,8 @@ export const persistenceTableHighlight = atom<
   | undefined
 >(undefined);
 
+export const selectedFaceInfoSwaps = atom<Swap["v"][number][]>([]);
+
 export const highlightAtom = atom<{ dim: number; index: number }[]>((get) => {
   const highlights = [];
   const table = get(persistenceTableHighlight);
@@ -68,6 +70,12 @@ export const highlightAtom = atom<{ dim: number; index: number }[]>((get) => {
       dim: f.dim,
       index: f.j,
     });
+  }
+
+  const fiSwaps = get(selectedFaceInfoSwaps);
+  for (const f of fiSwaps) {
+    highlights.push({ dim: f.dim, index: f.i });
+    highlights.push({ dim: f.dim, index: f.j });
   }
 
   return highlights;

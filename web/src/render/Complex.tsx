@@ -1,7 +1,40 @@
 import { useAtomValue } from "jotai";
-import { complexFacePositionsAtom } from "../useMars";
-import { useEffect, useLayoutEffect, useRef } from "react";
+import {
+  complexFacePositionsAtom,
+  complexVertexPositionsAtom,
+} from "../useMars";
+import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
+import { atom } from "jotai";
+import { highlightAtom } from "../state";
+import { Sphere } from "./Sphere";
+
+const vertexHighlights = atom<number[]>((get) => {
+  const hl = get(highlightAtom);
+  return hl.filter((h) => h.dim === 0).map((h) => h.index);
+});
+
+const HighlightedVertices = () => {
+  const coords = useAtomValue(complexVertexPositionsAtom);
+  const hl = useAtomValue(vertexHighlights);
+
+  const pos = useMemo(() => {
+    return hl.map((index) => {
+      const x = coords[index * 3];
+      const y = coords[index * 3 + 1];
+      const z = coords[index * 3 + 2];
+      return new THREE.Vector3(x, y, z);
+    });
+  }, [coords, hl]);
+
+  return (
+    <>
+      {pos.map((p, i) => (
+        <Sphere key={i} pos={p} radius={0.03} />
+      ))}
+    </>
+  );
+};
 
 export const RenderComplex2 = (_: { wireframe?: boolean }) => {
   const coords = useAtomValue(complexFacePositionsAtom);
@@ -19,6 +52,7 @@ export const RenderComplex2 = (_: { wireframe?: boolean }) => {
 
   return (
     <>
+      <HighlightedVertices />
       <mesh>
         <bufferGeometry attach="geometry">
           <bufferAttribute

@@ -41,6 +41,11 @@ export const complexFacePositionsAtom = atom<Float32Array>((get) => {
   return new Float32Array(mars().face_positions());
 });
 
+export const complexVertexPositionsAtom = atom<Float32Array>((get) => {
+  get(marsComplexTick);
+  return new Float32Array(mars().vertex_positions());
+});
+
 export const medialAxesPositions = atom<
   [Float32Array, Float32Array, Float32Array]
 >((get) => {
