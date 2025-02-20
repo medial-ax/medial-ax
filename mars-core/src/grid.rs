@@ -618,7 +618,8 @@ impl VineyardsGridMesh {
                 .sum::<usize>()
                 / 2;
 
-            while let Some((next, from)) = stack.pop() {
+            while stack.len() > 0 {
+		let (next, from) = stack.remove(0);
                 seen_vx.insert(next.x());
                 loop_i += 1;
                 record_progress(loop_i, num_edges);
