@@ -93,6 +93,7 @@ export const RenderVineyarsGrid = ({ grid }: { grid: VineyardsGrid }) => {
         const x = Math.floor(instanceId / Z / Y);
         setSelGridIndex([x, y, z]);
         setCurrentGridIndex([x, y, z]);
+        e.stopPropagation();
       }}
     >
       <boxGeometry args={[radius, radius, radius]} />

@@ -16,7 +16,7 @@ import {
 import { RenderAnyGrid } from "./Render";
 import { Menu } from "./Controls";
 import DragHandle from "./assets/drag-handle.svg";
-import { useMars } from "./useMars";
+import { selectedMAFaceAtom, useMars } from "./useMars";
 import { RenderComplex2 } from "./render/Complex";
 import { Triangle } from "./render/Triangle";
 import { Edge } from "./render/Edge";
@@ -72,6 +72,7 @@ const RenderCanvas = () => {
   const showObject = useAtomValue(showObjectAtom);
   const setSelectedGridIndex = useSetAtom(selectedGridIndex);
   const setMaFaceSelection = useSetAtom(maFaceSelection);
+  const selectMAFace = useSetAtom(selectedMAFaceAtom);
 
   return (
     <CanvasContainer id="canvas-container">
@@ -81,6 +82,7 @@ const RenderCanvas = () => {
           setTriangle(undefined);
           setSelectedGridIndex(undefined);
           setMaFaceSelection(undefined);
+          selectMAFace(undefined);
         }}
       >
         <OrbitControls
@@ -164,7 +166,7 @@ const RenderBarcodeSideThing = () => {
           minHeight: size.height,
         }}
       >
-        <BarcodeTabs live={open} />
+        <BarcodeTabs />
         <GrabCorner $dragging={dragging} onMouseDown={() => setDragging(true)}>
           <DragHandle />
         </GrabCorner>

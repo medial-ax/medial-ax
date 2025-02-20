@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BarcodeType, gridForSwapsAtom, gridOutOfSync } from "./state";
+import { BarcodeType } from "./state";
 import { BirthDeathPair, Index } from "./types";
 import { max, range } from "./utils";
 import React from "react";
@@ -361,7 +361,7 @@ const Inner = ({ barcodes }: { index: Index; barcodes: BarcodeType }) => {
   );
 };
 
-const Center = styled.div`
+export const Center = styled.div`
   flex: 1;
   margin: 1rem;
   text-align: center;

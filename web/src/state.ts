@@ -8,7 +8,6 @@ import {
   Swaps,
 } from "./types";
 import { atomFamily, atomWithReset } from "jotai/utils";
-import { swapHasGridIndices } from "./utils";
 import { Barcode, VineyardsGrid, VineyardsGridMesh } from "mars_wasm";
 
 export const timelinePositionAtom = atom<number>(0);
@@ -26,20 +25,9 @@ export const complexAtom = atom<
   | undefined
 >(undefined);
 
-export const gridAtom = atom<VineyardsGrid | VineyardsGridMesh | undefined>(
-  undefined,
-);
-export const gridForSwapsAtom = atom<
-  VineyardsGrid | VineyardsGridMesh | undefined
->(undefined);
+const gridAtom = atom<VineyardsGrid | VineyardsGridMesh | undefined>(undefined);
 export const showGridAtom = atom<boolean>(true);
 export const selectedGridIndex = atom<Index | undefined>(undefined);
-
-export const gridOutOfSync = atom((get) => {
-  const g1 = get(gridAtom);
-  const g2 = get(gridForSwapsAtom);
-  return g1 !== g2;
-});
 
 export const maWireframeAtom = atom<boolean>(false);
 
@@ -51,16 +39,6 @@ export const maFaceSelection = atom<
       selection: Swap["v"][number][];
     }
 >(undefined);
-
-export const maFaceSelectionSwaps = atom((get) => {
-  const sel = get(maFaceSelection);
-  if (!sel) return undefined;
-  const o = get(swapsAtom);
-  return o[0]
-    .filter((s) => swapHasGridIndices(s, sel.a, sel.b))
-    .concat(o[1].filter((s) => swapHasGridIndices(s, sel.a, sel.b)))
-    .concat(o[2].filter((s) => swapHasGridIndices(s, sel.a, sel.b)));
-});
 
 export const persistenceTableHighlight = atom<
   | {
@@ -106,20 +84,10 @@ export const swapsAtom = atom<{ 0: Swaps; 1: Swaps; 2: Swaps }>({
   2: [],
 });
 
-export const hasAnySwaps = atom((get) => {
-  const o = get(swapsAtom);
-  return o[0].length > 0 || o[1].length > 0 || o[2].length > 0;
-});
-
-export const workerRunningAtom = atom<boolean>(false);
-
 export type BarcodeType = Barcode;
 export const barcodeAtom = atom<BarcodeType | undefined>(undefined);
 
 export type Dim = 0 | 1 | 2;
-export const swapsForMA = atomFamily((dim: Dim) =>
-  atom((get) => get(swapsAtom)[dim].filter((s) => s[2].v.length > 0)),
-);
 
 /**
  * Render the medial axis of dims.
@@ -140,21 +108,6 @@ export const pruningParamAtom = atomFamily((dim: Dim) =>
     persistence_threshold: 0.01,
   }),
 );
-
-export const allPruningParamsAtom = atom((get) => {
-  return {
-    0: get(pruningParamAtom(0)),
-    1: get(pruningParamAtom(1)),
-    2: get(pruningParamAtom(2)),
-  };
-});
-
-export const resetStateForNewComplexAtom = atom(null, (_, set) => {
-  set(swapsAtom, { 0: [], 1: [], 2: [] });
-  set(gridAtom, undefined);
-  set(maFaceSelection, undefined);
-  set(persistenceTableHighlight, undefined);
-});
 
 type AllSettings = {
   grid: VineyardsGrid | VineyardsGridMesh | undefined;

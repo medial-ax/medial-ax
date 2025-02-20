@@ -63,6 +63,19 @@ export const barcodeForCurrentIndexAtom = atom<Barcode | undefined>((get) => {
   return barcode;
 });
 
+/** Atom set for clicking on a MA face. */
+export const selectedMAFaceAtom = atom<{ dim: number; fi: number } | undefined>(
+  undefined,
+);
+
+/** List of swaps responsible for an MA face. */
+export const swapsResponsibleForMAFace = atom((get) => {
+  const face = get(selectedMAFaceAtom);
+  if (!face) return;
+  const ret = mars().swaplist_from_face_index(face.dim, face.fi);
+  return ret;
+});
+
 export const useMars = () => {
   const setComplex = useSetAtom(marsComplexTick);
   const setGrid = useSetAtom(marsGridTick);

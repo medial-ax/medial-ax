@@ -163,6 +163,13 @@ impl Api {
     }
 }
 
+#[derive(Serialize)]
+pub struct SwapListFromFace {
+    pub grid_a: Vec<isize>,
+    pub grid_b: Vec<isize>,
+    pub swaps: Vec<mars_core::Swap>,
+}
+
 #[wasm_bindgen]
 impl Api {
     #[wasm_bindgen(constructor)]
@@ -297,6 +304,34 @@ impl Api {
         info_mem();
 
         Ok(out.into_iter().map(|n| n as f32).collect())
+    }
+
+    /// Return the [SwapList] for that corresponded to the face at `face_index` in the output of [medial_axes_face_positions].
+    pub fn swaplist_from_face_index(
+        &self,
+        dim: usize,
+        face_index: usize,
+    ) -> Result<JsValue, String> {
+        let Some(ref v) = self.vineyards else {
+            return Err("Missing vineyards")?;
+        };
+        let face_index = face_index & !1;
+
+        let swaps = self.pruned_swaps[dim].as_ref().map(|(_, s)| s);
+        let swaps = swaps.unwrap_or(&v.swaps[dim]);
+
+        let mut i = 0;
+        for s in swaps {
+            if 0 < s.2.v.len() {
+                if i == face_index || i + 1 == face_index {
+                    return serde_wasm_bindgen::to_value(&(s.0, s.1, &s.2.v))
+                        .map_err(|e| e.to_string());
+                }
+                i += 2;
+            }
+        }
+
+        return Err("No matching face index")?;
     }
 
     pub fn subproblems(&self) -> Result<Vec<JsValue>, JsValue> {
@@ -599,6 +634,7 @@ export class Api {
 
   face_positions(): number[];
   medial_axes_face_positions(dim: number): Float32Array;
+  swaplist_from_face_index(dim: number, face_index: number): [Index, Index, {dim: number, i: number, j: number}[]];
 
   /** Return four serialized `SubMars` instances. */
   subproblems(): [Uint8Array, Uint8Array, Uint8Array, Uint8Array];

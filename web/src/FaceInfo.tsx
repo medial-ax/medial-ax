@@ -1,8 +1,9 @@
-import { useAtom, useAtomValue } from "jotai";
-import { maFaceSelection, maFaceSelectionSwaps } from "./state";
+import { useAtomValue } from "jotai";
 import { Swap } from "./types";
 import styled from "styled-components";
 import { colors } from "./constants";
+import { Center } from "./Diagram";
+import { swapsResponsibleForMAFace } from "./useMars";
 
 type SwapItem = Swap["v"][number];
 
@@ -12,30 +13,8 @@ const SwapLine_ = styled.li<{ selected: boolean }>`
   ${(p) => p.selected && `background: ${colors.surfaceSelected};`}
 `;
 const SwapLine = ({ s }: { s: SwapItem }) => {
-  const [maFace, setMaFace] = useAtom(maFaceSelection);
-  const selected = maFace?.selection?.includes(s) ?? false;
-  if (!maFace) return null;
   return (
-    <SwapLine_
-      selected={selected}
-      onClick={(e) => {
-        if (e.ctrlKey || e.metaKey) {
-          if (selected)
-            setMaFace({
-              ...maFace,
-              selection: maFace.selection.filter((el) => el !== s),
-            });
-          else
-            setMaFace({
-              ...maFace,
-              selection: maFace.selection.concat([s]),
-            });
-        } else {
-          if (selected) setMaFace({ ...maFace, selection: [] });
-          else setMaFace({ ...maFace, selection: [s] });
-        }
-      }}
-    >
+    <SwapLine_ selected={false}>
       <span>
         dim={s.dim} i={s.i} j={s.j}
       </span>
@@ -50,20 +29,26 @@ const FaceInfo_ = styled.div`
   }
 `;
 export const FaceInfo = () => {
-  const swapsss = useAtomValue(maFaceSelectionSwaps);
-  if (!swapsss)
+  const swaps = useAtomValue(swapsResponsibleForMAFace);
+  if (!swaps)
     return (
-      <div>
-        <span>Select a face to show the swaps contributing to the face.</span>
-      </div>
+      <Center>
+        <p>Select a face to show the swaps contributing to the face.</p>
+      </Center>
     );
   return (
-    <FaceInfo_>
-      <ul>
-        {swapsss.flatMap((sps, j) =>
-          sps[2].v.map((s, i) => <SwapLine key={`${j}-${i}`} s={s} />),
-        )}
-      </ul>
-    </FaceInfo_>
+    <div style={{ padding: "1rem" }}>
+      <p>
+        This list shows the interchanges responsible for the selected face being
+        part of the medial axis.
+      </p>
+      <FaceInfo_>
+        <ul>
+          {swaps[2].map((s) => (
+            <SwapLine key={`${s.i}-${s.j}`} s={s} />
+          ))}
+        </ul>
+      </FaceInfo_>
+    </div>
   );
 };
