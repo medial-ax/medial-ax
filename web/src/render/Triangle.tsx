@@ -41,9 +41,11 @@ const UNIT_TRIANGLE = new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0]);
 export const Triangles = ({
   positions,
   radius = 0.05,
+  opacity,
 }: {
   positions: [THREE.Vector3, THREE.Vector3, THREE.Vector3][];
   radius?: number;
+  opacity?: number;
 }) => {
   const ref = useRef<THREE.InstancedMesh>(null);
   const endpoints = useMemo(() => positions.flatMap((id) => id), [positions]);
@@ -78,13 +80,13 @@ export const Triangles = ({
         </bufferGeometry>
         <meshStandardMaterial
           attach="material"
-          color="#ff0000"
+          color="#e15b5b"
           side={THREE.DoubleSide}
           polygonOffset={true}
           polygonOffsetFactor={-2}
           polygonOffsetUnits={1}
           transparent
-          opacity={0.4}
+          opacity={opacity ?? 0.4}
         />
       </instancedMesh>
       <Spheres positions={endpoints} radius={radius * 2} />

@@ -86,6 +86,13 @@ export const swapsResponsibleForMAFace = atom((get) => {
   return ret;
 });
 
+export const lifetimesForSimplicesAtom = atom((get) => {
+  const index = get(currentGridIndex);
+  if (!index) return;
+  const ret = mars().lifetimes_for_simplices(index);
+  return ret;
+});
+
 export const useMars = () => {
   const setComplex = useSetAtom(marsComplexTick);
   const setGrid = useSetAtom(marsGridTick);

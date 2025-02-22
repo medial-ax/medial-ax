@@ -35,7 +35,7 @@ export const Spheres = ({
   return (
     <instancedMesh ref={ref} args={[undefined, undefined, positions.length]}>
       <sphereGeometry args={[radius]} />
-      <meshLambertMaterial attach="material" color="#ff0000" />
+      <meshLambertMaterial attach="material" color="#fa4444" />
     </instancedMesh>
   );
 };

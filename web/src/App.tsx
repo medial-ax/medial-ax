@@ -16,7 +16,7 @@ import {
 import { RenderAnyGrid } from "./Render";
 import { Menu } from "./Controls";
 import DragHandle from "./assets/drag-handle.svg";
-import { selectedMAFaceAtom, useMars } from "./useMars";
+import { currentGridIndex, selectedMAFaceAtom, useMars } from "./useMars";
 import { RenderComplex2 } from "./render/Complex";
 import { Triangle } from "./render/Triangle";
 import { Edge } from "./render/Edge";
@@ -73,6 +73,7 @@ const RenderCanvas = () => {
   const setSelectedGridIndex = useSetAtom(selectedGridIndex);
   const setMaFaceSelection = useSetAtom(maFaceSelection);
   const selectMAFace = useSetAtom(selectedMAFaceAtom);
+  const setCurrentGridIndex = useSetAtom(currentGridIndex);
 
   return (
     <CanvasContainer id="canvas-container">
@@ -83,6 +84,7 @@ const RenderCanvas = () => {
           setSelectedGridIndex(undefined);
           setMaFaceSelection(undefined);
           selectMAFace(undefined);
+          setCurrentGridIndex(undefined);
         }}
       >
         <OrbitControls

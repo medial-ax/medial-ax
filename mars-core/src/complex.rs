@@ -186,9 +186,7 @@ impl Complex {
         }
         tris
     }
-}
 
-impl Complex {
     pub fn read_from_obj_path<P: AsRef<std::path::Path>>(p: P) -> Result<Self, String> {
         let input_str =
             std::fs::read_to_string(p).map_err(|e| format!("Error reading file: {}", e))?;

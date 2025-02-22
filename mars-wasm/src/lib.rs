@@ -1,5 +1,5 @@
 #![allow(non_snake_case)]
-use anyhow::Result;
+use anyhow::{bail, Result};
 use mars_core::complex::Complex;
 use mars_core::grid::{Index, VineyardsGridMesh};
 use mars_core::{BirthDeathPair, Grid, Mars, PruningParam, SubMars, Vineyards};
@@ -232,6 +232,25 @@ impl Api {
             serde_wasm_bindgen::from_value(grid).map_err(|e| e.to_string())?;
         self._set_grid(Some(Grid::Regular(grid)));
         Ok(())
+    }
+
+    pub fn lifetimes_for_simplices(&self, index: JsValue) -> Result<JsValue, String> {
+        let index: Index = serde_wasm_bindgen::from_value(index).map_err(|e| e.to_string())?;
+        let Some(ref c) = self.core.complex else {
+            return Err("No complex set")?;
+        };
+
+        let Some(ref g) = self.core.grid else {
+            return Err("No grid set")?;
+        };
+        let pt = match g {
+            Grid::Regular(g) => g.coordinate(index),
+            Grid::Mesh(g) => g.coordinate(index),
+        };
+
+        let (vd, ed, td) = c.distances_to(pt);
+        let ret = vec![vd, ed, td];
+        serde_wasm_bindgen::to_value(&ret).map_err(|e| e.to_string())
     }
 
     /// Flattened coordinates for every vertex of the complex, GL style.
@@ -665,6 +684,9 @@ export class Api {
   vertex_positions(): number[];
   medial_axes_face_positions(dim: number): Float32Array;
   swaplist_from_face_index(dim: number, face_index: number): [Index, Index, {dim: number, i: number, j: number}[]];
+
+  /** Take grid index, return list of lifetimes for each simplex in the complex, per dimension. */
+  lifetimes_for_simplices(index: number[]): number[][];
 
   /** Return four serialized `SubMars` instances. */
   subproblems(): [Uint8Array, Uint8Array, Uint8Array, Uint8Array];

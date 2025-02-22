@@ -24,7 +24,12 @@ import "./Barcode.css";
 import { HoverTooltip } from "./HoverTooltip";
 import { Diagram } from "./Diagram";
 import { FaceInfo } from "./FaceInfo";
-import { currentBarcode, currentGridIndex, marsHasVineyards } from "./useMars";
+import {
+  barcodeForCurrentIndexAtom,
+  currentBarcode,
+  currentGridIndex,
+  marsHasVineyards,
+} from "./useMars";
 
 const _width = 4;
 const barSpacing = 20;
@@ -653,7 +658,9 @@ const Sort = ({
 const Table = () => {
   const [hideZero, setHideZero] = useState<boolean>(false);
   const [dim, setDim] = useState<0 | 1 | 2>(0);
-  const fullBarcode = useAtomValue(barcodeAtom)?.[dim];
+  const gridIndex = useAtomValue(currentGridIndex);
+  const barcodes = useAtomValue(barcodeForCurrentIndexAtom);
+  const fullBarcode = barcodes?.[dim];
   const [timeline, setTimeline] = useAtom(timelinePositionAtom);
 
   const [sortmode, setSortmode] = useState<
@@ -705,7 +712,13 @@ const Table = () => {
     [sortmode],
   );
 
-  if (!barcode) return <h3>No barcode</h3>;
+  if (gridIndex === undefined)
+    return (
+      <Center>
+        <p>Click on a grid point to see the persistence diagram</p>
+      </Center>
+    );
+  if (barcode.length === 0) return <h3>No barcode</h3>;
 
   return (
     <div className="persistence-pairs-table">

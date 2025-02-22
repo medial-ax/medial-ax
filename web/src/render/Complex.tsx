@@ -3,15 +3,21 @@ import {
   complexEdgePositionsAtom,
   complexFacePositionsAtom,
   complexVertexPositionsAtom,
+  lifetimesForSimplicesAtom,
 } from "../useMars";
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { atom } from "jotai";
-import { highlightAtom, objOpacityAtom, objWireframeAtom } from "../state";
+import {
+  highlightAtom,
+  objOpacityAtom,
+  objWireframeAtom,
+  timelinePositionAtom,
+} from "../state";
 import { Spheres } from "./Sphere";
 import { Edges } from "./Edge";
-import { Wireframe } from "@react-three/drei";
 import { Triangles } from "./Triangle";
+import { Sphere } from "@react-three/drei";
 
 const vertexHighlights = atom<number[]>((get) => {
   const hl = get(highlightAtom);
@@ -93,6 +99,86 @@ const HighlightedFaces = () => {
   return <Triangles positions={pos} radius={0.01} />;
 };
 
+const HighlightTimeline = () => {
+  const timeline = useAtomValue(timelinePositionAtom);
+  const lifetimes = useAtomValue(lifetimesForSimplicesAtom);
+
+  const vcoords = useAtomValue(complexVertexPositionsAtom);
+  const vpositions = useMemo(() => {
+    if (!lifetimes) return [];
+    const vs: THREE.Vector3[] = [];
+    lifetimes[0].forEach((t, i) => {
+      if (timeline < t) return;
+      const v = new THREE.Vector3(
+        vcoords[i * 3 + 0],
+        vcoords[i * 3 + 1],
+        vcoords[i * 3 + 2],
+      );
+      vs.push(v);
+    });
+    return vs;
+  }, [lifetimes, timeline, vcoords]);
+
+  const ecoords = useAtomValue(complexEdgePositionsAtom);
+  const epositions = useMemo(() => {
+    if (!lifetimes) return [];
+    const vs: [THREE.Vector3, THREE.Vector3][] = [];
+    lifetimes[1].forEach((t, i) => {
+      if (timeline < t) return;
+      const from = new THREE.Vector3(
+        ecoords[i * 6 + 0],
+        ecoords[i * 6 + 1],
+        ecoords[i * 6 + 2],
+      );
+      const to = new THREE.Vector3(
+        ecoords[i * 6 + 3],
+        ecoords[i * 6 + 4],
+        ecoords[i * 6 + 5],
+      );
+      vs.push([from, to]);
+    });
+    return vs;
+  }, [ecoords, lifetimes, timeline]);
+
+  const tcoords = useAtomValue(complexFacePositionsAtom);
+  const tpositions = useMemo(() => {
+    if (!lifetimes) return [];
+    const vs: [THREE.Vector3, THREE.Vector3, THREE.Vector3][] = [];
+    lifetimes[2].forEach((t, i) => {
+      if (timeline < t) return;
+      const a = new THREE.Vector3(
+        tcoords[i * 9 + 0],
+        tcoords[i * 9 + 1],
+        tcoords[i * 9 + 2],
+      );
+      const b = new THREE.Vector3(
+        tcoords[i * 9 + 3],
+        tcoords[i * 9 + 4],
+        tcoords[i * 9 + 5],
+      );
+      const c = new THREE.Vector3(
+        tcoords[i * 9 + 6],
+        tcoords[i * 9 + 7],
+        tcoords[i * 9 + 8],
+      );
+      vs.push([a, b, c]);
+    });
+    return vs;
+  }, [lifetimes, tcoords, timeline]);
+
+  return (
+    <>
+      {vpositions.length > 0 && (
+        <Spheres positions={vpositions} radius={0.01} />
+      )}
+      {epositions.length > 0 && <Edges positions={epositions} radius={0.01} />}
+      {tpositions.length > 0 && (
+        <Triangles positions={tpositions} radius={0.01} opacity={1} />
+      )}
+    </>
+  );
+};
+
 export const RenderComplex2 = (_: { wireframe?: boolean }) => {
   const wireframe = useAtomValue(objWireframeAtom);
   const opacity = useAtomValue(objOpacityAtom);
@@ -110,19 +196,12 @@ export const RenderComplex2 = (_: { wireframe?: boolean }) => {
     ref.current.needsUpdate = true;
   }, [coords]);
 
-  const bg = useMemo(() => {
-    const geom = new THREE.BufferGeometry();
-    geom.setAttribute("position", new THREE.BufferAttribute(coords, 3));
-    geom.setIndex([...Array(coords.length / 3).keys()]);
-    const edges = new THREE.EdgesGeometry(geom);
-    return edges;
-  }, [coords]);
-
   return (
     <>
       <HighlightedVertices />
       <HighlightedEdges />
       <HighlightedFaces />
+      <HighlightTimeline />
       <mesh renderOrder={1}>
         <bufferGeometry attach="geometry">
           <bufferAttribute

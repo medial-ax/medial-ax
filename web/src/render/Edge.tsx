@@ -66,7 +66,7 @@ export const Edges = ({
     <>
       <instancedMesh ref={ref} args={[undefined, undefined, positions.length]}>
         <cylinderGeometry args={[radius, radius, 1]} />
-        <meshLambertMaterial attach="material" color="#ff0000" />
+        <meshLambertMaterial attach="material" color="#ea3434" />
       </instancedMesh>
       <Spheres positions={endpoints} radius={radius * 2} />
     </>
