@@ -7,7 +7,7 @@ import {
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { atom } from "jotai";
-import { highlightAtom, wireframeAtom } from "../state";
+import { highlightAtom, objOpacityAtom, objWireframeAtom } from "../state";
 import { Spheres } from "./Sphere";
 import { Edges } from "./Edge";
 import { Wireframe } from "@react-three/drei";
@@ -94,7 +94,8 @@ const HighlightedFaces = () => {
 };
 
 export const RenderComplex2 = (_: { wireframe?: boolean }) => {
-  const wireframe = useAtomValue(wireframeAtom);
+  const wireframe = useAtomValue(objWireframeAtom);
+  const opacity = useAtomValue(objOpacityAtom);
 
   const coords = useAtomValue(complexFacePositionsAtom);
   const coords_ref = useRef<number>(0);
@@ -109,12 +110,20 @@ export const RenderComplex2 = (_: { wireframe?: boolean }) => {
     ref.current.needsUpdate = true;
   }, [coords]);
 
+  const bg = useMemo(() => {
+    const geom = new THREE.BufferGeometry();
+    geom.setAttribute("position", new THREE.BufferAttribute(coords, 3));
+    geom.setIndex([...Array(coords.length / 3).keys()]);
+    const edges = new THREE.EdgesGeometry(geom);
+    return edges;
+  }, [coords]);
+
   return (
     <>
       <HighlightedVertices />
       <HighlightedEdges />
       <HighlightedFaces />
-      <mesh>
+      <mesh renderOrder={1}>
         <bufferGeometry attach="geometry">
           <bufferAttribute
             key={coords_ref.current}
@@ -125,15 +134,35 @@ export const RenderComplex2 = (_: { wireframe?: boolean }) => {
             itemSize={3}
           />
         </bufferGeometry>
-        <meshLambertMaterial
-          color="#f3f3f3"
-          flatShading
+        <meshPhysicalMaterial
+          color="#6662d0"
           side={THREE.DoubleSide}
+          transparent
+          opacity={opacity}
+          depthWrite={false}
         />
-        {wireframe && (
-          <Wireframe stroke="#555" backfaceStroke="#555" thickness={0.04} />
-        )}
       </mesh>
+      {wireframe && (
+        <mesh>
+          <wireframeGeometry attach="geometry">
+            <bufferAttribute
+              key={coords_ref.current}
+              ref={ref}
+              attach="attributes-position"
+              count={coords.length / 3}
+              array={coords}
+              itemSize={3}
+            />
+          </wireframeGeometry>
+          <meshBasicMaterial
+            color="#333"
+            side={THREE.DoubleSide}
+            transparent
+            wireframe
+            opacity={opacity / 2}
+          />
+        </mesh>
+      )}
     </>
   );
 };

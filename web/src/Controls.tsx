@@ -11,7 +11,8 @@ import {
   showMAAtom,
   showObjectAtom,
   swapsAtom,
-  wireframeAtom,
+  objWireframeAtom,
+  objOpacityAtom,
 } from "./state";
 import { useCallback, useState } from "react";
 import { dualFaceQuad } from "./medialaxes";
@@ -32,9 +33,10 @@ const RenderOptions = () => {
   const [keypointRadius, setKeypointRadius] = useAtom(keypointRadiusAtom);
   const [gridRadius, setGridRadius] = useAtom(gridRadiusAtom);
   const [showObject, setShowObject] = useAtom(showObjectAtom);
-  const [wireframe, setWireframe] = useAtom(wireframeAtom);
+  const [wireframe, setWireframe] = useAtom(objWireframeAtom);
   const [showMA, setShowMa] = useAtom(showMAAtom);
   const [showGrid, setShowGrid] = useAtom(showGridAtom);
+  const [objOpacity, setObjOpacity] = useAtom(objOpacityAtom);
 
   const [maWireframe, setMaWireframe] = useAtom(maWireframeAtom);
 
@@ -67,7 +69,20 @@ const RenderOptions = () => {
         />
         <p>Wireframe</p>
       </label>
+
       <fieldset className="ranges-with-number">
+        <p>Complex opacity</p>
+        <input
+          type="range"
+          min={0}
+          max={1}
+          step={0.01}
+          value={objOpacity}
+          onChange={(e) => {
+            setObjOpacity(Number(e.target.value));
+          }}
+        />
+        <p>{Math.round(objOpacity * 100).toFixed(0)}%</p>
         <p>Grid point size</p>
         <input
           type="range"

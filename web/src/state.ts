@@ -83,7 +83,8 @@ export const highlightAtom = atom<{ dim: number; index: number }[]>((get) => {
 
 export const gridRadiusAtom = atom<number>(0.02);
 
-export const wireframeAtom = atom(false);
+export const objWireframeAtom = atom(false);
+export const objOpacityAtom = atom(0.8);
 export const showObjectAtom = atom(true);
 
 export const swapsAtom = atom<{ 0: Swaps; 1: Swaps; 2: Swaps }>({
@@ -132,7 +133,7 @@ export const allSettingsAtom: WritableAtom<AllSettings, [AllSettings], void> =
       return {
         grid: get(gridAtom),
         showGrid: get(showGridAtom),
-        wireframe: get(wireframeAtom),
+        wireframe: get(objWireframeAtom),
         showObject: get(showObjectAtom),
         showMedialAxes: get(showMAAtom),
         pruningParamsAtom: {
@@ -145,7 +146,7 @@ export const allSettingsAtom: WritableAtom<AllSettings, [AllSettings], void> =
     (_get, set, value: AllSettings) => {
       set(gridAtom, value.grid);
       set(showGridAtom, value.showGrid);
-      set(wireframeAtom, value.wireframe);
+      set(objWireframeAtom, value.wireframe);
       set(showObjectAtom, value.showObject);
       set(showMAAtom, value.showMedialAxes);
       set(pruningParamAtom(0), value.pruningParamsAtom[0]);

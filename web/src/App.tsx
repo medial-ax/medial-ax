@@ -1,7 +1,7 @@
 import styled from "styled-components";
 import "./App.css";
 import { Canvas } from "@react-three/fiber";
-import { Environment, OrbitControls } from "@react-three/drei";
+import { Environment, OrbitControls, Sky } from "@react-three/drei";
 import { useEffect, useState } from "react";
 import * as THREE from "three";
 import { useAtomValue, useSetAtom } from "jotai";
@@ -11,7 +11,7 @@ import {
   selectedGridIndex,
   showGridAtom,
   showObjectAtom,
-  wireframeAtom,
+  objWireframeAtom,
 } from "./state";
 import { RenderAnyGrid } from "./Render";
 import { Menu } from "./Controls";
@@ -64,7 +64,7 @@ const GrabCorner = styled.div<{ $dragging: boolean }>`
 `;
 
 const RenderCanvas = () => {
-  const wireframe = useAtomValue(wireframeAtom);
+  const wireframe = useAtomValue(objWireframeAtom);
   const [triangle, setTriangle] = useState<THREE.Vector3[] | undefined>(
     undefined,
   );
@@ -94,7 +94,13 @@ const RenderCanvas = () => {
         />
         <color attach="background" args={["#f6f6f6"]} />
 
-        <hemisphereLight color={"#ffffff"} groundColor="#333" intensity={3.0} />
+        <Sky />
+
+        <hemisphereLight
+          color={"#718aaa"}
+          groundColor="#d2dade"
+          intensity={5.0}
+        />
 
         {showObject && <RenderComplex2 wireframe={wireframe} />}
 
