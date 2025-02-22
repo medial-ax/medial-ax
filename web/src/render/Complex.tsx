@@ -11,6 +11,7 @@ import { highlightAtom, wireframeAtom } from "../state";
 import { Spheres } from "./Sphere";
 import { Edges } from "./Edge";
 import { Wireframe } from "@react-three/drei";
+import { Triangles } from "./Triangle";
 
 const vertexHighlights = atom<number[]>((get) => {
   const hl = get(highlightAtom);
@@ -59,6 +60,39 @@ const HighlightedEdges = () => {
   return <Edges positions={pos} radius={0.01} />;
 };
 
+const faceHighlights = atom<number[]>((get) => {
+  const hl = get(highlightAtom);
+  return hl.filter((h) => h.dim === 2).map((h) => h.index);
+});
+
+const HighlightedFaces = () => {
+  const coords = useAtomValue(complexFacePositionsAtom);
+  const hl = useAtomValue(faceHighlights);
+
+  const pos = useMemo(() => {
+    return hl.map<[THREE.Vector3, THREE.Vector3, THREE.Vector3]>((index) => {
+      const a = new THREE.Vector3(
+        coords[index * 9 + 0],
+        coords[index * 9 + 1],
+        coords[index * 9 + 2],
+      );
+      const b = new THREE.Vector3(
+        coords[index * 9 + 3],
+        coords[index * 9 + 4],
+        coords[index * 9 + 5],
+      );
+      const c = new THREE.Vector3(
+        coords[index * 9 + 6],
+        coords[index * 9 + 7],
+        coords[index * 9 + 8],
+      );
+      return [a, b, c];
+    });
+  }, [coords, hl]);
+
+  return <Triangles positions={pos} radius={0.01} />;
+};
+
 export const RenderComplex2 = (_: { wireframe?: boolean }) => {
   const wireframe = useAtomValue(wireframeAtom);
 
@@ -79,6 +113,7 @@ export const RenderComplex2 = (_: { wireframe?: boolean }) => {
     <>
       <HighlightedVertices />
       <HighlightedEdges />
+      <HighlightedFaces />
       <mesh>
         <bufferGeometry attach="geometry">
           <bufferAttribute

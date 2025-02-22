@@ -31,13 +31,14 @@ const SelectedFace = () => {
           itemSize={3}
         />
       </bufferGeometry>
-      <meshLambertMaterial
-        flatShading
+      <meshStandardMaterial
         side={THREE.DoubleSide}
         color={red}
         polygonOffset={true}
-        polygonOffsetFactor={-5}
+        polygonOffsetFactor={-1}
         polygonOffsetUnits={1}
+        transparent
+        opacity={0.7}
       />
     </mesh>
   );

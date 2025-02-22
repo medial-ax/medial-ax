@@ -1,5 +1,6 @@
-import { useLayoutEffect, useRef } from "react";
+import { useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
+import { Spheres } from "./Sphere";
 
 export const Triangle = ({ points }: { points: THREE.Vector3[] }) => {
   const ref = useRef<THREE.BufferAttribute>(null);
@@ -31,5 +32,62 @@ export const Triangle = ({ points }: { points: THREE.Vector3[] }) => {
         opacity={0.5}
       />
     </mesh>
+  );
+};
+
+/** XY plane */
+const UNIT_TRIANGLE = new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0]);
+
+export const Triangles = ({
+  positions,
+  radius = 0.05,
+}: {
+  positions: [THREE.Vector3, THREE.Vector3, THREE.Vector3][];
+  radius?: number;
+}) => {
+  const ref = useRef<THREE.InstancedMesh>(null);
+  const endpoints = useMemo(() => positions.flatMap((id) => id), [positions]);
+
+  useLayoutEffect(() => {
+    const m = ref.current;
+    if (!m) return;
+    positions.forEach(([a, b, c], i) => {
+      const ab = b.sub(a);
+      const ac = c.sub(a);
+      const basis = new THREE.Matrix4().makeBasis(
+        ab,
+        ac,
+        new THREE.Vector3(0, 0, 0),
+      );
+      const trans = new THREE.Matrix4().makeTranslation(a.x, a.y, a.z);
+
+      m.setMatrixAt(i, trans.multiply(basis));
+    });
+  }, [positions]);
+
+  return (
+    <>
+      <instancedMesh ref={ref} args={[undefined, undefined, positions.length]}>
+        <bufferGeometry attach="geometry">
+          <bufferAttribute
+            attach="attributes-position"
+            count={3}
+            array={UNIT_TRIANGLE}
+            itemSize={3}
+          />
+        </bufferGeometry>
+        <meshStandardMaterial
+          attach="material"
+          color="#ff0000"
+          side={THREE.DoubleSide}
+          polygonOffset={true}
+          polygonOffsetFactor={-2}
+          polygonOffsetUnits={1}
+          transparent
+          opacity={0.4}
+        />
+      </instancedMesh>
+      <Spheres positions={endpoints} radius={radius * 2} />
+    </>
   );
 };
