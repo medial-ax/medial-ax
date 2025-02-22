@@ -36,14 +36,19 @@ export const currentBarcode = atom<Barcode | undefined>((get) => {
 
 const marsPrunedTick = atom<number>(0);
 
-export const complexFacePositionsAtom = atom<Float32Array>((get) => {
-  get(marsComplexTick);
-  return new Float32Array(mars().face_positions());
-});
-
 export const complexVertexPositionsAtom = atom<Float32Array>((get) => {
   get(marsComplexTick);
   return new Float32Array(mars().vertex_positions());
+});
+
+export const complexEdgePositionsAtom = atom<Float32Array>((get) => {
+  get(marsComplexTick);
+  return new Float32Array(mars().edge_positions());
+});
+
+export const complexFacePositionsAtom = atom<Float32Array>((get) => {
+  get(marsComplexTick);
+  return new Float32Array(mars().face_positions());
 });
 
 export const medialAxesPositions = atom<

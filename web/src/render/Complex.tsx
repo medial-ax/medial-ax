@@ -1,13 +1,16 @@
 import { useAtomValue } from "jotai";
 import {
+  complexEdgePositionsAtom,
   complexFacePositionsAtom,
   complexVertexPositionsAtom,
 } from "../useMars";
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { atom } from "jotai";
-import { highlightAtom } from "../state";
-import { Sphere } from "./Sphere";
+import { highlightAtom, wireframeAtom } from "../state";
+import { Spheres } from "./Sphere";
+import { Edges } from "./Edge";
+import { Wireframe } from "@react-three/drei";
 
 const vertexHighlights = atom<number[]>((get) => {
   const hl = get(highlightAtom);
@@ -27,16 +30,38 @@ const HighlightedVertices = () => {
     });
   }, [coords, hl]);
 
-  return (
-    <>
-      {pos.map((p, i) => (
-        <Sphere key={i} pos={p} radius={0.03} />
-      ))}
-    </>
-  );
+  return <Spheres positions={pos} radius={0.03} />;
+};
+
+const edgeHighlights = atom<number[]>((get) => {
+  const hl = get(highlightAtom);
+  return hl.filter((h) => h.dim === 1).map((h) => h.index);
+});
+
+const HighlightedEdges = () => {
+  const coords = useAtomValue(complexEdgePositionsAtom);
+  const hl = useAtomValue(edgeHighlights);
+
+  const pos = useMemo(() => {
+    return hl.map<[THREE.Vector3, THREE.Vector3]>((index) => {
+      const x1 = coords[index * 3 + 0];
+      const y1 = coords[index * 3 + 1];
+      const z1 = coords[index * 3 + 2];
+      const x2 = coords[index * 3 + 3];
+      const y2 = coords[index * 3 + 4];
+      const z2 = coords[index * 3 + 5];
+      const from = new THREE.Vector3(x1, y1, z1);
+      const to = new THREE.Vector3(x2, y2, z2);
+      return [from, to];
+    });
+  }, [coords, hl]);
+
+  return <Edges positions={pos} radius={0.01} />;
 };
 
 export const RenderComplex2 = (_: { wireframe?: boolean }) => {
+  const wireframe = useAtomValue(wireframeAtom);
+
   const coords = useAtomValue(complexFacePositionsAtom);
   const coords_ref = useRef<number>(0);
   useEffect(() => {
@@ -53,6 +78,7 @@ export const RenderComplex2 = (_: { wireframe?: boolean }) => {
   return (
     <>
       <HighlightedVertices />
+      <HighlightedEdges />
       <mesh>
         <bufferGeometry attach="geometry">
           <bufferAttribute
@@ -69,6 +95,9 @@ export const RenderComplex2 = (_: { wireframe?: boolean }) => {
           flatShading
           side={THREE.DoubleSide}
         />
+        {wireframe && (
+          <Wireframe stroke="#555" backfaceStroke="#555" thickness={0.04} />
+        )}
       </mesh>
     </>
   );

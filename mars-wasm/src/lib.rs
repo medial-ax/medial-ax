@@ -246,6 +246,22 @@ impl Api {
         Ok(ret)
     }
 
+    /// Flattened coordinates for every edge of the complex, GL style.
+    pub fn edge_positions(&self) -> Result<Vec<f64>, String> {
+        let Some(ref c) = self.core.complex else {
+            return Ok(vec![]);
+        };
+        let mut ret = Vec::new();
+        for s in &c.simplices_per_dim[1] {
+            let vs = &c.simplices_per_dim[0];
+            let v0 = &vs[s.boundary[0] as usize];
+            let v1 = &vs[s.boundary[1] as usize];
+            ret.extend(&v0.coords.expect("vertex should have coords").0);
+            ret.extend(&v1.coords.expect("vertex should have coords").0);
+        }
+        Ok(ret)
+    }
+
     /// Flattened coordinates for every face of the complex, GL style.
     pub fn face_positions(&self) -> Result<Vec<f64>, String> {
         let mut ret = Vec::new();
@@ -645,6 +661,7 @@ export class Api {
   prune(dim: number, params: any, progress?: (label: string, i: number, n: number) => void): void;
 
   face_positions(): number[];
+  edge_positions(): number[];
   vertex_positions(): number[];
   medial_axes_face_positions(dim: number): Float32Array;
   swaplist_from_face_index(dim: number, face_index: number): [Index, Index, {dim: number, i: number, j: number}[]];
