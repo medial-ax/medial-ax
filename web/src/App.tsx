@@ -99,8 +99,8 @@ const RenderCanvas = () => {
         <Sky />
 
         <hemisphereLight
-          color={"#718aaa"}
-          groundColor="#d2dade"
+          groundColor="#bbbbbb"
+          color="#ffffff"
           intensity={5.0}
         />
 

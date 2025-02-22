@@ -6,8 +6,8 @@ import { gridCoordinate } from "../medialaxes";
 import * as THREE from "three";
 import { currentGridIndex } from "../useMars";
 
-const GRID_COLOR = new THREE.Color(0x888888);
-const GRID_SELECTED_COLOR = new THREE.Color(0x000000);
+const GRID_COLOR = new THREE.Color(0x444444);
+const GRID_SELECTED_COLOR = new THREE.Color(0x437548);
 
 export const RenderVineyarsGrid = ({ grid }: { grid: VineyardsGrid }) => {
   const radius = useAtomValue(gridRadiusAtom);
@@ -61,11 +61,24 @@ export const RenderVineyarsGrid = ({ grid }: { grid: VineyardsGrid }) => {
 
     const ic = m.instanceColor;
     m.setColorAt(index, GRID_SELECTED_COLOR);
+    let mat = new THREE.Matrix4();
+    m.getMatrixAt(index, mat);
+    const SCALE = 1.5;
+    mat = mat.multiply(new THREE.Matrix4().makeScale(SCALE, SCALE, SCALE));
+    m.setMatrixAt(index, mat);
+    m.instanceMatrix.needsUpdate = true;
     if (ic) ic.needsUpdate = true;
 
     return () => {
       m.setColorAt(index, GRID_COLOR);
       if (ic) ic.needsUpdate = true;
+      let mat = new THREE.Matrix4();
+      m.getMatrixAt(index, mat);
+      mat = mat.multiply(
+        new THREE.Matrix4().makeScale(1 / SCALE, 1 / SCALE, 1 / SCALE),
+      );
+      m.setMatrixAt(index, mat);
+      m.instanceMatrix.needsUpdate = true;
     };
   }, [grid, selGridIndex]);
 
@@ -96,12 +109,12 @@ export const RenderVineyarsGrid = ({ grid }: { grid: VineyardsGrid }) => {
         e.stopPropagation();
       }}
     >
-      <boxGeometry args={[radius, radius, radius]} />
-      <meshBasicMaterial
+      <sphereGeometry args={[radius]} />
+      <meshLambertMaterial
         side={THREE.DoubleSide}
         attach="material"
-        transparent
-        opacity={0.5}
+        combine={THREE.MixOperation}
+        reflectivity={0.5}
       />
     </instancedMesh>
   );

@@ -40,7 +40,7 @@ const UNIT_TRIANGLE = new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0]);
 
 export const Triangles = ({
   positions,
-  radius = 0.05,
+  radius,
   opacity,
 }: {
   positions: [THREE.Vector3, THREE.Vector3, THREE.Vector3][];
@@ -89,7 +89,7 @@ export const Triangles = ({
           opacity={opacity ?? 0.4}
         />
       </instancedMesh>
-      <Spheres positions={endpoints} radius={radius * 2} />
+      {radius && <Spheres positions={endpoints} radius={radius} />}
     </>
   );
 };

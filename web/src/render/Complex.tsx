@@ -171,9 +171,9 @@ const HighlightTimeline = () => {
       {vpositions.length > 0 && (
         <Spheres positions={vpositions} radius={0.01} />
       )}
-      {epositions.length > 0 && <Edges positions={epositions} radius={0.01} />}
+      {epositions.length > 0 && <Edges positions={epositions} radius={0.005} />}
       {tpositions.length > 0 && (
-        <Triangles positions={tpositions} radius={0.01} opacity={1} />
+        <Triangles positions={tpositions} opacity={1} />
       )}
     </>
   );
@@ -214,7 +214,7 @@ export const RenderComplex2 = (_: { wireframe?: boolean }) => {
           />
         </bufferGeometry>
         <meshPhysicalMaterial
-          color="#6662d0"
+          color="#4367ea"
           side={THREE.DoubleSide}
           transparent
           opacity={opacity}

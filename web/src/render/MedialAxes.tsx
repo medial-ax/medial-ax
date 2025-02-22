@@ -82,8 +82,8 @@ const Axis = ({ dim, pos }: { dim: number; pos: Float32Array }) => {
         />
         {maWireframe && (
           <Wireframe
-            stroke={"#000000"}
-            backfaceStroke={"#000000"}
+            stroke={"#555555"}
+            backfaceStroke={"#555555"}
             thickness={0.02}
           />
         )}
