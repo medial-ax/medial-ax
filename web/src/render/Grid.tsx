@@ -7,7 +7,7 @@ import * as THREE from "three";
 import { currentGridIndex } from "../useMars";
 
 const GRID_COLOR = new THREE.Color(0x444444);
-const GRID_SELECTED_COLOR = new THREE.Color(0x437548);
+const GRID_SELECTED_COLOR = new THREE.Color(0xea4351);
 
 export const RenderVineyarsGrid = ({ grid }: { grid: VineyardsGrid }) => {
   const radius = useAtomValue(gridRadiusAtom);

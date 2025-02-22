@@ -179,7 +179,7 @@ const HighlightTimeline = () => {
   );
 };
 
-export const RenderComplex2 = (_: { wireframe?: boolean }) => {
+export const RenderComplex2 = () => {
   const wireframe = useAtomValue(objWireframeAtom);
   const opacity = useAtomValue(objOpacityAtom);
 
@@ -195,6 +195,24 @@ export const RenderComplex2 = (_: { wireframe?: boolean }) => {
     ref.current.array = coords;
     ref.current.needsUpdate = true;
   }, [coords]);
+
+  const wireframePos = useMemo(() => {
+    if (!wireframe) return undefined;
+    const pos = coords;
+
+    const edges: [THREE.Vector3, THREE.Vector3][] = [];
+    for (let i = 0; i < pos.length; i += 9) {
+      const a = new THREE.Vector3(pos[i + 0], pos[i + 1], pos[i + 2]);
+      const b = new THREE.Vector3(pos[i + 3], pos[i + 4], pos[i + 5]);
+      const c = new THREE.Vector3(pos[i + 6], pos[i + 7], pos[i + 8]);
+
+      edges.push([a, b]);
+      edges.push([b, c]);
+      edges.push([c, a]);
+    }
+
+    return edges;
+  }, [wireframe, coords]);
 
   return (
     <>
@@ -221,26 +239,13 @@ export const RenderComplex2 = (_: { wireframe?: boolean }) => {
           depthWrite={false}
         />
       </mesh>
-      {wireframe && (
-        <mesh>
-          <wireframeGeometry attach="geometry">
-            <bufferAttribute
-              key={coords_ref.current}
-              ref={ref}
-              attach="attributes-position"
-              count={coords.length / 3}
-              array={coords}
-              itemSize={3}
-            />
-          </wireframeGeometry>
-          <meshBasicMaterial
-            color="#333"
-            side={THREE.DoubleSide}
-            transparent
-            wireframe
-            opacity={opacity / 2}
-          />
-        </mesh>
+      {wireframePos && (
+        <Edges
+          key={wireframePos.length}
+          positions={wireframePos}
+          color="#000000"
+          radius={0.0015}
+        />
       )}
     </>
   );

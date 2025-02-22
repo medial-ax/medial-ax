@@ -33,10 +33,12 @@ export const Edge = ({
 
 export const Edges = ({
   positions,
+  color = "#ea3434",
   radius = 0.05,
   pointRadius,
 }: {
   positions: [THREE.Vector3, THREE.Vector3][];
+  color?: string;
   radius?: number;
   pointRadius?: number;
 }) => {
@@ -68,7 +70,7 @@ export const Edges = ({
     <>
       <instancedMesh ref={ref} args={[undefined, undefined, positions.length]}>
         <cylinderGeometry args={[radius, radius, 1]} />
-        <meshLambertMaterial attach="material" color="#ea3434" />
+        <meshLambertMaterial attach="material" color={color} />
       </instancedMesh>
       {pointRadius && <Spheres positions={endpoints} radius={pointRadius} />}
     </>

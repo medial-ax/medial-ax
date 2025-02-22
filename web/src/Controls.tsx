@@ -4,7 +4,6 @@ import {
   allSettingsAtom,
   complexAtom,
   gridRadiusAtom,
-  keypointRadiusAtom,
   maWireframeAtom,
   menuOpenAtom,
   showGridAtom,
@@ -30,7 +29,6 @@ import { marsGrid, medialAxesPositions } from "./useMars";
 const RenderOptions = () => {
   const maPositions = useAtomValue(medialAxesPositions);
 
-  const [keypointRadius, setKeypointRadius] = useAtom(keypointRadiusAtom);
   const [gridRadius, setGridRadius] = useAtom(gridRadiusAtom);
   const [showObject, setShowObject] = useAtom(showObjectAtom);
   const [wireframe, setWireframe] = useAtom(objWireframeAtom);
@@ -95,16 +93,6 @@ const RenderOptions = () => {
           }}
         />
         <p>{gridRadius.toFixed(3)}</p>
-        <p>Keypoint radius</p>
-        <input
-          type="range"
-          min={0.01}
-          max={0.5}
-          step={0.001}
-          value={keypointRadius}
-          onChange={(e) => setKeypointRadius(Number(e.target.value))}
-        />
-        <p>{keypointRadius.toFixed(3)}</p>
       </fieldset>
 
       <label>

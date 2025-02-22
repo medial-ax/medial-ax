@@ -5,6 +5,7 @@ import { maWireframeAtom, showMAAtom } from "../state";
 import { dim2color } from "../constants";
 import { Wireframe } from "@react-three/drei";
 import { useEffect, useMemo, useRef } from "react";
+import { Edges } from "./Edge";
 
 const red = new THREE.Color(0xff0000);
 
@@ -54,6 +55,25 @@ const Axis = ({ dim, pos }: { dim: number; pos: Float32Array }) => {
   const selectMAFace = useSetAtom(selectedMAFaceAtom);
 
   const maWireframe = useAtomValue(maWireframeAtom);
+  const wireframePos = useMemo(() => {
+    if (!maWireframe) return undefined;
+
+    const edges: [THREE.Vector3, THREE.Vector3][] = [];
+    for (let i = 0; i < pos.length; i += 18) {
+      const a = new THREE.Vector3(pos[i + 0], pos[i + 1], pos[i + 2]);
+      const b = new THREE.Vector3(pos[i + 3], pos[i + 4], pos[i + 5]);
+      const c = new THREE.Vector3(pos[i + 6], pos[i + 7], pos[i + 8]);
+      const d = new THREE.Vector3(pos[i + 15], pos[i + 16], pos[i + 17]);
+
+      edges.push([a, b]);
+      edges.push([b, c]);
+      edges.push([c, d]);
+      edges.push([d, a]);
+    }
+
+    return edges;
+  }, [maWireframe, pos]);
+
   return (
     <>
       <mesh
@@ -80,14 +100,15 @@ const Axis = ({ dim, pos }: { dim: number; pos: Float32Array }) => {
           side={THREE.DoubleSide}
           color={color}
         />
-        {maWireframe && (
-          <Wireframe
-            stroke={"#555555"}
-            backfaceStroke={"#555555"}
-            thickness={0.02}
-          />
-        )}
       </mesh>
+      {wireframePos && (
+        <Edges
+          key={wireframePos.length}
+          positions={wireframePos}
+          color="#000000"
+          radius={0.001}
+        />
+      )}
     </>
   );
 };

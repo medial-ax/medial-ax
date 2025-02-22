@@ -64,7 +64,6 @@ const GrabCorner = styled.div<{ $dragging: boolean }>`
 `;
 
 const RenderCanvas = () => {
-  const wireframe = useAtomValue(objWireframeAtom);
   const [triangle, setTriangle] = useState<THREE.Vector3[] | undefined>(
     undefined,
   );
@@ -104,7 +103,7 @@ const RenderCanvas = () => {
           intensity={5.0}
         />
 
-        {showObject && <RenderComplex2 wireframe={wireframe} />}
+        {showObject && <RenderComplex2 />}
 
         {showGrid && <RenderAnyGrid />}
 
