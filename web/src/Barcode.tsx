@@ -815,13 +815,7 @@ const Table = () => {
   );
 };
 
-const barcodeTabNames = [
-  "Barcodes",
-  "Diagram",
-  "Face info",
-  "Vineyards",
-  "Table",
-];
+const barcodeTabNames = ["Barcodes", "Diagram", "Face info", "Table"];
 
 export const BarcodeTabs = () => {
   const [tab, setTab] = useState(0);
@@ -831,7 +825,11 @@ export const BarcodeTabs = () => {
       <Diagram />
       <FaceInfo />
       <div>
-        <h2>Table</h2>
+        <p>
+          This table shows the barcode data, where you can sort on birth, death,
+          and simplex index.
+        </p>
+        <br />
         <Table />
       </div>
     </Tabs>
