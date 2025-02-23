@@ -11,7 +11,6 @@ import {
   selectedGridIndex,
   showGridAtom,
   showObjectAtom,
-  objWireframeAtom,
 } from "./state";
 import { RenderAnyGrid } from "./Render";
 import { Menu } from "./Controls";
@@ -22,6 +21,7 @@ import { Triangle } from "./render/Triangle";
 import { Edge } from "./render/Edge";
 import { Sphere } from "./render/Sphere";
 import { RenderMedialAxis2 } from "./render/MedialAxes";
+import { Selection } from "./Selection";
 
 const ToggleBarcodeButton = styled.button`
   position: absolute;
@@ -198,6 +198,7 @@ function App() {
         <Menu />
         <RenderCanvas />
         <RenderBarcodeSideThing />
+        <Selection />
       </MainContainer>
     </>
   );

@@ -17,7 +17,6 @@ import {
 import { Spheres } from "./Sphere";
 import { Edges } from "./Edge";
 import { Triangles } from "./Triangle";
-import { Sphere } from "@react-three/drei";
 
 const vertexHighlights = atom<number[]>((get) => {
   const hl = get(highlightAtom);

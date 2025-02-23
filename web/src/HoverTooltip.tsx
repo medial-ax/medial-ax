@@ -16,7 +16,6 @@ export const HoverTooltip = ({
   const hideTimeout = useRef<number | null>(null);
   const rmTimeout = useRef<number | null>(null);
 
-  console.log(hide);
   return (
     <span
       className="tooltip"

@@ -607,7 +607,12 @@ export const Barcode = () => {
     );
 
   return (
-    <div style={{ display: "flex", flexDirection: "column" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+      <p>
+        The barcode diagram shows when homomology groups are born and die. Drag
+        the vertical slider and change the timeline to highlight the born
+        simplices.
+      </p>
       <label>
         <input
           checked={showTimeline}
