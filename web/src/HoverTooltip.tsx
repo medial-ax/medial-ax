@@ -7,12 +7,16 @@ export const HoverTooltip = ({
   right,
   children,
 }: PropsWithChildren<{ right?: boolean; style?: CSSProperties }>) => {
-  const [open, setOpen] = useState(false);
+  const [mount, setMount] = useState(false);
+  const [hide, setHide] = useState(false);
   const [pos, setPos] = useState<undefined | { x: number; y: number }>(
     undefined,
   );
   const ref = useRef<HTMLSpanElement>(null);
+  const hideTimeout = useRef<number | null>(null);
+  const rmTimeout = useRef<number | null>(null);
 
+  console.log(hide);
   return (
     <span
       className="tooltip"
@@ -20,20 +24,31 @@ export const HoverTooltip = ({
       ref={ref}
       onMouseEnter={() => {
         if (!ref.current) return;
-        setOpen(true);
+        if (hideTimeout.current !== null) clearTimeout(hideTimeout.current);
+        if (rmTimeout.current !== null) clearTimeout(rmTimeout.current);
+        setMount(true);
+        setHide(false);
         const { x, y } = ref.current.getBoundingClientRect();
         setPos({ x, y });
       }}
       onMouseLeave={() => {
-        setOpen(false);
+        if (hideTimeout.current !== null) clearTimeout(hideTimeout.current);
+        if (rmTimeout.current !== null) clearTimeout(rmTimeout.current);
+
+        hideTimeout.current = setTimeout(() => {
+          setHide(true);
+          rmTimeout.current = setTimeout(() => {
+            setMount(false);
+          }, 150);
+        }, 100);
       }}
     >
       ?
-      {open &&
+      {mount &&
         pos &&
         createPortal(
           <div
-            className="tooltip-popup"
+            className={"tooltip-popup" + (hide ? " close" : "")}
             style={{
               top: pos.y,
               left: pos.x,
