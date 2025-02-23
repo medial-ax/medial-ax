@@ -22,6 +22,7 @@ import { Edge } from "./render/Edge";
 import { Sphere } from "./render/Sphere";
 import { RenderMedialAxis2 } from "./render/MedialAxes";
 import { Selection } from "./Selection";
+import { Legend } from "./Legend";
 
 const ToggleBarcodeButton = styled.button`
   position: absolute;
@@ -199,6 +200,7 @@ function App() {
         <RenderCanvas />
         <RenderBarcodeSideThing />
         <Selection />
+        <Legend />
       </MainContainer>
     </>
   );

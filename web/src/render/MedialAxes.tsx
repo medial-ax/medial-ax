@@ -3,7 +3,6 @@ import { medialAxesPositions, selectedMAFaceAtom } from "../useMars";
 import * as THREE from "three";
 import { maWireframeAtom, showMAAtom } from "../state";
 import { dim2color } from "../constants";
-import { Wireframe } from "@react-three/drei";
 import { useEffect, useMemo, useRef } from "react";
 import { Edges } from "./Edge";
 
