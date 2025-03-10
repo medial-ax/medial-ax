@@ -7,8 +7,8 @@ export const colors = {
 
   surfaceSelected: "#d7f0ff",
 
-  dim0: "orange", // FFA500
-  dim1: "pink", // FFC0CB
+  dim0: "pink", // FFC0CB
+  dim1: "orange", // FFA500
   dim_1: "gray",
   dim2: "#8cadf1",
 };
@@ -22,7 +22,7 @@ export const dim2color: Record<string, string> = {
 
 export const dim2rgb: Record<string, [number, number, number]> = {
   "-1": [0.3137, 0.3137, 0.3137],
-  "0": [0xff / 255, 0xa5 / 255, 0x00 / 255],
-  "1": [0xff / 255, 0xc0 / 255, 0xcb / 255],
+  "0": [0xff / 255, 0xc0 / 255, 0xcb / 255],
+  "1": [0xff / 255, 0xa5 / 255, 0x00 / 255],
   "2": [0x8c / 255, 0xad / 255, 0xf1 / 255],
 };
