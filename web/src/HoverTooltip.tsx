@@ -21,6 +21,7 @@ export const HoverTooltip = ({
       className="tooltip"
       style={style}
       ref={ref}
+      onWheel={() => setMount(false)}
       onMouseEnter={() => {
         if (!ref.current) return;
         if (hideTimeout.current !== null) clearTimeout(hideTimeout.current);

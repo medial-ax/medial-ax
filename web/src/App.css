@@ -182,7 +182,7 @@ label {
 }
 
 label.file {
-  flex-direction: column;
+  flex-direction: row;
   align-items: start;
 }
 

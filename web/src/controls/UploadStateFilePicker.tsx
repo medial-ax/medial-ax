@@ -1,4 +1,5 @@
 import { mars } from "../global";
+import { HoverTooltip } from "../HoverTooltip";
 
 export const UploadStateFilePicker = () => {
   return (
@@ -13,6 +14,9 @@ export const UploadStateFilePicker = () => {
           mars().deserialize_from_cli(new Uint8Array(bytes));
         }}
       />
+      <HoverTooltip>
+        <p>Upload a state file computed from the CLI.</p>
+      </HoverTooltip>
     </label>
   );
 };

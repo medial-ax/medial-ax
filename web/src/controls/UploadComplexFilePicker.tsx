@@ -1,3 +1,4 @@
+import { HoverTooltip } from "../HoverTooltip";
 import { toast } from "../Toast";
 import { mars } from "../global";
 
@@ -19,6 +20,11 @@ export const UploadObjFilePicker = () => {
             });
         }}
       />
+      <HoverTooltip right>
+        <p>
+          Upload a complex from an <code>.obj</code> file.
+        </p>
+      </HoverTooltip>
     </label>
   );
 };

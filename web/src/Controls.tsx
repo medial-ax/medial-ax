@@ -276,26 +276,33 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
           <p>Only export visible medial axes</p>
         </label>
 
-        <button
-          style={{ alignSelf: "start" }}
-          disabled={
-            (grid?.type === "grid" &&
-              swaps[0].length === 0 &&
-              swaps[1].length === 0 &&
-              swaps[2].length === 0) ||
-            (grid?.type === "meshgrid" &&
-              mas[0].length === 0 &&
-              mas[1].length === 0 &&
-              mas[2].length === 0)
-          }
-          onClick={() => {
-            exportMAtoObj();
-          }}
-        >
-          Export <code>.obj</code>
-        </button>
+        <div className="row" style={{ gap: 0 }}>
+          <button
+            style={{ alignSelf: "start" }}
+            disabled={
+              (grid?.type === "grid" &&
+                swaps[0].length === 0 &&
+                swaps[1].length === 0 &&
+                swaps[2].length === 0) ||
+              (grid?.type === "meshgrid" &&
+                mas[0].length === 0 &&
+                mas[1].length === 0 &&
+                mas[2].length === 0)
+            }
+            onClick={() => {
+              exportMAtoObj();
+            }}
+          >
+            Export <code>.obj</code>
+          </button>
+          <HoverTooltip right>
+            Export the complex and all visible medial axes to an{" "}
+            <code>.obj</code> file. Each medial axis is stored as a sub-object
+            in the file.
+          </HoverTooltip>
+        </div>
 
-        <div className="row">
+        <div className="row" style={{ gap: 0 }}>
           <button
             onClick={() => {
               downloadText(JSON.stringify(allSettings), "settings.json");
@@ -304,7 +311,7 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
             Export settings
           </button>
           <HoverTooltip right>
-            Export the selected visualization, grid, and pruning settings to a{" "}
+            Export the selected visualization and pruning settings to a{" "}
             <code>.json</code> file.
           </HoverTooltip>
         </div>

@@ -1,3 +1,4 @@
+import { HoverTooltip } from "../HoverTooltip";
 import { toast } from "../Toast";
 import { mars } from "../global";
 
@@ -19,6 +20,11 @@ export const UploadMeshGridFilePicker = () => {
             });
         }}
       />
+      <HoverTooltip right>
+        <p>
+          Upload a grid from an <code>.obj</code> file. Only edges will be used.
+        </p>
+      </HoverTooltip>
     </label>
   );
 };
