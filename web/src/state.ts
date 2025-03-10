@@ -14,7 +14,6 @@ export const timelinePositionAtom = atom<number>(0);
 export const selectedBirthDeathPair = atom<BirthDeathPair | undefined>(
   undefined,
 );
-export const keypointRadiusAtom = atom(0.02);
 export const menuOpenAtom = atom(true);
 
 export const complexAtom = atom<
@@ -40,25 +39,10 @@ export const maFaceSelection = atom<
     }
 >(undefined);
 
-export const persistenceTableHighlight = atom<
-  | {
-      dim: number;
-      lower: number | undefined;
-      upper: number | undefined;
-    }
-  | undefined
->(undefined);
-
 export const selectedFaceInfoSwaps = atom<Swap["v"][number][]>([]);
 
 export const highlightAtom = atom<{ dim: number; index: number }[]>((get) => {
   const highlights = [];
-  const table = get(persistenceTableHighlight);
-  if (table) {
-    if (table.lower) highlights.push({ dim: table.dim, index: table.lower });
-    if (table.upper)
-      highlights.push({ dim: table.dim + 1, index: table.upper });
-  }
 
   const fs = get(maFaceSelection)?.selection ?? [];
   for (const f of fs) {
@@ -94,7 +78,6 @@ export const swapsAtom = atom<{ 0: Swaps; 1: Swaps; 2: Swaps }>({
 });
 
 export type BarcodeType = Barcode;
-export const barcodeAtom = atom<BarcodeType | undefined>(undefined);
 
 export type Dim = 0 | 1 | 2;
 

@@ -1,12 +1,6 @@
 import styled, { CSSProperties } from "styled-components";
 import { BirthDeathPair } from "./types";
-import {
-  barcodeAtom,
-  selectedBirthDeathPair,
-  selectedGridIndex,
-  swapsAtom,
-  timelinePositionAtom,
-} from "./state";
+import { selectedBirthDeathPair, timelinePositionAtom } from "./state";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import {
   Fragment,

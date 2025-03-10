@@ -1,4 +1,5 @@
-import { VineyardsGrid, Index, Point } from "./types";
+import { VineyardsGrid } from "mars_wasm";
+import { Index, Point } from "./types";
 
 /**
  * Returns the coordinate of a grid vertex from its grid {@link Index}
