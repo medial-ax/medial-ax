@@ -3,7 +3,7 @@ import { Dim, pruningParamAtom } from "../state";
 import { useState } from "react";
 import { HoverTooltip } from "../HoverTooltip";
 import { RESET } from "jotai/utils";
-import PruneWorker from "../worrrker/prune?worker";
+import PruneWorker from "../workers/prune?worker";
 import { mars } from "../global";
 import { Progress } from "../types";
 

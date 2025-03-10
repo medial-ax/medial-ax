@@ -4,7 +4,7 @@ import cube_subdiv_2 from "../../inputs/cube-subdiv-2.obj?raw";
 import maze_2 from "../../inputs/maze_2.obj?raw";
 import { mars } from "../global";
 
-export const EXAMPLE_OBJS = [
+const EXAMPLE_OBJS = [
   { name: "Squished cylinder", string: squished_cylinder },
   { name: "Extruded ellipse", string: extruded_ellipse },
   { name: "Cube", string: cube_subdiv_2 },

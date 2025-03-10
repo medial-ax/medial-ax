@@ -4,15 +4,10 @@ export type Point = [number, number, number];
 
 export type Progress = { label: string; i: number; n: number };
 
-export type Simplex = {
+type Simplex = {
   id: number;
   coords: number[] | null;
   boundary: number[];
-};
-
-export type Permutation = {
-  forwards: number[];
-  backwards: number[];
 };
 
 export type BirthDeathPair = {
@@ -35,26 +30,6 @@ export type Swap = {
 
 export type Swaps = [Index, Index, Swap][];
 
-export type Json = {
-  vertices: Simplex[];
-  edges: Simplex[];
-  triangles: Simplex[];
-
-  key_point: number[];
-
-  vertex_ordering: Permutation;
-  edge_ordering: Permutation;
-  triangle_ordering: Permutation;
-
-  empty_barcode: BirthDeathPair[];
-  vertex_barcode: BirthDeathPair[];
-  edge_barcode: BirthDeathPair[];
-  triangle_barcode: BirthDeathPair[];
-
-  grid: VineyardsGrid;
-  swaps: Swaps;
-};
-
 export type PruningParam = {
   euclidean: boolean;
   euclidean_distance?: number;
@@ -67,7 +42,6 @@ export type PruningParam = {
   persistence_threshold?: number;
 };
 
-// TODO: type this up
 export type Complex = {
   simplices_per_dim: Simplex[][];
 };
@@ -75,7 +49,7 @@ export type Complex = {
 /**
  * Return the lower- and upper corner of the bounding box around the {@link Complex}.
  */
-export const bboxFromComplex = (cplx: Complex): [Point, Point] => {
+const bboxFromComplex = (cplx: Complex): [Point, Point] => {
   const [vertices] = cplx.simplices_per_dim;
   const coords = vertices.map((v) => v.coords!);
   const xs = coords.map((c) => c[0]);

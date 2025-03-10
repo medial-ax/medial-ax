@@ -2,7 +2,6 @@ import { useAtom, useAtomValue } from "jotai";
 import {
   Dim,
   allSettingsAtom,
-  complexAtom,
   gridRadiusAtom,
   maWireframeAtom,
   menuOpenAtom,
@@ -145,7 +144,6 @@ const RenderOptions = () => {
 };
 
 export const Menu = () => {
-  const [cplx] = useAtom(complexAtom);
   const grid = useAtomValue(marsGrid);
   const [swaps] = useAtom(swapsAtom);
 
@@ -186,7 +184,7 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
         }
       }
 
-      const filename = cplx?.filename ?? "complex";
+      const filename = "complex";
       downloadText(obj, `export-${filename}.obj`);
       return;
     }
@@ -211,9 +209,9 @@ f ${v + 0} ${v + 1} ${v + 2} ${v + 3}
       }
     }
 
-    const filename = cplx?.filename ?? "complex";
+    const filename = "complex";
     downloadText(obj, `export-${filename}.obj`);
-  }, [cplx?.filename, exportVisible, grid, mas, shownMA, swaps]);
+  }, [exportVisible, grid, mas, shownMA, swaps]);
 
   return (
     <div id="controls">

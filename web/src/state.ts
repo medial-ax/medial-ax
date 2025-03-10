@@ -1,12 +1,5 @@
 import { WritableAtom, atom } from "jotai";
-import {
-  BirthDeathPair,
-  Complex,
-  Index,
-  PruningParam,
-  Swap,
-  Swaps,
-} from "./types";
+import { BirthDeathPair, Index, PruningParam, Swap, Swaps } from "./types";
 import { atomFamily, atomWithReset } from "jotai/utils";
 import { Barcode, VineyardsGrid, VineyardsGridMesh } from "mars_wasm";
 
@@ -15,14 +8,6 @@ export const selectedBirthDeathPair = atom<BirthDeathPair | undefined>(
   undefined,
 );
 export const menuOpenAtom = atom(true);
-
-export const complexAtom = atom<
-  | {
-      filename: string;
-      complex: Complex;
-    }
-  | undefined
->(undefined);
 
 const gridAtom = atom<VineyardsGrid | VineyardsGridMesh | undefined>(undefined);
 export const showGridAtom = atom<boolean>(true);

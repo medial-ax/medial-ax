@@ -4,7 +4,7 @@ import { mars } from "../global";
 import { CollapseH4 } from "../ui/CollapseH4";
 import { PruningParameters } from "./PruningParameters";
 import { Loader } from "../ui/Loader";
-import SubMarsWorker from "../worrrker/vineyards2?worker";
+import SubMarsWorker from "../workers/vineyards?worker";
 import { Progress } from "../types";
 import { sum } from "../utils";
 import { toast } from "../Toast";
