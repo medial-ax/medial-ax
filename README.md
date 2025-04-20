@@ -1,6 +1,9 @@
 # Medial Axes
 
-## Setup
+## Live Demo: 
+We are hosting a working demo version at https://medial-ax.github.io/medial-ax/! Try it out! We have some example complexes you can play around with already, or you can upload your own.
+
+## Local Setup
 
 To install the things needed to run the web app you first need to install
 `node`. With `brew`, this is
