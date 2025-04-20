@@ -122,7 +122,7 @@ An example pruning file could look like this:
 
 # Usage license
 
-CC BY 4.0 -- use as you like, but please credit us! 
+MIT 
 
 # Usage
 
