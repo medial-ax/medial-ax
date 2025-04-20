@@ -75,8 +75,47 @@ Computing everything is (at the time of writing) done like this:
 mars-cli run  complex.obj  -m grid.obj  -o output
 ```
 
+or a more verbose version, using the -slim option, which uses less storage space. The first line spits out the complex, the second prunes it with custom prune settings you have set in prune_settings.txt, and the third makes an .obj file out of the pruned medial axes. All three axes will be in one .obj file as separate objects. 
+
+```sh
+mars-cli run complex.obj -m grid.obj -s -o complex_out.txt
+&& mars-cli prune -s complex_out.txt -o complex_out_pruned.txt -p prune_settings.txt
+&& mars-cli obj -s complex_out_pruned.txt -a complex_ma.obj
+```
+
 The output file `output` can then be uploaded in the web interface. See
 `mars-cli run --help` for more options.
+
+
+An example pruning file could look like this: 
+```
+[
+  {
+    "euclidean": true,
+    "euclidean_distance": 0.01,
+    "coface": true,
+    "face": false,
+    "persistence": false,
+    "persistence_threshold": null
+  },
+  {
+    "euclidean": true,
+    "euclidean_distance": 0.01,
+    "coface": false,
+    "face": true,
+    "persistence": true,
+    "persistence_threshold": 0.01
+  },
+  {
+    "euclidean": true,
+    "euclidean_distance": 0.01,
+    "coface": false,
+    "face": true,
+    "persistence": false,
+    "persistence_threshold": null
+  }
+]
+```
 
 # Usage license
 
