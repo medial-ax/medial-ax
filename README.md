@@ -137,24 +137,21 @@ mars-cli run  complex.obj  -m grid.obj  -o output
 The output file `output` can then be uploaded in the web interface. See
 `mars-cli run --help` for more options. Note that without the -s option, it will be slower and take more storage and memory space.
 
-# Usage license
-
-MIT 
-
 # Usage
 
 ## Input
+
+### Complex
 The user inputs an .obj file containing a three-dimensional simplicial complex.
 
-## Grids
+### Grid
+You can import a grid you have made yourself, for example in Blender, and exported as an .obj. Our favorite way to make a grid in Blender is to start with a cube, use three array modifiers to fit it to your object in 3 dimensions, apply the modifiers, deduplicate vertices, and delete all faces (leaving edges and vertices). If you wish, you can import ```blender_scripts/select_and_delete.py``` as a blender script to delete the grid vertices outside of your object to not waste computation time. Warning: we haven't tested the select_and_delete script very much, and blender can be finnicky. It works most of the time ⚠️. A good heuristic for grid density is to have at least two grid cubes per input complex face.
+
+## What's happening on the inside
 
 ### Creating dual grids
 
 We create a grid aligned to the x,y,z axes by taking the bounding box of the imported .obj and subdividing it according to the selected grid density. The grid can afterwards be moved around and adjusted manually by the user using the Grid Controls context. We refer to the created grid as the Vineyards Grid and its dual grid as the Medial Axis Grid. The grid we visualize in the display window is the Vineyards Grid.
-
-### Importing grids
-
-You can import a grid you have made yourself, for example in Blender, and exported as an .obj. Our favorite way to make a grid in Blender is to start with a cube, use three array modifiers to fit it to your object in 3 dimensions, apply the modifiers, deduplicate vertices, and delete all faces (leaving edges and vertices). If you wish, you can import ```blender_scripts/select_and_delete.py``` as a blender script to delete the grid vertices outside of your object to not waste computation time. Warning: we haven't tested the select_and_delete script very much, and blender can be finnicky. It works most of the time ⚠️. A good heuristic for grid density is to have at least two grid cubes per input complex face.
 
 ### Splitting grids for parallelization
 
