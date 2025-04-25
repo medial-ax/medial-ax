@@ -14,6 +14,12 @@ brew install node
 
 or you can visit https://nodejs.org/en/download.
 
+### Install Rust
+```sh
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
+or visit https://www.rust-lang.org/learn/get-started.
+
 ### Install Wasm-pack
 
 Wasm-pack is the tool we use to generate webassembly from Rust code.
@@ -25,7 +31,7 @@ curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 
 ### Run the frontend
 
-Then go to the `web/` directory and run
+Clone the repo, and then go to the `web/` directory and run
 
 ```sh
 npm i # install the things. Only need the first time.
