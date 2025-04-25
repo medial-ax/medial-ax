@@ -95,18 +95,9 @@ mars-cli run complex.obj -m grid.obj -s -o complex_out.txt
 && mars-cli prune -s complex_out.txt -o complex_out_pruned.txt -p prune_settings.txt
 && mars-cli obj -s complex_out_pruned.txt -a complex_ma.obj
 ```
+Note that you can just run the last two lines if you want to reprune with different parameters and didn't change the complex or grid.
 
-If you want to load your output to the web interface, you can run the following shorter command:
-
-```sh
-mars-cli run  complex.obj  -m grid.obj  -o output
-```
-
-The output file `output` can then be uploaded in the web interface. See
-`mars-cli run --help` for more options. Note that without the -s option, it will be slower and take more storage and memory space.
-
-
-An example pruning file could look like this: 
+An example pruning file ```prune_settings.txt``` could look like this: 
 ```
 [
   {
@@ -135,6 +126,16 @@ An example pruning file could look like this:
   }
 ]
 ```
+
+#### run locally to upload to web interface
+If you want to load your output to the web interface, you can run the following shorter command:
+
+```sh
+mars-cli run  complex.obj  -m grid.obj  -o output
+```
+
+The output file `output` can then be uploaded in the web interface. See
+`mars-cli run --help` for more options. Note that without the -s option, it will be slower and take more storage and memory space.
 
 # Usage license
 
