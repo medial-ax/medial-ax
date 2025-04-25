@@ -147,13 +147,13 @@ The user inputs an .obj file containing a three-dimensional simplicial complex.
 ### Grid
 You can import a grid you have made yourself, for example in Blender, and exported as an .obj. Our favorite way to make a grid in Blender is to start with a cube, use three array modifiers to fit it to your object in 3 dimensions, apply the modifiers, deduplicate vertices, and delete all faces (leaving edges and vertices). If you wish, you can import ```blender_scripts/select_and_delete.py``` as a blender script to delete the grid vertices outside of your object to not waste computation time. Warning: we haven't tested the select_and_delete script very much, and blender can be finnicky. It works most of the time ⚠️. A good heuristic for grid density is to have at least two grid cubes per input complex face.
 
-## What's happening on the inside
+# What's happening on the inside
 
-### Creating dual grids
+## Creating dual grids
 
 We create a grid aligned to the x,y,z axes by taking the bounding box of the imported .obj and subdividing it according to the selected grid density. The grid can afterwards be moved around and adjusted manually by the user using the Grid Controls context. We refer to the created grid as the Vineyards Grid and its dual grid as the Medial Axis Grid. The grid we visualize in the display window is the Vineyards Grid.
 
-### Splitting grids for parallelization
+## Splitting grids for parallelization
 
 Computing the medial axes is very parallelizable, since processing each grid segment is independent of the other segments.
 However, since processing a segment requires that one endpoint has the reduced matrix data computed, it is not trivially parallelizable.
@@ -162,7 +162,7 @@ There's also an overlap of size one when splitting so that both subgrids include
 This is required in order not to lose the segments that would otherwise fall in between two sub-grids.
 Then, the medial axes for each sub grid is computed separately, and then the results are joined up after.
 
-# Sneaky Matrices and other optimizations
+## Sneaky Matrices and other optimizations
 
 We have a tailored matrix struct for our own need.
 
@@ -184,7 +184,7 @@ This allows us to swap columns and rows by only swapping two numbers in the perm
 
 See `sneaky_matrix.rs` for more details.
 
-# use heuristics
+## use heuristics
 
 - The input complex cannot exceed 32,000 simplices of any dimension due to being stored as 16-bit signed numbers
 - 30,000 total edges (counting both grid and input) usually gives a nice result, as long as the object is not too complicated
