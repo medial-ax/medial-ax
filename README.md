@@ -6,7 +6,7 @@ We are hosting a working demo version at https://medial-ax.github.io/medial-ax/!
 ## Local Setup
 
 To install the things needed to run the web app you first need to install
-`node`. With `brew`, this is
+`node`. With the package manager `brew`, for example, this is
 
 ```sh
 brew install node
