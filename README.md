@@ -14,7 +14,7 @@ brew install node
 
 or you can visit https://nodejs.org/en/download.
 
-### Install Rust
+### Install Rust 🦀
 ```sh
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
