@@ -83,6 +83,7 @@ Options:
   -V, --version  Print versionUsage: mars-cli <COMMAND>
 ```
 
+To run the cli, you will need a triangulated mesh as an .obj, a grid made up of vertices and edges as an .obj, a pruning file .txt as outlined below if you don't want to use the automatic pruning parameters, and, optionally, a bash file so you don't have to keep rewriting commands in the terminal.
 Computing everything is (at the time of writing) done like this:
 
 ```sh
