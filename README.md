@@ -182,7 +182,7 @@ This allows us to swap columns and rows by only swapping two numbers in the perm
 
 See `sneaky_matrix.rs` for more details.
 
-# max use heuristics
+# use heuristics
 
 - The input complex cannot exceed 32,000 simplices of any dimension due to being stored as 16-bit signed numbers
 - 30,000 total edges (counting both grid and input) usually gives a nice result, as long as the object is not too complicated
