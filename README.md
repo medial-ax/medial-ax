@@ -145,7 +145,7 @@ The output file `output` can then be uploaded in the web interface. See
 The user inputs an .obj file containing a three-dimensional simplicial complex.
 
 ### Grid
-You can import a grid you have made yourself, for example in Blender, and exported as an .obj. Our favorite way to make a grid in Blender is to start with a cube, use three array modifiers to fit it to your object in 3 dimensions, apply the modifiers, deduplicate vertices, and delete all faces (leaving edges and vertices). If you wish, you can import ```blender_scripts/select_and_delete.py``` as a blender script to delete the grid vertices outside of your object to not waste computation time. Warning: we haven't tested the select_and_delete script very much, and blender can be finnicky. It works most of the time ⚠️. A good heuristic for grid density is to have at least two grid cubes per input complex face.
+You can import a grid you have made yourself, for example in Blender, and exported as an .obj. Our favorite way to make a grid in Blender is to start with a cube, use three array modifiers to fit it to your object in 3 dimensions, apply the modifiers, deduplicate vertices, and delete all faces (leaving edges and vertices). If you wish, you can import ```blender_scripts/select_and_delete.py``` as a blender script to delete the grid vertices outside of your object to not waste computation time. Warning: we haven't tested the select_and_delete script very much, and blender can be finnicky. It works most of the time ⚠️, and it requires that the input object be closed, as it uses raycasting. In particular, it won't work on the squished cylinder example. A good heuristic for grid density is to have at least two grid cubes per input complex face.
 
 # What's happening on the inside
 
