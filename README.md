@@ -144,7 +144,7 @@ MIT
 # Usage
 
 ## Input
-The user inputs an .obj file containing a two- or three-dimensional closed and connected manifold represented as a simplicial complex.
+The user inputs an .obj file containing a three-dimensional simplicial complex.
 
 ## Grids
 
