@@ -12,6 +12,8 @@ To install the things needed to run the web app you first need to install
 brew install node
 ```
 
+or you can visit https://nodejs.org/en/download.
+
 ### Install Wasm-pack
 
 Wasm-pack is the tool we use to generate webassembly from Rust code.
