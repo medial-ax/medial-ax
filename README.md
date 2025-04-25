@@ -4,9 +4,10 @@
 We are hosting a working demo version at https://medial-ax.github.io/medial-ax/! Try it out! We have some example complexes you can play around with already, or you can upload your own.
 
 ## Local Setup
+Note: We have mainly tested on Mac, but it should work on Linux and Windows as well, although you will have to use OS specific package managers and package install directions. 
 
 To install the things needed to run the web app you first need to install
-`node`. With the package manager `brew`, for example, this is
+`node`. With the package manager `brew` on Mac, for example, this is
 
 ```sh
 brew install node
