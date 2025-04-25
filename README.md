@@ -71,8 +71,23 @@ mars-cli
 Usage: mars-cli <COMMAND>
 
 Commands:
-  print-prune
-  run
+  print-prune  Print the default parameters used for pruning
+  run          Run the algorithm and output a file containing the entire state
+  obj          Output .obj files from the state file
+  prune        Prune swaps from a state file
+  stats
+  help         Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help     Print help
+  -V, --version  Print versionUsage: mars-cli <COMMAND>
+
+Commands:
+  print-prune  Print the default parameters used for pruning
+  run          Run the algorithm and output a file containing the entire state
+  obj          Output .obj files from the state file
+  prune        Prune swaps from a state file
+  stats
   help         Print this message or the help of the given subcommand(s)
 
 Options:
