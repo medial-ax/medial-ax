@@ -1,0 +1,26 @@
+[
+  {
+    "euclidean": true,
+    "euclidean_distance": 0.03,
+    "coface": true,
+    "face": false,
+    "persistence": false,
+    "persistence_threshold": null
+  },
+  {
+    "euclidean": true,
+    "euclidean_distance": 0.09,
+    "coface": false,
+    "face": true,
+    "persistence": true,
+    "persistence_threshold": 0.001
+  },
+  {
+    "euclidean": true,
+    "euclidean_distance": 0.01,
+    "coface": false,
+    "face": true,
+    "persistence": false,
+    "persistence_threshold": null
+  }
+]
