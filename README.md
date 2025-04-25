@@ -30,7 +30,7 @@ curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 ```
 
 ### Run the frontend
-
+(note! if you only want to use the cli, you don't need to build the frontend)
 Clone the repo, and then go to the `web/` directory and run
 
 ```sh
@@ -42,7 +42,7 @@ It'll tell you to which URL to go to to open the page; probably it's
 [http://localhost:5173](http://localhost:5173). While the server is running you
 get live edit of all the files.
 
-### Build the wasm bindings
+#### Build the wasm bindings
 
 This is required every time you change the Rust code, and want that change to
 be in the frontend. Go to the `mars-wasm/` directory and run
