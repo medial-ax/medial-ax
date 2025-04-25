@@ -87,10 +87,10 @@ To run the cli, you will need a triangulated mesh as an .obj, a grid made up of 
 Computing everything is (at the time of writing) done like this:
 
 ```sh
-mars-cli run  complex.obj  -m grid.obj  -o output
+mars-cli run  complex.obj  -m grid.obj -s  -o output
 ```
 
-or a more verbose version, using the -slim option, which uses less storage space. The first line spits out the complex, the second prunes it with custom prune settings you have set in prune_settings.txt, and the third makes an .obj file out of the pruned medial axes. All three axes will be in one .obj file as separate objects. 
+or a more verbose version below. The first line spits out the complex, the second prunes it with custom prune settings you have set in prune_settings.txt, and the third makes an .obj file out of the pruned medial axes. All three axes will be in one .obj file as separate objects. It is highly recommended to use the -s option (slim) which doesn't use as much memory or storage.
 
 ```sh
 mars-cli run complex.obj -m grid.obj -s -o complex_out.txt
