@@ -82,7 +82,10 @@ Options:
   -h, --help     Print help
   -V, --version  Print versionUsage: mars-cli <COMMAND>
 ```
+#### try an example
+Navigate to ```mars-cli``` and run the example bash script by executing ```sh ../examples/shell.sh```. This exports the 0th and 1st medial axes of a squished cylinder. You can compare them against ```examples/cylinder_ma_original.obj``` to check that you get the same output that we did. Notice that the pruning parameters in ```examples/prune_cylinder.txt``` are not the same for every dimension-- you just have to play around with the pruning parameters for each use case.
 
+#### run your own files
 To run the cli, you will need a triangulated mesh as an .obj, a grid made up of vertices and edges as an .obj, a pruning file .txt as outlined below if you don't want to use the automatic pruning parameters, and, optionally, a bash file so you don't have to keep rewriting commands in the terminal.
 
 Computing is done as follows. The first line spits out the complex, the second prunes it with custom prune settings you have set in prune_settings.txt, and the third makes an .obj file out of the pruned medial axes. All three axes will be in one .obj file as separate objects. It is highly recommended to use the -s option (slim) which doesn't use as much memory or storage.
